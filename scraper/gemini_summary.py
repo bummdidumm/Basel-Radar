@@ -1,7 +1,6 @@
 """
 Basel Radar · Gemini Summary
 Liest events_raw.json und generiert ein Weekly Briefing als Markdown.
-Lädt das Briefing zu Google Drive hoch.
 """
 
 import json
@@ -9,15 +8,10 @@ import os
 from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 import httpx
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaInMemoryUpload
 
 EVENTS_FILE = Path(__file__).parent.parent / "events_raw.json"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
-SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 
 
 def load_events(days_ahead: int = 7) -> list[dict]:
@@ -161,70 +155,17 @@ def generate_briefing_local(events: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def upload_to_drive(content: str, filename: str) -> str | None:
-    """Lädt Briefing als .md Datei zu Google Drive hoch."""
-    if not SERVICE_ACCOUNT_JSON or not DRIVE_FOLDER_ID:
-        print("Drive-Credentials fehlen — Briefing nur lokal gespeichert")
-        return None
-
-    try:
-        creds_dict = json.loads(SERVICE_ACCOUNT_JSON)
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict,
-            scopes=["https://www.googleapis.com/auth/drive.file"],
-        )
-        service = build("drive", "v3", credentials=creds)
-
-        # Existierende Datei suchen und überschreiben
-        results = service.files().list(
-            q=f"name='{filename}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
-            fields="files(id, name)",
-        ).execute()
-
-        media = MediaInMemoryUpload(
-            content.encode("utf-8"),
-            mimetype="text/markdown",
-            resumable=False,
-        )
-
-        if results.get("files"):
-            file_id = results["files"][0]["id"]
-            service.files().update(fileId=file_id, media_body=media).execute()
-            print(f"Drive: {filename} aktualisiert (ID: {file_id})")
-        else:
-            file_metadata = {
-                "name": filename,
-                "parents": [DRIVE_FOLDER_ID],
-                "mimeType": "text/markdown",
-            }
-            result = service.files().create(
-                body=file_metadata, media_body=media, fields="id"
-            ).execute()
-            print(f"Drive: {filename} erstellt (ID: {result['id']})")
-
-        return filename
-
-    except Exception as e:
-        print(f"Drive-Upload Fehler: {e}")
-        return None
-
-
 def run(weekly: bool = False) -> str:
-    """Generiert Briefing und lädt es zu Drive hoch."""
+    """Generiert Briefing und speichert es lokal."""
     events = load_events(days_ahead=7 if weekly else 2)
     print(f"Briefing: {len(events)} Events in den nächsten {'7' if weekly else '2'} Tagen")
 
     briefing = generate_briefing(events)
 
-    # Lokal speichern als Backup
-    today = date.today().strftime("%Y-%m-%d")
-    local_file = Path(__file__).parent.parent / f"briefing_{today}.md"
+    # Lokal speichern
+    local_file = Path(__file__).parent.parent / "briefing_latest.md"
     local_file.write_text(briefing, encoding="utf-8")
     print(f"Lokal gespeichert: {local_file}")
-
-    # Zu Drive hochladen
-    filename = f"Basel Radar · {'Weekly' if weekly else 'Daily'} {today}.md"
-    upload_to_drive(briefing, filename)
 
     return briefing
 
