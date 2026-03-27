@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 
 OUTPUT_FILE = Path(__file__).parent.parent / "events_raw.json"
+RA_EVENTS_FILE = Path(__file__).parent.parent / "ra_events.json"
+HTML_EVENTS_FILE = Path(__file__).parent.parent / "html_events.json"
 
 # Quellen-Priorität: höher = besser (wird behalten bei Duplikat)
 SOURCE_PRIORITY = {

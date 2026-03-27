@@ -1,4 +1,6 @@
 name: Basel Radar
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   schedule:
@@ -34,15 +36,33 @@ jobs:
           cache: "pip"
 
       - name: Dependencies installieren
-        run: pip install httpx beautifulsoup4 google-auth google-api-python-client
+        run: pip install httpx beautifulsoup4
 
       - name: RA Scraper
-        run: python scraper/ra_scraper.py
+        run: |
+          python - <<'PY'
+          import json
+          from scraper.ra_scraper import run
+
+          events = run()
+          with open("ra_events.json", "w", encoding="utf-8") as f:
+              json.dump(events, f, indent=2, ensure_ascii=False)
+          print(f"RA events gespeichert: {len(events)}")
+          PY
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: HTML Scraper
-        run: python scraper/html_scraper.py
+        run: |
+          python - <<'PY'
+          import json
+          from scraper.html_scraper import run
+
+          events = run()
+          with open("html_events.json", "w", encoding="utf-8") as f:
+              json.dump(events, f, indent=2, ensure_ascii=False)
+          print(f"HTML events gespeichert: {len(events)}")
+          PY
 
       - name: Deduplication
         run: python scraper/dedup.py
