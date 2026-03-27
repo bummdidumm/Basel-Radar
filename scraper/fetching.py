@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import re
 import time
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
@@ -22,42 +20,6 @@ def _looks_blocked(status_code: Optional[int], text: str) -> bool:
         return True
     t = (text or "").lower()
     return any(marker in t for marker in ["enable javascript", "checking your browser", "cf-chl", "captcha"])
-
-
-def _get_block_reason(status_code: Optional[int], text: str) -> Optional[str]:
-    t = (text or "").lower()
-    if status_code == 429:
-        return "rate_limited_429"
-    if status_code == 403:
-        return "forbidden_403"
-    if status_code in {401, 503}:
-        return f"http_{status_code}"
-    if "captcha" in t:
-        return "captcha_page"
-    if "checking your browser" in t or "cf-chl" in t:
-        return "bot_challenge"
-    if "enable javascript" in t:
-        return "js_required"
-    return None
-
-
-def _extract_page_title(html: str) -> str:
-    if not html:
-        return ""
-    m = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
-    if not m:
-        return ""
-    return re.sub(r"\s+", " ", m.group(1)).strip()
-
-
-def _content_snippet(html: str, limit: int = 500) -> str:
-    if not html:
-        return ""
-    text = re.sub(r"<script.*?</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"<style.*?</style>", " ", text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text[:limit]
 
 
 def _extract_text(result: Any) -> str:
@@ -124,8 +86,6 @@ def fetch_html(
     prefer_dynamic: bool = False,
     prefer_stealth: bool = False,
     timeout: int = 25,
-    debug_dump: bool = False,
-    debug_screenshot: bool = False,
 ) -> Dict[str, Any]:
     """
     Fetch HTML with layered fallbacks:
@@ -152,9 +112,6 @@ def fetch_html(
                     "mode": "http",
                     "status_code": resp.status_code,
                     "blocked": False,
-                    "block_reason": None,
-                    "page_title": _extract_page_title(html),
-                    "content_snippet": _content_snippet(html),
                     "document": None,
                 }
             last_status = resp.status_code
@@ -171,20 +128,15 @@ def fetch_html(
             html = _extract_text(result)
             status = _extract_status(result)
             if html and not _looks_blocked(status, html):
-                payload = {
+                return {
                     "html": html,
                     "soup": BeautifulSoup(html, "html.parser"),
                     "final_url": _extract_url(result, url),
                     "mode": "dynamic",
                     "status_code": status,
                     "blocked": False,
-                    "block_reason": None,
-                    "page_title": _extract_page_title(html),
-                    "content_snippet": _content_snippet(html),
                     "document": result,
                 }
-                _maybe_write_debug_artifacts(source_id, payload, debug_dump=debug_dump, debug_screenshot=debug_screenshot)
-                return payload
 
     # 3) stealth fetch
     if prefer_stealth or source_id in {"ra_basel", "ra_zurich", "basellive", "denkmal"}:
@@ -193,55 +145,25 @@ def fetch_html(
             html = _extract_text(result)
             status = _extract_status(result)
             if html:
-                payload = {
+                return {
                     "html": html,
                     "soup": BeautifulSoup(html, "html.parser"),
                     "final_url": _extract_url(result, url),
                     "mode": "stealth",
                     "status_code": status,
                     "blocked": _looks_blocked(status, html),
-                    "block_reason": _get_block_reason(status, html),
-                    "page_title": _extract_page_title(html),
-                    "content_snippet": _content_snippet(html),
                     "document": result,
                 }
-                _maybe_write_debug_artifacts(source_id, payload, debug_dump=debug_dump, debug_screenshot=debug_screenshot)
-                return payload
 
-    failed = {
+    return {
         "html": "",
         "soup": None,
         "final_url": url,
         "mode": "failed",
         "status_code": locals().get("last_status"),
         "blocked": True,
-        "block_reason": _get_block_reason(locals().get("last_status"), ""),
-        "page_title": "",
-        "content_snippet": "",
         "document": None,
     }
-    _maybe_write_debug_artifacts(source_id, failed, debug_dump=debug_dump, debug_screenshot=debug_screenshot)
-    return failed
-
-
-def _maybe_write_debug_artifacts(source_id: str, fetched: Dict[str, Any], debug_dump: bool = False, debug_screenshot: bool = False):
-    if not (debug_dump or debug_screenshot):
-        return
-    debug_dir = Path("debug")
-    debug_dir.mkdir(parents=True, exist_ok=True)
-    safe_id = re.sub(r"[^a-zA-Z0-9_.-]", "_", source_id or "unknown")
-    if debug_dump and fetched.get("html"):
-        (debug_dir / f"{safe_id}.html").write_text(fetched["html"], encoding="utf-8")
-    if debug_screenshot and fetched.get("document") is not None:
-        doc = fetched["document"]
-        for name in ("screenshot", "save_screenshot"):
-            fn = getattr(doc, name, None)
-            if callable(fn):
-                try:
-                    fn(str(debug_dir / f"{safe_id}.png"))
-                    break
-                except Exception:
-                    pass
 
 
 def adaptive_select(document: Any, selector: str, *, profile_key: str, auto_save: bool = False, adaptive: bool = False):
