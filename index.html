@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basel Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080808;
+    --fg: #e8e8e0;
+    --dim: #444;
+    --accent: #c8f050;
+    --red: #ff3c2e;
+    --border: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 40px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 12vw, 80px);
+    letter-spacing: 2px;
+    line-height: 0.9;
+    color: var(--fg);
+  }
+
+  .logo span {
+    color: var(--accent);
+  }
+
+  .meta {
+    text-align: right;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  #live-time {
+    color: var(--accent);
+    font-size: 11px;
+  }
+
+  /* ── STATUS BAR ── */
+  .statusbar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .statusbar::-webkit-scrollbar { display: none; }
+
+  .status-item {
+    padding: 10px 20px;
+    font-size: 11px;
+    color: var(--dim);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  .status-item.active { color: var(--accent); }
+  .status-item .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--dim);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status-item.active .dot { background: var(--accent); }
+
+  /* ── MAIN GRID ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  @media (min-width: 800px) {
+    main { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── SECTION ── */
+  section {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 24px;
+  }
+
+  @media (min-width: 800px) {
+    section { border-right: 1px solid var(--border); }
+    section:nth-child(even) { border-right: none; }
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  /* ── EVENTS ── */
+  #events-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .event-card {
+    background: var(--bg);
+    padding: 14px 0;
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .event-card:hover { background: #0f0f0f; }
+
+  .event-date {
+    font-size: 11px;
+    color: var(--dim);
+    padding-top: 2px;
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  .event-date .day {
+    font-size: 18px;
+    color: var(--fg);
+    display: block;
+    line-height: 1;
+  }
+
+  .event-body { min-width: 0; }
+
+  .event-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+
+  .event-venue {
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 4px;
+  }
+
+  .event-hours {
+    font-size: 11px;
+    color: #333;
+  }
+
+  .event-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+  }
+
+  .event-links a {
+    font-size: 10px;
+    color: var(--dim);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    border: 1px solid #1e1e1e;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .event-links a:hover { color: var(--accent); border-color: var(--accent); }
+  .event-links a.ig { color: #884499; border-color: #331133; }
+  .event-links a.sc { color: #884400; border-color: #332200; }
+  .event-links a.sp { color: #228844; border-color: #112211; }
+
+  .no-events {
+    color: var(--dim);
+    font-size: 12px;
+    padding: 20px 0;
+  }
+
+  /* ── RUN BUTTON ── */
+  .run-section {
+    grid-column: 1 / -1;
+    border-right: none !important;
+  }
+
+  #run-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    padding: 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+  }
+
+  #run-btn:hover { background: var(--accent); color: var(--bg); }
+  #run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #run-btn.running { animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  #run-status {
+    font-size: 11px;
+    color: var(--dim);
+    min-height: 16px;
+  }
+
+  /* ── QUELLEN ── */
+  .sources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .source-chip {
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-size: 10px;
+    color: #555;
+    line-height: 1.4;
+  }
+
+  .source-chip .source-name { color: #888; display: block; }
+  .source-chip .source-type { color: #333; }
+  .source-chip.api { border-color: #1a2a1a; }
+  .source-chip.api .source-type { color: #335533; }
+
+  /* ── BRIEFING LINK ── */
+  .briefing-box {
+    border: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .briefing-box a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .briefing-date { color: var(--dim); font-size: 11px; }
+
+  /* ── COMING SOON ── */
+  .features-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feature-item {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  .feature-item .phase {
+    font-size: 9px;
+    letter-spacing: 1px;
+    border: 1px solid #1e1e1e;
+    padding: 1px 5px;
+    color: #333;
+    white-space: nowrap;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── LOAD ANIMATION ── */
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .event-card { animation: fadein 0.3s ease both; }
+  .event-card:nth-child(1) { animation-delay: 0.05s; }
+  .event-card:nth-child(2) { animation-delay: 0.10s; }
+  .event-card:nth-child(3) { animation-delay: 0.15s; }
+  .event-card:nth-child(4) { animation-delay: 0.20s; }
+  .event-card:nth-child(5) { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Basel<br><span>Radar</span></div>
+  <div class="meta">
+    <div id="live-time">--:--</div>
+    <div style="margin-top:4px">Basel, CH</div>
+    <div style="margin-top:2px; font-size:10px" id="last-updated">wird geladen...</div>
+  </div>
+</header>
+
+<div class="statusbar">
+  <div class="status-item active"><span class="dot"></span>28 Quellen aktiv</div>
+  <div class="status-item" id="status-events"><span class="dot"></span>Events werden geladen</div>
+  <div class="status-item"><span class="dot"></span>Phase 1</div>
+  <div class="status-item"><span class="dot"></span>bummdidumm / Basel-Radar</div>
+</div>
+
+<main>
+
+  <!-- EVENTS -->
+  <section style="grid-column: 1 / -1; border-right: none;">
+    <div class="section-label">Diese Woche</div>
+    <div id="events-container">
+      <div class="no-events">Events werden geladen...</div>
+    </div>
+  </section>
+
+  <!-- RUN -->
+  <section class="run-section">
+    <div class="section-label">Manueller Run</div>
+    <button id="run-btn" onclick="triggerRun()">Jetzt scrapen</button>
+    <div id="run-status">Letzter Run: wird geladen...</div>
+  </section>
+
+  <!-- BRIEFING -->
+  <section>
+    <div class="section-label">Weekly Briefing</div>
+    <div class="briefing-box">
+      <div>
+        <div style="color: var(--fg); font-size: 12px; margin-bottom: 4px">Basel Radar · Weekly</div>
+        <div class="briefing-date" id="briefing-date">Montags 12:00 generiert</div>
+      </div>
+      <a href="https://drive.google.com/drive/folders/FOLDER_ID_HERE" target="_blank">Drive öffnen →</a>
+    </div>
+  </section>
+
+  <!-- QUELLEN -->
+  <section>
+    <div class="section-label">Quellen (28)</div>
+    <div class="sources-grid" id="sources-grid">
+      <!-- wird via JS befüllt -->
+    </div>
+  </section>
+
+  <!-- COMING SOON -->
+  <section>
+    <div class="section-label">Geplant</div>
+    <div class="features-list">
+      <div class="feature-item"><span class="phase">Phase 2</span>Browser Push Notifications</div>
+      <div class="feature-item"><span class="phase">Phase 3</span>Instagram — Kollektive ohne Website</div>
+      <div class="feature-item"><span class="phase">Phase 4</span>Gmail Newsletter-Extraktion</div>
+      <div class="feature-item"><span class="phase">Phase 5</span>Artist-Playlists via SoundCloud + Spotify</div>
+      <div class="feature-item"><span class="phase">Phase 5</span>Neue Quelle hinzufügen = 1 File + 1 Zeile</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>Basel Radar v1.0</span>
+  <span>0 CHF / Monat</span>
+  <span id="footer-count">— Events</span>
+</footer>
+
+<script>
+// ── ZEIT ──────────────────────────────────────────────────────────────────────
+function updateTime() {
+  const now = new Date();
+  document.getElementById("live-time").textContent =
+    now.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// ── EVENTS LADEN ─────────────────────────────────────────────────────────────
+async function loadEvents() {
+  try {
+    const resp = await fetch("events_raw.json?t=" + Date.now());
+    if (!resp.ok) throw new Error("Keine Events gefunden");
+    const events = await resp.json();
+
+    const now = new Date();
+    const filtered = events.filter(ev => {
+      if (!ev.date) return true;
+      const evDate = new Date(ev.date);
+      // Wenn heute: nur Events die noch nicht zu sind
+      if (ev.date === now.toISOString().slice(0, 10) && ev.close) {
+        const [h, m] = ev.close.split(":").map(Number);
+        const closeTime = new Date(evDate);
+        // Close nach Mitternacht = nächster Tag
+        if (h < 12) closeTime.setDate(closeTime.getDate() + 1);
+        closeTime.setHours(h, m, 0);
+        return closeTime > now;
+      }
+      return evDate >= new Date(now.toDateString());
+    });
+
+    renderEvents(filtered);
+    document.getElementById("status-events").innerHTML =
+      `<span class="dot" style="background:var(--accent)"></span>${filtered.length} Events`;
+    document.getElementById("footer-count").textContent = `${filtered.length} Events`;
+
+    // Last updated
+    if (events.length && events[0].scraped_at) {
+      const d = new Date(events[0].scraped_at);
+      document.getElementById("last-updated").textContent =
+        "Stand: " + d.toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+
+  } catch (e) {
+    document.getElementById("events-container").innerHTML =
+      `<div class="no-events">Noch keine Events — erst nach dem ersten Run.</div>`;
+  }
+}
+
+function renderEvents(events) {
+  const container = document.getElementById("events-container");
+
+  if (!events.length) {
+    container.innerHTML = `<div class="no-events">Keine Events in den nächsten Tagen.</div>`;
+    return;
+  }
+
+  // Nach Datum gruppieren
+  const byDate = {};
+  events.forEach(ev => {
+    const d = ev.date || "?";
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(ev);
+  });
+
+  let html = "";
+  for (const date of Object.keys(byDate).sort()) {
+    byDate[date].forEach((ev, i) => {
+      const d = new Date(date + "T12:00:00");
+      const dayNum = d.toLocaleDateString("de-CH", { day: "2-digit" });
+      const month = d.toLocaleDateString("de-CH", { month: "short" });
+      const weekday = d.toLocaleDateString("de-CH", { weekday: "short" });
+
+      const hours = (ev.doors || ev.close)
+        ? `${ev.doors || "??"} – ${ev.close || "??"}`
+        : "";
+
+      // Links bauen
+      let links = "";
+      if (ev.url && ev.url !== ev.venue_url) {
+        links += `<a href="${ev.url}" target="_blank">Event</a>`;
+      }
+      if (ev.ig) links += `<a href="${ev.ig}" target="_blank" class="ig">IG</a>`;
+
+      // Artist Links
+      const artistUrls = ev.artist_urls || {};
+      for (const [artist, urls] of Object.entries(artistUrls)) {
+        if (urls.soundcloud) links += `<a href="${urls.soundcloud}" target="_blank" class="sc">SC</a>`;
+        if (urls.spotify) links += `<a href="${urls.spotify}" target="_blank" class="sp">SP</a>`;
+      }
+
+      html += `
+        <div class="event-card" onclick="window.open('${ev.url || ev.venue_url}', '_blank')">
+          <div class="event-date">
+            ${i === 0 ? `<span class="day">${dayNum}</span>${month}<br>${weekday}` : ''}
+          </div>
+          <div class="event-body">
+            <div class="event-title">${ev.title}</div>
+            <div class="event-venue">${ev.venue}</div>
+            ${hours ? `<div class="event-hours">${hours}</div>` : ""}
+          </div>
+          <div class="event-links">${links}</div>
+        </div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+// ── QUELLEN LADEN ─────────────────────────────────────────────────────────────
+async function loadSources() {
+  try {
+    const resp = await fetch("sources.json");
+    const data = await resp.json();
+    const grid = document.getElementById("sources-grid");
+    grid.innerHTML = data.sources.map(s => `
+      <div class="source-chip ${s.platform === 'ra_graphql' ? 'api' : ''}">
+        <span class="source-name">${s.name}</span>
+        <span class="source-type">${s.platform === 'ra_graphql' ? 'GraphQL' : 'HTML'}</span>
+      </div>
+    `).join("");
+  } catch(e) {}
+}
+
+// ── MANUELLER RUN ─────────────────────────────────────────────────────────────
+async function triggerRun() {
+  const btn = document.getElementById("run-btn");
+  const status = document.getElementById("run-status");
+
+  btn.disabled = true;
+  btn.classList.add("running");
+  btn.textContent = "Wird gestartet...";
+  status.textContent = "GitHub Actions Workflow wird getriggert...";
+
+  // GitHub API — PAT wird als URL-Parameter übergeben (oder hardcoded für persönliche Nutzung)
+  const OWNER = "bummdidumm";
+  const REPO = "Basel-Radar";
+  const PAT = localStorage.getItem("gh_pat") || prompt("GitHub Personal Access Token (wird lokal gespeichert):");
+
+  if (!PAT) {
+    btn.disabled = false;
+    btn.classList.remove("running");
+    btn.textContent = "Jetzt scrapen";
+    status.textContent = "Abgebrochen — kein Token.";
+    return;
+  }
+
+  localStorage.setItem("gh_pat", PAT);
+
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/radar.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${PAT}`,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ref: "main" }),
+      }
+    );
+
+    if (resp.status === 204) {
+      status.textContent = "Gestartet. Dauert ca. 2–3 Minuten.";
+      btn.textContent = "Läuft...";
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.classList.remove("running");
+        btn.textContent = "Jetzt scrapen";
+        loadEvents();
+      }, 180000); // 3 min
+    } else {
+      throw new Error(`Status ${resp.status}`);
+    }
+  } catch (e) {
+    status.textContent = `Fehler: ${e.message}`;
+    btn.disabled = false;
+    btn.classList.remove("running");
+    btn.textContent = "Jetzt scrapen";
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadEvents();
+loadSources();
+</script>
+</body>
+</html>
