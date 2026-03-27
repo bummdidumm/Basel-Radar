@@ -1,0 +1,43 @@
+name: gemini-day-scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 5 * * *'
+
+jobs:
+  run-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Gemini day scan
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3-flash-preview
+          DATE_FROM: 2026-03-23
+          DATE_TO: 2026-04-15
+          WRITE_DEBUG: '1'
+          DEBUG_DIR: debug_gemini_day_scan
+        run: |
+          python scraper/gemini_day_scan.py
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-day-scan-output
+          path: debug_gemini_day_scan/
+          if-no-files-found: warn
