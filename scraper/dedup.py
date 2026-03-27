@@ -173,27 +173,11 @@ def run(events: list[dict]) -> list[dict]:
 
 
 if __name__ == "__main__":
-    def _load_or_scrape(filepath, scraper_func, name):
-        if filepath.exists():
-            with open(filepath, encoding="utf-8") as f:
-                events = json.load(f)
-            print(f"{name}-Datei geladen: {filepath} ({len(events)} Events)")
-        else:
-            events = scraper_func()
-            print(f"{name} direkt gescraped: {len(events)} Events)")
-        return events
+    from ra_scraper import run as run_ra_scraper
+    from html_scraper import run as run_html_scraper
 
-    def _run_ra_scraper():
-        from ra_scraper import run
-        return run()
-
-    def _run_html_scraper():
-        from html_scraper import run
-        return run()
-
-    ra_events = _load_or_scrape(RA_EVENTS_FILE, _run_ra_scraper, "RA")
-    html_events = _load_or_scrape(HTML_EVENTS_FILE, _run_html_scraper, "HTML")
-
+    ra_events = run_ra_scraper()
+    html_events = run_html_scraper()
     scraped_events = ra_events + html_events
 
     result = run(scraped_events)
