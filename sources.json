@@ -1,0 +1,308 @@
+{
+  "version": "1.1",
+  "updated": "2026-03-26",
+  "sources": [
+
+    {
+      "id": "ra_basel",
+      "name": "Resident Advisor Basel",
+      "platform": "ra_graphql",
+      "url": "https://ra.co/events/ch/basel",
+      "ig": null, "fb": null,
+      "hours": null,
+      "tags": ["electronic", "techno", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "ra_zurich",
+      "name": "Resident Advisor Zürich",
+      "platform": "ra_graphql",
+      "url": "https://ra.co/events/ch/zurich",
+      "ig": null, "fb": null,
+      "hours": null,
+      "tags": ["electronic", "techno", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "basellive",
+      "name": "BaselLive",
+      "platform": "html",
+      "url": "https://www.basellive.ch/kalender",
+      "ig": "https://instagram.com/basellive",
+      "fb": "https://facebook.com/basellive",
+      "hours": null,
+      "tags": ["alle", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "proz",
+      "name": "Proz",
+      "platform": "html",
+      "url": "https://www.proz.online/Veranstaltungen",
+      "ig": "https://instagram.com/proz.online_basel",
+      "fb": "https://facebook.com/PROZbasel",
+      "hours": null,
+      "tags": ["kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "denkmal",
+      "name": "Denkmal",
+      "platform": "html",
+      "url": "https://denkmal.org",
+      "ig": "https://instagram.com/denkmal.org_bsl",
+      "fb": null,
+      "hours": null,
+      "tags": ["underground", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "summe",
+      "name": "Σ SUMME",
+      "platform": "html",
+      "url": "https://summe.ch",
+      "ig": "https://instagram.com/summe_basel",
+      "fb": null,
+      "hours": null,
+      "tags": ["kunst", "unabhaengig"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "stadtkonzerte",
+      "name": "Stadtkonzerte Basel",
+      "platform": "html",
+      "url": "https://stadtkonzerte.ch/basel",
+      "ig": null, "fb": null,
+      "hours": null,
+      "tags": ["konzerte", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "radiox",
+      "name": "Radio X Basel",
+      "platform": "html",
+      "url": "https://radiox.ch",
+      "ig": null,
+      "fb": "https://facebook.com/radioxbasel",
+      "hours": null,
+      "tags": ["kultur", "konzerte"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "eventfrog",
+      "name": "Eventfrog Basel",
+      "platform": "html",
+      "url": "https://eventfrog.ch/de/p/veranstaltungen/basel.html",
+      "ig": null, "fb": null,
+      "hours": null,
+      "tags": ["alle"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "songkick",
+      "name": "Songkick Basel",
+      "platform": "html",
+      "url": "https://www.songkick.com/metro-areas/27451-switzerland-basel",
+      "ig": null, "fb": null,
+      "hours": null,
+      "tags": ["konzerte", "touring"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "nordstern",
+      "name": "Nordstern Basel",
+      "platform": "html",
+      "url": "https://www.nordsternbasel.com",
+      "ig": "https://instagram.com/nordsternbasel",
+      "fb": "https://facebook.com/nordsternbasel",
+      "hours": {"fri": {"doors": "23:00", "close": "07:00"}, "sat": {"doors": "23:00", "close": "08:00"}},
+      "tags": ["techno", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "ava_club",
+      "name": "AVA Club Basel",
+      "platform": "html",
+      "url": "https://www.ava-basel.ch",
+      "ig": "https://instagram.com/ava_club_basel",
+      "fb": "https://facebook.com/958212060699758",
+      "hours": {"fri": {"doors": "23:00", "close": "06:00"}, "sat": {"doors": "23:00", "close": "07:00"}},
+      "tags": ["house", "melodic", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "viertel_klub",
+      "name": "Viertel_Klub",
+      "platform": "html",
+      "url": "https://www.viertelklub.ch",
+      "ig": "https://instagram.com/viertel_klub",
+      "fb": null,
+      "hours": {"sat": {"doors": "17:00", "close": "23:00"}},
+      "tags": ["hiphop", "afro", "house"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "kuppel",
+      "name": "Kuppel / Nest",
+      "platform": "html",
+      "url": "https://www.kuppel.ch",
+      "ig": "https://instagram.com/nest.kuppel.basel",
+      "fb": null,
+      "hours": {"varies": {"doors": "20:00", "close": "02:00"}},
+      "tags": ["experimental", "ambient"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "kinker",
+      "name": "Kinker Club",
+      "platform": "html",
+      "url": "https://www.kinker.ch/events.html",
+      "ig": "https://instagram.com/kinker_club",
+      "fb": "https://facebook.com/kinkerbasel",
+      "hours": {"fri": {"doors": "23:00", "close": "06:00"}, "sat": {"doors": "23:00", "close": "07:00"}},
+      "tags": ["techno", "dnb"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "elysia",
+      "name": "Elysia Basel",
+      "platform": "html",
+      "url": "https://elysia.ch",
+      "ig": "https://instagram.com/elysia_basel",
+      "fb": "https://facebook.com/elysiabasel",
+      "hours": {"fri": {"doors": "23:00", "close": "06:00"}, "sat": {"doors": "23:00", "close": "06:00"}},
+      "tags": ["techno", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "humbug",
+      "name": "Humbug",
+      "platform": "html",
+      "url": "https://humbug.club",
+      "ig": "https://instagram.com/humbug.club",
+      "fb": null,
+      "hours": {"thu": {"doors": "22:00", "close": "04:00"}, "fri": {"doors": "23:00", "close": "05:00"}},
+      "tags": ["underground"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "kaserne",
+      "name": "Kaserne Basel",
+      "platform": "html",
+      "url": "https://kaserne-basel.ch/programm",
+      "ig": "https://instagram.com/kasernebasel",
+      "fb": null,
+      "hours": {"varies": {"doors": "19:00", "close": "23:00"}},
+      "tags": ["kultur", "performance"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "gannet",
+      "name": "Gannet Kulturschiff",
+      "platform": "html",
+      "url": "https://gannet.lv/agenda",
+      "ig": "https://instagram.com/gannet.lv",
+      "fb": null,
+      "hours": {"varies": {"doors": "20:00", "close": "23:00"}},
+      "tags": ["konzerte", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "holzpark",
+      "name": "Holzpark Klybeck",
+      "platform": "html",
+      "url": "https://holzpark-klybeck.ch",
+      "ig": "https://instagram.com/holzpark_klybeck",
+      "fb": null,
+      "hours": {"varies": {"doors": "18:00", "close": "24:00"}},
+      "tags": ["kultur", "outdoor", "mixed"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "8bar",
+      "name": "8 Bar Basel",
+      "platform": "html",
+      "url": "https://8-bar.eu/events-2",
+      "ig": null, "fb": null,
+      "hours": {"varies": {"doors": "19:00", "close": "23:00"}},
+      "tags": ["konzerte", "live"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "basso",
+      "name": "Basso Basel",
+      "platform": "html",
+      "url": "https://www.bassoverse.space/en/beats",
+      "ig": "https://instagram.com/basso_basel",
+      "fb": null,
+      "hours": {"fri": {"doors": "23:00", "close": "04:00"}, "sat": {"doors": "16:00", "close": "04:00"}},
+      "tags": ["house", "techno", "club"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "parterre",
+      "name": "Parterre One",
+      "platform": "html",
+      "url": "https://www.parterre.ch",
+      "ig": "https://instagram.com/parterre_one",
+      "fb": null,
+      "hours": {"varies": {"doors": "19:00", "close": "23:00"}},
+      "tags": ["theater", "comedy", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "tinguely",
+      "name": "Museum Tinguely",
+      "platform": "html",
+      "url": "https://www.tinguely.ch/de/events.html",
+      "ig": null, "fb": null,
+      "hours": {"thu": {"doors": "18:00", "close": "24:00"}},
+      "tags": ["kultur", "late-night"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "hirscheneck",
+      "name": "Hirscheneck",
+      "platform": "html",
+      "url": "https://www.hirscheneck.ch",
+      "ig": "https://instagram.com/hirscheneck",
+      "fb": null,
+      "hours": {"varies": {"doors": "20:00", "close": "24:00"}},
+      "tags": ["konzerte", "mixed"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "sommercasino",
+      "name": "Sommercasino",
+      "platform": "html",
+      "url": "https://www.sommercasino.ch",
+      "ig": null, "fb": null,
+      "hours": {"varies": {"doors": "19:00", "close": "23:00"}},
+      "tags": ["konzerte", "kultur"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "portlandbasel",
+      "name": "Port Land Basel",
+      "platform": "html",
+      "url": "https://www.portlandbasel.ch",
+      "ig": "https://instagram.com/portlandbasel",
+      "fb": "https://facebook.com/PortLandBasel",
+      "hours": {"varies": {"doors": "18:00", "close": "02:00"}},
+      "tags": ["mixed"],
+      "active": true, "phase": 1
+    },
+    {
+      "id": "netzwerkbasel",
+      "name": "Netzwerk Basel",
+      "platform": "html",
+      "url": "https://netzwerkbasel.com/events",
+      "ig": "https://instagram.com/netzwerk.basel",
+      "fb": "https://facebook.com/netzwerk.bs",
+      "hours": {"varies": {"doors": "18:00", "close": "24:00"}},
+      "tags": ["electronic", "festival"],
+      "active": true, "phase": 1
+    }
+
+  ]
+}
