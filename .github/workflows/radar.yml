@@ -15,6 +15,9 @@ on:
         type: choice
         options: ["false", "true"]
 
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -59,13 +62,11 @@ jobs:
           fi
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
       - name: events_raw.json committen
         run: |
           git config user.name "Basel Radar Bot"
           git config user.email "bot@basel-radar"
-          git add events_raw.json
+          git add -f events_raw.json briefing_latest.md
           git diff --staged --quiet || git commit -m "chore: events update $(date +%Y-%m-%d)"
           git push
