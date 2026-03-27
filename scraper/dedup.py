@@ -173,26 +173,26 @@ def run(events: list[dict]) -> list[dict]:
 
 
 if __name__ == "__main__":
-    ra_events = []
-    html_events = []
+    def _load_or_scrape(filepath, scraper_func, name):
+        if filepath.exists():
+            with open(filepath, encoding="utf-8") as f:
+                events = json.load(f)
+            print(f"{name}-Datei geladen: {filepath} ({len(events)} Events)")
+        else:
+            events = scraper_func()
+            print(f"{name} direkt gescraped: {len(events)} Events)")
+        return events
 
-    if RA_EVENTS_FILE.exists():
-        with open(RA_EVENTS_FILE, encoding="utf-8") as f:
-            ra_events = json.load(f)
-        print(f"RA-Datei geladen: {RA_EVENTS_FILE} ({len(ra_events)} Events)")
-    else:
-        from ra_scraper import run as run_ra_scraper
-        ra_events = run_ra_scraper()
-        print(f"RA direkt gescraped: {len(ra_events)} Events")
+    def _run_ra_scraper():
+        from ra_scraper import run
+        return run()
 
-    if HTML_EVENTS_FILE.exists():
-        with open(HTML_EVENTS_FILE, encoding="utf-8") as f:
-            html_events = json.load(f)
-        print(f"HTML-Datei geladen: {HTML_EVENTS_FILE} ({len(html_events)} Events)")
-    else:
-        from html_scraper import run as run_html_scraper
-        html_events = run_html_scraper()
-        print(f"HTML direkt gescraped: {len(html_events)} Events")
+    def _run_html_scraper():
+        from html_scraper import run
+        return run()
+
+    ra_events = _load_or_scrape(RA_EVENTS_FILE, _run_ra_scraper, "RA")
+    html_events = _load_or_scrape(HTML_EVENTS_FILE, _run_html_scraper, "HTML")
 
     scraped_events = ra_events + html_events
 
