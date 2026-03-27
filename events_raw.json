@@ -5,7 +5,7 @@
     "doors": null,
     "close": null,
     "venue": "Songkick Basel",
-    "venue_url": "https://www.songkick.com/concerts/43092114-whitechapel-at-z7-konzertfabrik",
+    "venue_url": "https://www.songkick.com/metro-areas/27451-switzerland-basel",
     "url": "https://www.songkick.com/concerts/43092114-whitechapel-at-z7-konzertfabrik",
     "artists": [],
     "artist_urls": {},
@@ -21,7 +21,7 @@
       "touring"
     ],
     "source": "songkick",
-    "scraped_at": "2026-03-27T10:50:01.598360+00:00",
+    "scraped_at": "2026-03-27T13:21:41.241343+00:00",
     "sources": [
       "songkick"
     ]
@@ -32,7 +32,7 @@
     "doors": null,
     "close": null,
     "venue": "Songkick Basel",
-    "venue_url": "https://www.songkick.com/concerts/43120171-samm-be-at-das-viertel",
+    "venue_url": "https://www.songkick.com/metro-areas/27451-switzerland-basel",
     "url": "https://www.songkick.com/concerts/43120171-samm-be-at-das-viertel",
     "artists": [],
     "artist_urls": {},
@@ -48,7 +48,7 @@
       "touring"
     ],
     "source": "songkick",
-    "scraped_at": "2026-03-27T10:50:01.598697+00:00",
+    "scraped_at": "2026-03-27T13:21:41.241703+00:00",
     "sources": [
       "songkick"
     ]
@@ -59,7 +59,7 @@
     "doors": null,
     "close": null,
     "venue": "Songkick Basel",
-    "venue_url": "https://www.songkick.com/concerts/43094433-fortuna-ehrenfeld-at-burghof",
+    "venue_url": "https://www.songkick.com/metro-areas/27451-switzerland-basel",
     "url": "https://www.songkick.com/concerts/43094433-fortuna-ehrenfeld-at-burghof",
     "artists": [],
     "artist_urls": {},
@@ -75,7 +75,7 @@
       "touring"
     ],
     "source": "songkick",
-    "scraped_at": "2026-03-27T10:50:01.599000+00:00",
+    "scraped_at": "2026-03-27T13:21:41.242041+00:00",
     "sources": [
       "songkick"
     ]
@@ -86,7 +86,7 @@
     "doors": null,
     "close": null,
     "venue": "Songkick Basel",
-    "venue_url": "https://www.songkick.com/concerts/43112573-new-roses-at-z7-konzertfabrik",
+    "venue_url": "https://www.songkick.com/metro-areas/27451-switzerland-basel",
     "url": "https://www.songkick.com/concerts/43112573-new-roses-at-z7-konzertfabrik",
     "artists": [],
     "artist_urls": {},
@@ -102,900 +102,2898 @@
       "touring"
     ],
     "source": "songkick",
-    "scraped_at": "2026-03-27T10:50:01.599295+00:00",
+    "scraped_at": "2026-03-27T13:21:41.242348+00:00",
     "sources": [
       "songkick"
     ]
   },
   {
-    "title": "Aktuell",
+    "title": "Kinker ClubBarcelona-Strasse 44142 MünchensteinBasel, CH",
     "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/newsletter-anmeldung/",
-    "url": "https://sommercasino.ch/newsletter-anmeldung/",
+    "doors": null,
+    "close": null,
+    "venue": "Kinker Club",
+    "venue_url": "https://www.kinker.ch/events.html",
+    "url": "https://www.facebook.com/kinkerbasel",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "dnb"
     ],
     "cost": null,
-    "ig": null,
-    "fb": null,
+    "ig": "https://instagram.com/kinker_club",
+    "fb": "https://facebook.com/kinkerbasel",
     "tags": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "dnb"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.747859+00:00",
+    "source": "kinker",
+    "scraped_at": "2026-03-27T13:21:50.162744+00:00",
     "sources": [
-      "sommercasino"
+      "kinker"
     ]
   },
   {
-    "title": "Deaf’n’Dumb – Album Release Show",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/deafndumb-album-release-show/",
-    "url": "https://sommercasino.ch/events/deafndumb-album-release-show/",
+    "title": "Fr, 27.03 / 20:00",
+    "date": "2026-03-27",
+    "doors": "20:00",
+    "close": "07:00",
+    "venue": "Nordstern Basel",
+    "venue_url": "https://www.nordstern.com",
+    "url": "https://nordstern.shop.bookinea.app/de/c/unreal-basel-1115",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
     "cost": null,
-    "ig": null,
-    "fb": null,
+    "ig": "https://instagram.com/nordsternbasel",
+    "fb": "https://facebook.com/nordsternbasel",
     "tags": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.748231+00:00",
+    "source": "nordstern",
+    "scraped_at": "2026-03-27T13:21:42.494367+00:00",
     "sources": [
-      "sommercasino"
+      "nordstern"
     ]
   },
   {
-    "title": "Osterbrunch und Eiermalen",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/osterbrunch-und-eiermalen/",
-    "url": "https://sommercasino.ch/events/osterbrunch-und-eiermalen/",
+    "title": "Roche 'n' Jazz | Myra Melford’s Sox2",
+    "date": "2026-03-27",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-myra-melfords-sox2-27-03-2026-16h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.748581+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.786639+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Vacuous (UK), Bastard Mycosis (UK) & Murge (CH)",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/vacuous-uk-bastard-mycosis-uk-murge-ch/",
-    "url": "https://sommercasino.ch/events/vacuous-uk-bastard-mycosis-uk-murge-ch/",
+    "title": "Ali Cherri: The Watchman & The Dam",
+    "date": "2026-03-27",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/ali-cherri-the-watchman-amp-the-dam-27-03-2026-20h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.748952+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.787111+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Ausverkauft! | Ring Workshop mit Noah Giger",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/schmuck-gestalten-mit-noah-giger-3/",
-    "url": "https://sommercasino.ch/events/schmuck-gestalten-mit-noah-giger-3/",
+    "title": "Sa, 28.03 / 20:00",
+    "date": "2026-03-28",
+    "doors": "20:00",
+    "close": "08:00",
+    "venue": "Nordstern Basel",
+    "venue_url": "https://www.nordstern.com",
+    "url": "https://eventfrog.ch/de/p/partys/goa/the-flying-mystic-nord-2-7422653817680823752.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
     "cost": null,
-    "ig": null,
-    "fb": null,
+    "ig": "https://instagram.com/nordsternbasel",
+    "fb": "https://facebook.com/nordsternbasel",
     "tags": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.749357+00:00",
+    "source": "nordstern",
+    "scraped_at": "2026-03-27T13:21:42.494930+00:00",
     "sources": [
-      "sommercasino"
+      "nordstern"
     ]
   },
   {
-    "title": "Bubble Buster Jam",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/bubble-buster-jam-2/",
-    "url": "https://sommercasino.ch/events/bubble-buster-jam-2/",
+    "title": "Familienführung",
+    "date": "2026-03-28",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familienfuehrung-28-03-2026-14h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.749723+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.787523+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Schauspiel Workshop",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/schauspiel-workshop/",
-    "url": "https://sommercasino.ch/events/schauspiel-workshop/",
+    "title": "Manuel Gerst: Die Verwandlung",
+    "date": "2026-03-28",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/manuel-gerst-die-verwandlung-28-03-2026-20h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.750056+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.787990+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Ak’Chamel (USA) & Melebe",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/akchamel-usa-support/",
-    "url": "https://sommercasino.ch/events/akchamel-usa-support/",
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-03-29",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-29-03-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.750400+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.788407+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Day Dance",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/daydance/",
-    "url": "https://sommercasino.ch/events/daydance/",
+    "title": "Kunst und Zerstörung: Ein Gespräch",
+    "date": "2026-03-29",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/kunst-und-zerstoerung-ein-gespraech-29-03-2026-15h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.751116+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.788852+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "ZtanZ",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/ztanz/",
-    "url": "https://sommercasino.ch/events/ztanz/",
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-04-01",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-01-04-2026-10h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.751827+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.789240+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Musikquiz | Opening Weekend",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/musikquiz/",
-    "url": "https://sommercasino.ch/events/musikquiz/",
+    "title": "Th, 02.04 / 23:00",
+    "date": "2026-04-02",
+    "doors": "23:00",
+    "close": null,
+    "venue": "Nordstern Basel",
+    "venue_url": "https://www.nordstern.com",
+    "url": "https://tickets.nordstern.com/en/c/skream-1579",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
     "cost": null,
-    "ig": null,
-    "fb": null,
+    "ig": "https://instagram.com/nordsternbasel",
+    "fb": "https://facebook.com/nordsternbasel",
     "tags": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.752175+00:00",
+    "source": "nordstern",
+    "scraped_at": "2026-03-27T13:21:42.495500+00:00",
     "sources": [
-      "sommercasino"
+      "nordstern"
     ]
   },
   {
-    "title": "Kleidertausch",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/kleidertausch-2/",
-    "url": "https://sommercasino.ch/events/kleidertausch-2/",
+    "title": "Kurzfilme | all around Basel",
+    "date": "2026-04-02",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/kurzfilme-all-around-basel-02-04-2026-18h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.752525+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.789631+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Los Surfer Smokers (CO), Mono Mojo & The Stereocats, Angry Strings | Opening Weekend",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/los-surfer-smokers-col-mono-mojo-the-stereocats-ch-angry-strings-ch/",
-    "url": "https://sommercasino.ch/events/los-surfer-smokers-col-mono-mojo-the-stereocats-ch-angry-strings-ch/",
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-04-02",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-02-04-2026-19h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.752889+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.790075+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Primitive Man (USA), Kollaps (AUS)",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/primitive-man-usa/",
-    "url": "https://sommercasino.ch/events/primitive-man-usa/",
+    "title": "Führung in Gebärdensprache",
+    "date": "2026-04-02",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-in-gebaerdensprache-02-04-2026-19h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.753957+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.790509+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Don Jules & The Juliettes | Laurel Bloom",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/don-jules-the-juliettes-laurel-bloom/",
-    "url": "https://sommercasino.ch/events/don-jules-the-juliettes-laurel-bloom/",
+    "title": "Fr, 03.04 / 23:00",
+    "date": "2026-04-03",
+    "doors": "23:00",
+    "close": "07:00",
+    "venue": "Nordstern Basel",
+    "venue_url": "https://www.nordstern.com",
+    "url": "https://tickets.nordstern.com/en/c/oguz-1592",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
     "cost": null,
-    "ig": null,
-    "fb": null,
+    "ig": "https://instagram.com/nordsternbasel",
+    "fb": "https://facebook.com/nordsternbasel",
     "tags": [
-      "konzerte",
-      "kultur"
+      "techno",
+      "club"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.754301+00:00",
+    "source": "nordstern",
+    "scraped_at": "2026-03-27T13:21:42.495720+00:00",
     "sources": [
-      "sommercasino"
+      "nordstern"
     ]
   },
   {
-    "title": "glitchBABY | MISS C-LINE",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/glitchbaby-miss-c-line/",
-    "url": "https://sommercasino.ch/events/glitchbaby-miss-c-line/",
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-04-04",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-04-04-2026-14h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.754655+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.790929+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Parasolic | Luci Bling",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/newcomer-slot-luci-bling/",
-    "url": "https://sommercasino.ch/events/newcomer-slot-luci-bling/",
+    "title": "Führung Carl Cheng",
+    "date": "2026-04-05",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-carl-cheng-05-04-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.755000+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.791339+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Chimera Paul | Long Tall Jefferson",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/newcomer-slot-long-tall-jefferson/",
-    "url": "https://sommercasino.ch/events/newcomer-slot-long-tall-jefferson/",
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-04-06",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-06-04-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.755339+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.791756+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "RAMPIG | Livia Rita",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/rampig-livia-rita/",
-    "url": "https://sommercasino.ch/events/rampig-livia-rita/",
+    "title": "Führung Angelica Mesiti",
+    "date": "2026-04-09",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-angelica-mesiti-09-04-2026-18h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.755693+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.792168+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Vinyl Session",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/vinyl-session/",
-    "url": "https://sommercasino.ch/events/vinyl-session/",
+    "title": "Curator's Tour Carl Cheng",
+    "date": "2026-04-09",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/curators-tour-carl-cheng-09-04-2026-19h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.756035+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.792549+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Deville (SWE), Fancy and the Boys & Miss Moons",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/deville-swefancy-and-the-boys-ch-local-act-ch/",
-    "url": "https://sommercasino.ch/events/deville-swefancy-and-the-boys-ch-local-act-ch/",
+    "title": "Familienführung",
+    "date": "2026-04-11",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familienfuehrung-11-04-2026-14h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.756379+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.792968+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Juni Nami „1000 Füess“",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/juni-nami-1000-fueess/",
-    "url": "https://sommercasino.ch/events/juni-nami-1000-fueess/",
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-04-12",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-12-04-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.756748+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.793370+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "ESC Revival Party",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/esc-revival-party/",
-    "url": "https://sommercasino.ch/events/esc-revival-party/",
+    "title": "Führung Carl Cheng",
+    "date": "2026-04-16",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-carl-cheng-16-04-2026-19h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.757444+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.793791+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Cocopalooza",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/cocopalooza/",
-    "url": "https://sommercasino.ch/events/cocopalooza/",
+    "title": "Bastel-Bar | Carl Cheng: Nature Never Loses",
+    "date": "2026-04-16",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/bastel-bar-carl-cheng-nature-never-loses-16-04-2026-20h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.758156+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.794214+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Der Wal im Garten",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/der-wal-im-garten/",
-    "url": "https://sommercasino.ch/events/der-wal-im-garten/",
+    "title": "Führung Carl Cheng",
+    "date": "2026-04-19",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-carl-cheng-19-04-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.758863+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.794610+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Requiem, Erupdead & I Cut Out Your Name",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/requiem-erupdead-i-cut-out-your-name/",
-    "url": "https://sommercasino.ch/events/requiem-erupdead-i-cut-out-your-name/",
+    "title": "Curator's Tour mit der Künstlerin | Angelica Mesiti",
+    "date": "2026-04-19",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/curators-tour-mit-der-kuenstlerin-angelica-mesiti-19-04-2026-15h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.759205+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.795035+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Save the date! | Casino Biandapid Vol. 4",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/save-the-date-casino-biandapid-vol-4/",
-    "url": "https://sommercasino.ch/events/save-the-date-casino-biandapid-vol-4/",
+    "title": "Tanz | Compagnie Filipe Lourenço: Cheb",
+    "date": "2026-04-19",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-compagnie-filipe-lourenco-cheb-19-04-2026-17h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.759531+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.795471+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Mittwoch ist Sprittwoch",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/mittwoch-ist-sprittwoch/",
-    "url": "https://sommercasino.ch/events/mittwoch-ist-sprittwoch/",
+    "title": "Curator's Tour Schauatelier",
+    "date": "2026-04-23",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/curators-tour-schauatelier-23-04-2026-19h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.759887+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.795912+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Tichu Turnier",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/tichu-turnier/",
-    "url": "https://sommercasino.ch/events/tichu-turnier/",
+    "title": "Roche 'n' Jazz: Conic Rose",
+    "date": "2026-04-24",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-conic-rose-24-04-2026-16h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.760231+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.796321+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Deconstructing NORA",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/deconstructing-nora/",
-    "url": "https://sommercasino.ch/events/deconstructing-nora/",
+    "title": "Familienführung",
+    "date": "2026-04-25",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familienfuehrung-25-04-2026-14h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.760566+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.796712+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "16 Jahre Sixteentimes Music",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/16-jahre-seixteentimes-music/",
-    "url": "https://sommercasino.ch/events/16-jahre-seixteentimes-music/",
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-04-26",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-26-04-2026-11h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.762585+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.797133+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Rites of Destruction VII",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/rites-of-destruction-vii/",
-    "url": "https://sommercasino.ch/events/rites-of-destruction-vii/",
+    "title": "Saisonvorstellung 2026/27 der Basel Sinfonietta",
+    "date": "2026-04-29",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/saisonvorstellung-2026-27-der-basel-sinfonietta-29-04-2026-18h30.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.762932+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.797540+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
     ]
   },
   {
-    "title": "Catalyst | Support: Corokia",
-    "date": "",
-    "doors": "19:00",
-    "close": "23:00",
-    "venue": "Sommercasino",
-    "venue_url": "https://sommercasino.ch/events/catalyst-support-corokia/",
-    "url": "https://sommercasino.ch/events/catalyst-support-corokia/",
+    "title": "Sound Bar",
+    "date": "2026-04-30",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-30-04-2026-18h00.html",
     "artists": [],
     "artist_urls": {},
     "genres": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
     "cost": null,
     "ig": null,
     "fb": null,
     "tags": [
-      "konzerte",
-      "kultur"
+      "kultur",
+      "late-night"
     ],
-    "source": "sommercasino",
-    "scraped_at": "2026-03-27T10:50:12.763279+00:00",
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.798028+00:00",
     "sources": [
-      "sommercasino"
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tinguely Shortcut Führung",
+    "date": "2026-04-30",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tinguely-shortcut-fuehrung-30-04-2026-19h00-30-04-2026-19h20.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.798486+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Workshop | Optomat",
+    "date": "2026-05-01",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/workshop-optomat-01-05-2026-09h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.799385+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-05-02",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-02-05-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.799800+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Workshop | Optomat",
+    "date": "2026-05-02",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/workshop-optomat-02-05-2026-14h00-02-05-2026-17h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.800224+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Workshop | Optomat",
+    "date": "2026-05-03",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/workshop-optomat-03-05-2026-09h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.800638+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-03",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-03-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.801077+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-05-06",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-06-05-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.801567+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanzfest: WunderWesen",
+    "date": "2026-05-07",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanzfest-wunderwesen-07-05-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.802023+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Vernissage Nicolas Darrot",
+    "date": "2026-05-07",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/vernissage-nicolas-darrot-07-05-2026-18h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.802443+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Carl Cheng",
+    "date": "2026-05-07",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-carl-cheng-07-05-2026-19h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.802868+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanzfest: WunderWesen",
+    "date": "2026-05-08",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanzfest-wunderwesen-08-05-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.803292+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Familienführung",
+    "date": "2026-05-09",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familienfuehrung-09-05-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.803688+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Carl Cheng",
+    "date": "2026-05-10",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-carl-cheng-10-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.804108+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Offbeat Konzert: Cyrille Aimée Quartet",
+    "date": "2026-05-11",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/offbeat-konzert-cyrille-aimee-quartet-11-05-2026-20h15.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.804504+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-17",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-17-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.804927+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-21",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-21-05-2026-19h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.805326+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Buchvernissage: Atlas Revolving Histories",
+    "date": "2026-05-21",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/buchvernissage-atlas-revolving-histories-21-05-2026-19h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.805703+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-24",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-24-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.806131+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Physical Introduction Angelica Mesiti",
+    "date": "2026-05-24",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/physical-introduction-angelica-mesiti-24-05-2026-15h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.806536+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-25",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-25-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.806965+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanz | Declan Whitaker: Away with the Faeries",
+    "date": "2026-05-27",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-declan-whitaker-away-with-the-faeries-27-05-2026-20h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.807405+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-05-28",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-28-05-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.807820+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tinguely Shortcut Führung",
+    "date": "2026-05-28",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tinguely-shortcut-fuehrung-28-05-2026-19h00-28-05-2026-19h20.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.808275+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanz | Declan Whitaker: Away with the Faeries",
+    "date": "2026-05-28",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-declan-whitaker-away-with-the-faeries-28-05-2026-20h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.809183+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Roche 'n' Jazz",
+    "date": "2026-05-29",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-29-05-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.809590+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanz | Declan Whitaker: Away with the Faeries",
+    "date": "2026-05-29",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-declan-whitaker-away-with-the-faeries-29-05-2026-20h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.810054+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Familienführung",
+    "date": "2026-05-30",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familienfuehrung-30-05-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.810457+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanz | Declan Whitaker: Away with the Faeries",
+    "date": "2026-05-30",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-declan-whitaker-away-with-the-faeries-30-05-2026-20h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.810942+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Sammlung Jean Tinguely",
+    "date": "2026-05-31",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-sammlung-jean-tinguely-31-05-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.811341+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Tanz | Declan Whitaker: Away with the Faeries",
+    "date": "2026-05-31",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/tanz-declan-whitaker-away-with-the-faeries-31-05-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.811801+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-06-03",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-03-06-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.812191+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung Angelica Mesiti",
+    "date": "2026-06-04",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-angelica-mesiti-04-06-2026-19h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.812590+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung in Gebärdensprache",
+    "date": "2026-06-04",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-in-gebaerdensprache-04-06-2026-19h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.813036+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-06-06",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-06-06-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.813849+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Familiensonntag | Angelica Mesiti",
+    "date": "2026-06-07",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/familiensonntag-angelica-mesiti-07-06-2026-11h30-07-06-2026-17h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.814245+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Eröffnung Labouring Bodies & Sommerfest",
+    "date": "2026-06-09",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/eroeffnung-labouring-bodies-amp-sommerfest-09-06-2026-18h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.814653+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-06-25",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-25-06-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.815078+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Roche 'n' Jazz",
+    "date": "2026-06-26",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-26-06-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.815483+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-07-01",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-01-07-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.815889+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-07-04",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-04-07-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.816271+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Curator's Tour | Angelica Mesiti",
+    "date": "2026-07-23",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/curators-tour-angelica-mesiti-23-07-2026-19h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.816665+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Physical Introduction Angelica Mesiti",
+    "date": "2026-07-26",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/physical-introduction-angelica-mesiti-26-07-2026-15h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.817093+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-07-30",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-30-07-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.817492+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Roche 'n' Jazz",
+    "date": "2026-07-31",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-31-07-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.817917+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-08-05",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-05-08-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.818299+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Vernissage Nicolas Darrot",
+    "date": "2026-08-06",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/vernissage-nicolas-darrot-06-08-2026-18h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.818707+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-08-08",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-08-08-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.819113+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung für Menschen mit Sehbehinderungen und blinde Menschen",
+    "date": "2026-08-15",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-fuer-menschen-mit-sehbehinderungen-und-blinde-menschen-15-08-2026-14h00-15-08-2026-15h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.819533+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Performance Stilllaut",
+    "date": "2026-08-23",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/performance-stilllaut-23-08-2026-15h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.819975+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-08-27",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-27-08-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.820373+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung in Gebärdensprache",
+    "date": "2026-08-27",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-in-gebaerdensprache-27-08-2026-19h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.820820+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Roche 'n' Jazz",
+    "date": "2026-08-28",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-28-08-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.821227+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-09-02",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-02-09-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.821603+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-09-05",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-05-09-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.822003+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung von machTheater",
+    "date": "2026-09-20",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-von-machtheater-20-09-2026-13h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.822408+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-09-24",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-24-09-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.822843+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Roche 'n' Jazz",
+    "date": "2026-09-25",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/roche-n-jazz-25-09-2026-16h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.823258+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung von machTheater",
+    "date": "2026-10-02",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-von-machtheater-02-10-2026-13h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.823662+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-10-03",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-03-10-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.824070+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-10-07",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-07-10-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.824459+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung von machTheater",
+    "date": "2026-10-09",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-von-machtheater-09-10-2026-13h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.824880+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung von machTheater",
+    "date": "2026-10-11",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-von-machtheater-11-10-2026-13h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.825274+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Führung von machTheater",
+    "date": "2026-10-18",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/fuehrung-von-machtheater-18-10-2026-13h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.825668+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-10-29",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-29-10-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.826084+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-11-04",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-04-11-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.826474+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Vernissage Nicolas Darrot",
+    "date": "2026-11-05",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/vernissage-nicolas-darrot-05-11-2026-18h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.826910+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-11-07",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-07-11-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.827301+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Curator's Tour | Nicolas Darrot",
+    "date": "2026-11-12",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/curators-tour-nicolas-darrot-12-11-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.827703+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Inklusionstag | Lernen",
+    "date": "2026-11-15",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/inklusionstag-lernen-15-11-2026-11h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.828106+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-11-26",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-26-11-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.828504+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-12-02",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-02-12-2026-10h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.828918+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Extra Muros | Theaterplatzquartier Wanderung",
+    "date": "2026-12-05",
+    "doors": null,
+    "close": null,
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/extra-muros-theaterplatzquartier-wanderung-05-12-2026-14h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.829298+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Sound Bar",
+    "date": "2026-12-17",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/sound-bar-17-12-2026-18h00.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.829692+00:00",
+    "sources": [
+      "tinguely"
+    ]
+  },
+  {
+    "title": "Vernissage Nicolas Darrot",
+    "date": "2027-01-07",
+    "doors": "18:00",
+    "close": "24:00",
+    "venue": "Museum Tinguely",
+    "venue_url": "https://www.tinguely.ch/de/veranstaltungen.html",
+    "url": "https://www.tinguely.ch/de/veranstaltungen/vernissage-nicolas-darrot-07-01-2027-18h30.html",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "kultur",
+      "late-night"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "kultur",
+      "late-night"
+    ],
+    "source": "tinguely",
+    "scraped_at": "2026-03-27T13:22:15.830133+00:00",
+    "sources": [
+      "tinguely"
     ]
   }
 ]

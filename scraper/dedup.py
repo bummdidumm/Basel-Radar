@@ -25,6 +25,10 @@ SOURCE_PRIO = {
     "radiox": 5, "proz": 4, "eventfrog": 3, "songkick": 3,
 }
 
+def norm(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9äöüß\s]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 def norm(text):
     text = (text or "").lower()
@@ -175,6 +179,10 @@ def run():
     print(f"Dedup output: {len(deduped)} unique events -> {OUT}")
     return deduped
 
+    result.sort(key=lambda e: e.get("date", "9999"))
+    OUT.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f"Dedup fertig: {len(result)} unique Events → {OUT}")
+    return result
 
 if __name__ == "__main__":
     run()
