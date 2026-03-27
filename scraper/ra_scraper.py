@@ -1,158 +1,226 @@
 """
-Basel Radar · RA GraphQL Scraper
-Scrapt Events von Resident Advisor via inoffizielle GraphQL API.
-Gibt Liste von Event-Dicts zurück, kompatibel mit events_raw.json Format.
+Basel Radar · RA Scraper (HTML-first)
+- Kein fragiler GraphQL-Endpunkt.
+- Scrapt öffentliche RA-Listen und Eventseiten.
+- Fehler je Quelle werden geloggt; Lauf crasht nicht hart.
 """
+
+import json
+import re
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urljoin
 
 import httpx
-import json
-from datetime import datetime, timezone
+from bs4 import BeautifulSoup
 
-RA_GRAPHQL_URL = "https://ra.co/graphql"
+BASE = Path(__file__).parent.parent
+OUT = BASE / "ra_events.json"
+SOURCES_FILE = BASE / "sources.json"
 
-RA_HEADERS = {
-    "Content-Type": "application/json",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Referer": "https://ra.co/events/ch/basel",
-    "Origin": "https://ra.co",
-    "Accept": "*/*",
-    "Accept-Language": "de-CH,de;q=0.9,en;q=0.8",
-    "ra-content-language": "en",
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9,de;q=0.8",
+    "Referer": "https://ra.co/",
 }
 
-# RA Area IDs: Basel = 143, Zürich = 25
-RA_SOURCES = [
-    {"id": "ra_basel",  "name": "Resident Advisor Basel",  "area_id": "143"},
-    {"id": "ra_zurich", "name": "Resident Advisor Zürich", "area_id": "25"},
-]
 
-RA_QUERY = """
-query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) {
-  eventListings(filters: $filters, pageSize: $pageSize, page: 1, sort: { date: { value: asc } }) {
-    data {
-      id
-      event {
-        id
-        title
-        date
-        startTime
-        endTime
-        contentUrl
-        images { filename }
-        venue {
-          name
-          contentUrl
-        }
-        artists {
-          name
-          contentUrl
-        }
-        genres { name }
-        cost
-      }
-    }
-  }
-}
-"""
+def load_ra_sources():
+    data = json.loads(SOURCES_FILE.read_text())
+    sources = data.get("sources", [])
+    return [s for s in sources if s.get("id") in {"ra_basel", "ra_zurich"} and s.get("active")]
 
 
-def scrape_ra(area_id: str, source_id: str, source_name: str, days_ahead: int = 30) -> list[dict]:
-    """Scrapt RA Events für eine Area. Gibt normalisierte Event-Dicts zurück."""
+def parse_iso_date(value: str):
+    if not value:
+        return None
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", value)
+    return m.group(1) if m else None
 
-    now = datetime.now(timezone.utc)
-    from datetime import timedelta
-    date_from = now.strftime("%Y-%m-%d")
-    date_to = (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
-    payload = {
-        "query": RA_QUERY,
-        "variables": {
-            "pageSize": 100,
-            "filters": {
-                "areas": {"eq": area_id},
-                "listingDate": {
-                    "gte": date_from,
-                    "lte": date_to,
-                }
-            }
-        }
-    }
+def parse_time_fragment(text: str):
+    if not text:
+        return None
+    m = re.search(r"\b(\d{1,2}:\d{2})\b", text)
+    if not m:
+        return None
+    hh, mm = m.group(1).split(":")
+    return f"{int(hh):02d}:{mm}"
 
+
+def fetch_soup(client: httpx.Client, url: str):
     try:
-        resp = httpx.post(RA_GRAPHQL_URL, json=payload, headers=RA_HEADERS, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        print(f"[{source_id}] Fehler beim Abruf: {e}")
+        r = client.get(url, headers=HEADERS, timeout=25, follow_redirects=True)
+        r.raise_for_status()
+        return BeautifulSoup(r.text, "html.parser")
+    except Exception:
+        p_soup = fetch_playwright(url)
+        if p_soup is not None:
+            return p_soup
+        raise
+
+
+def fetch_playwright(url: str):
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(args=["--no-sandbox"])
+            page = browser.new_page()
+            page.set_extra_http_headers({"Accept-Language": HEADERS["Accept-Language"]})
+            page.goto(url, wait_until="networkidle", timeout=35000)
+            html = page.content()
+            browser.close()
+        return BeautifulSoup(html, "html.parser")
+    except Exception:
+        return None
+
+
+def extract_event_links(list_soup: BeautifulSoup, base_url: str):
+    links = set()
+    for a in list_soup.select("a[href]"):
+        href = (a.get("href") or "").strip()
+        if not href:
+            continue
+        if re.match(r"^/events/\d+", href):
+            links.add(urljoin("https://ra.co", href))
+        elif re.match(r"^https?://ra\.co/events/\d+", href):
+            links.add(href)
+    return sorted(links)
+
+
+def parse_ra_event(client: httpx.Client, url: str, source: dict):
+    try:
+        soup = fetch_soup(client, url)
+    except Exception as exc:
+        print(f"[{source['id']}] WARN event fetch failed {url}: {exc}")
+        return None
+
+    ldjson_nodes = soup.select('script[type="application/ld+json"]')
+    date = None
+    title = None
+    venue = source.get("name")
+    doors = None
+
+    for node in ldjson_nodes:
+        raw = (node.string or "").strip()
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            continue
+        items = payload if isinstance(payload, list) else [payload]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            t = item.get("@type")
+            if t == "Event":
+                title = title or (item.get("name") or "").strip()
+                date = date or parse_iso_date(item.get("startDate") or "")
+                loc = item.get("location") or {}
+                if isinstance(loc, dict):
+                    venue = (loc.get("name") or venue)
+
+    if not title:
+        t_el = soup.select_one("h1")
+        title = t_el.get_text(" ", strip=True) if t_el else ""
+
+    if not date:
+        time_el = soup.select_one("time[datetime]")
+        if time_el:
+            date = parse_iso_date(time_el.get("datetime") or "")
+        if not date:
+            date = parse_iso_date(soup.get_text(" ", strip=True))
+
+    if not doors:
+        info_text = " ".join(x.get_text(" ", strip=True) for x in soup.select("time, p, li, div"))[:3000]
+        doors = parse_time_fragment(info_text)
+
+    venue_el = soup.select_one('a[href*="/clubs/"], a[href*="/venues/"]')
+    if venue_el:
+        venue = venue_el.get_text(" ", strip=True) or venue
+
+    if not title or not date:
+        return None
+
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "title": title,
+        "date": date,
+        "doors": doors,
+        "close": None,
+        "venue": venue,
+        "venue_url": source.get("url"),
+        "url": url,
+        "artists": [],
+        "artist_urls": {},
+        "genres": source.get("tags", []),
+        "cost": None,
+        "ig": None,
+        "fb": None,
+        "tags": source.get("tags", []),
+        "source": source["id"],
+        "scraped_at": now,
+    }
+
+
+def scrape_source(client: httpx.Client, source: dict, days=35):
+    source_id = source["id"]
+    try:
+        listing = fetch_soup(client, source["url"])
+    except Exception as exc:
+        print(f"[{source_id}] WARN listing failed: {exc}")
         return []
 
-    listings = data.get("data", {}).get("eventListings", {}).get("data", [])
-    events = []
+    links = extract_event_links(listing, source["url"])
+    if not links:
+        print(f"[{source_id}] WARN no event links found")
+        return []
 
-    for listing in listings:
-        ev = listing.get("event")
+    events = []
+    today = datetime.now(timezone.utc).date()
+    limit_date = today + timedelta(days=days)
+
+    for idx, link in enumerate(links[:120]):
+        ev = parse_ra_event(client, link, source)
         if not ev:
             continue
+        try:
+            d = datetime.strptime(ev["date"], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if today <= d <= limit_date:
+            events.append(ev)
+        if idx and idx % 15 == 0:
+            time.sleep(0.25)
 
-        # Artists zusammenführen
-        artists = [a["name"] for a in ev.get("artists", []) if a.get("name")]
-        artist_urls = {
-            a["name"]: f"https://ra.co{a['contentUrl']}"
-            for a in ev.get("artists", [])
-            if a.get("name") and a.get("contentUrl")
-        }
-
-        # Venue
-        venue = ev.get("venue") or {}
-        venue_name = venue.get("name", source_name)
-        venue_url = f"https://ra.co{venue['contentUrl']}" if venue.get("contentUrl") else None
-
-        # Zeiten
-        start_time = ev.get("startTime", "")[:5] if ev.get("startTime") else None
-        end_time = ev.get("endTime", "")[:5] if ev.get("endTime") else None
-
-        # Genres
-        genres = [g["name"].lower() for g in ev.get("genres", []) if g.get("name")]
-
-        events.append({
-            "title": ev.get("title", "").strip(),
-            "date": ev.get("date", "")[:10],
-            "doors": start_time,
-            "close": end_time,
-            "venue": venue_name,
-            "venue_url": venue_url or f"https://ra.co{ev.get('contentUrl', '')}",
-            "url": f"https://ra.co{ev.get('contentUrl', '')}",
-            "artists": artists,
-            "artist_urls": artist_urls,
-            "genres": genres,
-            "cost": ev.get("cost"),
-            "ig": None,        # wird von sources.json ergänzt wenn venue bekannt
-            "fb": None,
-            "tags": genres,
-            "source": source_id,
-            "scraped_at": now.isoformat(),
-        })
-
-    print(f"[{source_id}] {len(events)} Events gefunden ({date_from} – {date_to})")
+    print(f"[{source_id}] {len(events)} Events")
     return events
 
 
-def run() -> list[dict]:
-    """Scrapt alle RA-Quellen und gibt kombinierte Event-Liste zurück."""
+def run():
+    sources = load_ra_sources()
+    if not sources:
+        OUT.write_text("[]")
+        print("[ra] keine aktiven RA-Quellen")
+        return []
+
     all_events = []
-    for src in RA_SOURCES:
-        events = scrape_ra(
-            area_id=src["area_id"],
-            source_id=src["id"],
-            source_name=src["name"],
-        )
-        all_events.extend(events)
+    with httpx.Client() as client:
+        for src in sources:
+            try:
+                all_events.extend(scrape_source(client, src))
+            except Exception as exc:
+                print(f"[{src['id']}] WARN source failed: {exc}")
+
+    OUT.write_text(json.dumps(all_events, indent=2, ensure_ascii=False))
+    print(f"RA total: {len(all_events)} → {OUT}")
     return all_events
 
 
 if __name__ == "__main__":
-    events = run()
-    print(f"\nTotal: {len(events)} Events")
-    # Testausgabe erste 2
-    for ev in events[:2]:
-        print(json.dumps(ev, indent=2, ensure_ascii=False))
+    run()
