@@ -15,6 +15,9 @@ on:
         type: choice
         options: ["false", "true"]
 
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
