@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 
 OUTPUT_FILE = Path(__file__).parent.parent / "events_raw.json"
+RA_EVENTS_FILE = Path(__file__).parent.parent / "ra_events.json"
+HTML_EVENTS_FILE = Path(__file__).parent.parent / "html_events.json"
 
 # Quellen-Priorität: höher = besser (wird behalten bei Duplikat)
 SOURCE_PRIORITY = {
@@ -171,13 +173,30 @@ def run(events: list[dict]) -> list[dict]:
 
 
 if __name__ == "__main__":
-    # Test mit Dummy-Events
-    test_events = [
-        {"title": "Colyn", "date": "2026-04-01", "venue": "Nordstern", "source": "ra_basel", "doors": "23:00", "close": "07:00"},
-        {"title": "Colyn @ Nordstern", "date": "2026-04-01", "venue": "Nordstern Basel", "source": "basellive", "doors": None, "close": None},
-        {"title": "Totally Different Event", "date": "2026-04-02", "venue": "Kaserne", "source": "kaserne", "doors": "20:00", "close": "23:00"},
-    ]
-    result = run(test_events)
+    ra_events = []
+    html_events = []
+
+    if RA_EVENTS_FILE.exists():
+        with open(RA_EVENTS_FILE, encoding="utf-8") as f:
+            ra_events = json.load(f)
+        print(f"RA-Datei geladen: {RA_EVENTS_FILE} ({len(ra_events)} Events)")
+    else:
+        from ra_scraper import run as run_ra_scraper
+        ra_events = run_ra_scraper()
+        print(f"RA direkt gescraped: {len(ra_events)} Events")
+
+    if HTML_EVENTS_FILE.exists():
+        with open(HTML_EVENTS_FILE, encoding="utf-8") as f:
+            html_events = json.load(f)
+        print(f"HTML-Datei geladen: {HTML_EVENTS_FILE} ({len(html_events)} Events)")
+    else:
+        from html_scraper import run as run_html_scraper
+        html_events = run_html_scraper()
+        print(f"HTML direkt gescraped: {len(html_events)} Events")
+
+    scraped_events = ra_events + html_events
+
+    result = run(scraped_events)
     print(f"\nResult: {len(result)} Events")
     for ev in result:
         print(f"  {ev['date']} · {ev['title']} · {ev['venue']} · sources: {ev.get('sources')}")
