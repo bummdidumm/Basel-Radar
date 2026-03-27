@@ -1,36 +1,30 @@
 """
-Basel Radar · RA GraphQL Scraper
-Scrapt Events von Resident Advisor via inoffizielle GraphQL API.
-Gibt Liste von Event-Dicts zurück, kompatibel mit events_raw.json Format.
+Basel Radar · RA Scraper
+Scrapt Events von Resident Advisor via GraphQL.
+Speichert Ergebnis in ra_events.json.
 """
-
+import json, time
 import httpx
-import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-RA_GRAPHQL_URL = "https://ra.co/graphql"
+OUT = Path(__file__).parent.parent / "ra_events.json"
 
-RA_HEADERS = {
+HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Referer": "https://ra.co/events/ch/basel",
     "Origin": "https://ra.co",
-    "Accept": "*/*",
-    "Accept-Language": "de-CH,de;q=0.9,en;q=0.8",
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
     "ra-content-language": "en",
+    "x-ra-application-id": "web",
 }
 
-# RA Area IDs: Basel = 143, Zürich = 25
-RA_SOURCES = [
-    {"id": "ra_basel",  "name": "Resident Advisor Basel",  "area_id": "143"},
-    {"id": "ra_zurich", "name": "Resident Advisor Zürich", "area_id": "25"},
-]
-
-RA_QUERY = """
-query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) {
-  eventListings(filters: $filters, pageSize: $pageSize, page: 1, sort: { date: { value: asc } }) {
+QUERY = """
+query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int, $page: Int) {
+  eventListings(filters: $filters, pageSize: $pageSize, page: $page, sort: { date: { value: asc } }) {
     data {
-      id
       event {
         id
         title
@@ -38,121 +32,88 @@ query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) {
         startTime
         endTime
         contentUrl
-        images { filename }
-        venue {
-          name
-          contentUrl
-        }
-        artists {
-          name
-          contentUrl
-        }
+        venue { name contentUrl }
+        artists { name contentUrl }
         genres { name }
         cost
       }
     }
+    totalResults
   }
 }
 """
 
+AREAS = [
+    {"id": "ra_basel",  "name": "Resident Advisor Basel",  "area_id": "143"},
+    {"id": "ra_zurich", "name": "Resident Advisor Zürich", "area_id": "25"},
+]
 
-def scrape_ra(area_id: str, source_id: str, source_name: str, days_ahead: int = 30) -> list[dict]:
-    """Scrapt RA Events für eine Area. Gibt normalisierte Event-Dicts zurück."""
-
+def scrape_area(area_id, source_id, source_name, days=30):
     now = datetime.now(timezone.utc)
-    from datetime import timedelta
     date_from = now.strftime("%Y-%m-%d")
-    date_to = (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+    date_to = (now + timedelta(days=days)).strftime("%Y-%m-%d")
+    all_events = []
 
-    payload = {
-        "query": RA_QUERY,
-        "variables": {
-            "pageSize": 100,
-            "filters": {
-                "areas": {"eq": area_id},
-                "listingDate": {
-                    "gte": date_from,
-                    "lte": date_to,
+    for page in range(1, 4):  # max 3 pages
+        payload = {
+            "query": QUERY,
+            "variables": {
+                "pageSize": 50,
+                "page": page,
+                "filters": {
+                    "areas": {"eq": area_id},
+                    "listingDate": {"gte": date_from, "lte": date_to}
                 }
             }
         }
-    }
+        try:
+            r = httpx.post("https://ra.co/graphql", json=payload, headers=HEADERS, timeout=20)
+            r.raise_for_status()
+            data = r.json()
+            listings = data.get("data", {}).get("eventListings", {}).get("data", [])
+            if not listings:
+                break
+            for l in listings:
+                ev = l.get("event")
+                if not ev:
+                    continue
+                artists = [a["name"] for a in ev.get("artists", []) if a.get("name")]
+                venue = ev.get("venue") or {}
+                all_events.append({
+                    "title": ev.get("title", "").strip(),
+                    "date": (ev.get("date") or "")[:10],
+                    "doors": (ev.get("startTime") or "")[:5] or None,
+                    "close": (ev.get("endTime") or "")[:5] or None,
+                    "venue": venue.get("name", source_name),
+                    "venue_url": "https://ra.co" + venue.get("contentUrl", ""),
+                    "url": "https://ra.co" + ev.get("contentUrl", ""),
+                    "artists": artists,
+                    "artist_urls": {},
+                    "genres": [g["name"].lower() for g in ev.get("genres", [])],
+                    "cost": ev.get("cost"),
+                    "ig": None, "fb": None,
+                    "tags": [g["name"].lower() for g in ev.get("genres", [])],
+                    "source": source_id,
+                    "scraped_at": now.isoformat(),
+                })
+            total = data.get("data", {}).get("eventListings", {}).get("totalResults", 0)
+            if len(all_events) >= total:
+                break
+            time.sleep(1)
+        except Exception as e:
+            print(f"[{source_id}] Fehler Seite {page}: {e}")
+            break
 
-    try:
-        resp = httpx.post(RA_GRAPHQL_URL, json=payload, headers=RA_HEADERS, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        print(f"[{source_id}] Fehler beim Abruf: {e}")
-        return []
-
-    listings = data.get("data", {}).get("eventListings", {}).get("data", [])
-    events = []
-
-    for listing in listings:
-        ev = listing.get("event")
-        if not ev:
-            continue
-
-        # Artists zusammenführen
-        artists = [a["name"] for a in ev.get("artists", []) if a.get("name")]
-        artist_urls = {
-            a["name"]: f"https://ra.co{a['contentUrl']}"
-            for a in ev.get("artists", [])
-            if a.get("name") and a.get("contentUrl")
-        }
-
-        # Venue
-        venue = ev.get("venue") or {}
-        venue_name = venue.get("name", source_name)
-        venue_url = f"https://ra.co{venue['contentUrl']}" if venue.get("contentUrl") else None
-
-        # Zeiten
-        start_time = ev.get("startTime", "")[:5] if ev.get("startTime") else None
-        end_time = ev.get("endTime", "")[:5] if ev.get("endTime") else None
-
-        # Genres
-        genres = [g["name"].lower() for g in ev.get("genres", []) if g.get("name")]
-
-        events.append({
-            "title": ev.get("title", "").strip(),
-            "date": ev.get("date", "")[:10],
-            "doors": start_time,
-            "close": end_time,
-            "venue": venue_name,
-            "venue_url": venue_url or f"https://ra.co{ev.get('contentUrl', '')}",
-            "url": f"https://ra.co{ev.get('contentUrl', '')}",
-            "artists": artists,
-            "artist_urls": artist_urls,
-            "genres": genres,
-            "cost": ev.get("cost"),
-            "ig": None,        # wird von sources.json ergänzt wenn venue bekannt
-            "fb": None,
-            "tags": genres,
-            "source": source_id,
-            "scraped_at": now.isoformat(),
-        })
-
-    print(f"[{source_id}] {len(events)} Events gefunden ({date_from} – {date_to})")
-    return events
-
-
-def run() -> list[dict]:
-    """Scrapt alle RA-Quellen und gibt kombinierte Event-Liste zurück."""
-    all_events = []
-    for src in RA_SOURCES:
-        events = scrape_ra(
-            area_id=src["area_id"],
-            source_id=src["id"],
-            source_name=src["name"],
-        )
-        all_events.extend(events)
+    print(f"[{source_id}] {len(all_events)} Events ({date_from}–{date_to})")
     return all_events
 
+def run():
+    events = []
+    for a in AREAS:
+        events.extend(scrape_area(a["area_id"], a["id"], a["name"]))
+    OUT.write_text(json.dumps(events, indent=2, ensure_ascii=False))
+    print(f"RA total: {len(events)} → {OUT}")
+    return events
 
 if __name__ == "__main__":
-    events = run()
-    print(f"\nTotal: {len(events)} Events")
-    # Testausgabe erste 2
-    for ev in events[:2]:
-        print(json.dumps(ev, indent=2, ensure_ascii=False))
+    run()
