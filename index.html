@@ -4,480 +4,329 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basel Radar</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #080808;
-    --fg: #e8e8e0;
-    --dim: #444;
-    --accent: #c8f050;
-    --red: #ff3c2e;
-    --border: #1a1a1a;
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0c0c0c;
+  --fg: #e0e0d8;
+  --dim: #555;
+  --dim2: #333;
+  --accent: #c8f050;
+  --border: #1c1c1c;
+  --font: 'IBM Plex Mono', monospace;
+}
 
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    line-height: 1.6;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 0 60px;
+}
 
-  /* Grain overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 1000;
-    opacity: 0.4;
-  }
+/* ── HEADER ── */
+.hdr {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.hdr-title {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.hdr-title span { color: var(--accent); }
+.hdr-meta { text-align: right; color: var(--dim); font-size: 11px; line-height: 1.6; }
+#clock { color: var(--accent); }
 
-  /* ── HEADER ── */
-  header {
-    padding: 40px 24px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 24px;
-  }
+/* ── STATUSBAR ── */
+.status {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--dim);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.status::-webkit-scrollbar { display: none; }
+.dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dim); margin-right: 5px; vertical-align: middle; }
+.dot.on { background: var(--accent); }
 
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(48px, 12vw, 80px);
-    letter-spacing: 2px;
-    line-height: 0.9;
-    color: var(--fg);
-  }
+/* ── SECTIONS ── */
+.section { border-bottom: 1px solid var(--border); }
+.section-head {
+  padding: 14px 20px 10px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
 
-  .logo span {
-    color: var(--accent);
-  }
+/* ── EVENTS ── */
+.event {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s;
+}
+.event:hover { background: #141414; }
 
-  .meta {
-    text-align: right;
-    color: var(--dim);
-    font-size: 11px;
-  }
+.event-date {
+  font-size: 10px;
+  color: var(--dim);
+  text-align: right;
+  padding-top: 2px;
+  line-height: 1.3;
+}
+.event-date b { display: block; font-size: 17px; font-weight: 400; color: var(--fg); line-height: 1; }
 
-  #live-time {
-    color: var(--accent);
-    font-size: 11px;
-  }
+.event-body {}
+.event-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+.event-venue { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+.event-hours { font-size: 11px; color: var(--dim2); }
 
-  /* ── STATUS BAR ── */
-  .statusbar {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .statusbar::-webkit-scrollbar { display: none; }
+.event-links {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.event-links a {
+  font-size: 10px;
+  color: var(--dim);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 2px;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.event-links a:hover { color: var(--accent); border-color: var(--accent); }
+.event-links a.ig { color: #886699; border-color: #331133; }
+.event-links a.sc { color: #cc6622; border-color: #331100; }
+.event-links a.sp { color: #228844; border-color: #112211; }
 
-  .status-item {
-    padding: 10px 20px;
-    font-size: 11px;
-    color: var(--dim);
-    border-right: 1px solid var(--border);
-    white-space: nowrap;
-    letter-spacing: 0.5px;
-  }
+.no-events { padding: 20px; color: var(--dim); font-size: 12px; }
 
-  .status-item.active { color: var(--accent); }
-  .status-item .dot {
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--dim);
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  .status-item.active .dot { background: var(--accent); }
+/* ── RUN BUTTON ── */
+#run-btn {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px 12px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+#run-btn:hover { background: var(--accent); color: var(--bg); }
+#run-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+#run-status { padding: 0 20px 16px; font-size: 11px; color: var(--dim); min-height: 18px; }
 
-  /* ── MAIN GRID ── */
-  main {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
+/* ── SOURCES ── */
+.sources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border);
+  margin: 0 20px;
+}
+.src {
+  background: var(--bg);
+  padding: 8px 10px;
+  font-size: 10px;
+}
+.src-name { color: #777; display: block; margin-bottom: 1px; }
+.src-type { color: var(--dim2); }
+.src.api .src-type { color: #335533; }
+.src.off { opacity: 0.35; }
 
-  @media (min-width: 800px) {
-    main { grid-template-columns: 1fr 1fr; }
-  }
+/* ── BRIEFING ── */
+.briefing-box {
+  margin: 0 20px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.briefing-box a { color: var(--accent); text-decoration: none; font-size: 11px; }
 
-  /* ── SECTION ── */
-  section {
-    border-bottom: 1px solid var(--border);
-    padding: 28px 24px;
-  }
+/* ── PHASES ── */
+.phase-list { padding: 0 20px; }
+.phase-item {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.phase-badge {
+  font-size: 9px;
+  border: 1px solid var(--dim2);
+  padding: 1px 5px;
+  color: var(--dim2);
+  white-space: nowrap;
+  align-self: center;
+}
 
-  @media (min-width: 800px) {
-    section { border-right: 1px solid var(--border); }
-    section:nth-child(even) { border-right: none; }
-  }
-
-  .section-label {
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--dim);
-    text-transform: uppercase;
-    margin-bottom: 20px;
-  }
-
-  /* ── EVENTS ── */
-  #events-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: var(--border);
-  }
-
-  .event-card {
-    background: var(--bg);
-    padding: 14px 0;
-    display: grid;
-    grid-template-columns: 56px 1fr auto;
-    gap: 12px;
-    align-items: start;
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-
-  .event-card:hover { background: #0f0f0f; }
-
-  .event-date {
-    font-size: 11px;
-    color: var(--dim);
-    padding-top: 2px;
-    text-align: right;
-    line-height: 1.4;
-  }
-
-  .event-date .day {
-    font-size: 18px;
-    color: var(--fg);
-    display: block;
-    line-height: 1;
-  }
-
-  .event-body { min-width: 0; }
-
-  .event-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--fg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 3px;
-  }
-
-  .event-venue {
-    font-size: 11px;
-    color: var(--dim);
-    margin-bottom: 4px;
-  }
-
-  .event-hours {
-    font-size: 11px;
-    color: #333;
-  }
-
-  .event-links {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-end;
-  }
-
-  .event-links a {
-    font-size: 10px;
-    color: var(--dim);
-    text-decoration: none;
-    letter-spacing: 0.5px;
-    border: 1px solid #1e1e1e;
-    padding: 2px 6px;
-    border-radius: 2px;
-    white-space: nowrap;
-    transition: all 0.15s;
-  }
-
-  .event-links a:hover { color: var(--accent); border-color: var(--accent); }
-  .event-links a.ig { color: #884499; border-color: #331133; }
-  .event-links a.sc { color: #884400; border-color: #332200; }
-  .event-links a.sp { color: #228844; border-color: #112211; }
-
-  .no-events {
-    color: var(--dim);
-    font-size: 12px;
-    padding: 20px 0;
-  }
-
-  /* ── RUN BUTTON ── */
-  .run-section {
-    grid-column: 1 / -1;
-    border-right: none !important;
-  }
-
-  #run-btn {
-    display: block;
-    width: 100%;
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    padding: 16px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.2s;
-    margin-bottom: 12px;
-  }
-
-  #run-btn:hover { background: var(--accent); color: var(--bg); }
-  #run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  #run-btn.running { animation: pulse 1s infinite; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  #run-status {
-    font-size: 11px;
-    color: var(--dim);
-    min-height: 16px;
-  }
-
-  /* ── QUELLEN ── */
-  .sources-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
-  }
-
-  .source-chip {
-    background: #0d0d0d;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 8px 10px;
-    font-size: 10px;
-    color: #555;
-    line-height: 1.4;
-  }
-
-  .source-chip .source-name { color: #888; display: block; }
-  .source-chip .source-type { color: #333; }
-  .source-chip.api { border-color: #1a2a1a; }
-  .source-chip.api .source-type { color: #335533; }
-
-  /* ── BRIEFING LINK ── */
-  .briefing-box {
-    border: 1px solid var(--border);
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .briefing-box a {
-    color: var(--accent);
-    text-decoration: none;
-    font-size: 12px;
-    letter-spacing: 1px;
-  }
-
-  .briefing-date { color: var(--dim); font-size: 11px; }
-
-  /* ── COMING SOON ── */
-  .features-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .feature-item {
-    display: flex;
-    gap: 12px;
-    align-items: baseline;
-    color: var(--dim);
-    font-size: 11px;
-  }
-
-  .feature-item .phase {
-    font-size: 9px;
-    letter-spacing: 1px;
-    border: 1px solid #1e1e1e;
-    padding: 1px 5px;
-    color: #333;
-    white-space: nowrap;
-  }
-
-  /* ── FOOTER ── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    color: var(--dim);
-    font-size: 10px;
-    letter-spacing: 0.5px;
-  }
-
-  /* ── LOAD ANIMATION ── */
-  @keyframes fadein {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .event-card { animation: fadein 0.3s ease both; }
-  .event-card:nth-child(1) { animation-delay: 0.05s; }
-  .event-card:nth-child(2) { animation-delay: 0.10s; }
-  .event-card:nth-child(3) { animation-delay: 0.15s; }
-  .event-card:nth-child(4) { animation-delay: 0.20s; }
-  .event-card:nth-child(5) { animation-delay: 0.25s; }
+/* ── FOOTER ── */
+.footer {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--dim2);
+}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">Basel<br><span>Radar</span></div>
-  <div class="meta">
-    <div id="live-time">--:--</div>
-    <div style="margin-top:4px">Basel, CH</div>
-    <div style="margin-top:2px; font-size:10px" id="last-updated">wird geladen...</div>
+<div class="hdr">
+  <div class="hdr-title">Basel<br><span>Radar</span></div>
+  <div class="hdr-meta">
+    <div id="clock">--:--:--</div>
+    <div>Basel, CH</div>
+    <div id="last-updated" style="font-size:10px;margin-top:2px">—</div>
   </div>
-</header>
-
-<div class="statusbar">
-  <div class="status-item active"><span class="dot"></span>28 Quellen aktiv</div>
-  <div class="status-item" id="status-events"><span class="dot"></span>Events werden geladen</div>
-  <div class="status-item"><span class="dot"></span>Phase 1</div>
-  <div class="status-item"><span class="dot"></span>bummdidumm / Basel-Radar</div>
 </div>
 
-<main>
+<div class="status">
+  <span><span class="dot on"></span>28 Quellen</span>
+  <span id="status-events"><span class="dot"></span>lädt...</span>
+  <span><span class="dot"></span>Phase 1</span>
+</div>
 
-  <!-- EVENTS -->
-  <section style="grid-column: 1 / -1; border-right: none;">
-    <div class="section-label">Diese Woche</div>
-    <div id="events-container">
-      <div class="no-events">Events werden geladen...</div>
+<!-- EVENTS -->
+<div class="section">
+  <div class="section-head">Kommende Events</div>
+  <div id="events-list"><div class="no-events">Events werden geladen...</div></div>
+</div>
+
+<!-- RUN -->
+<div class="section" style="padding-top:16px">
+  <div class="section-head">Manueller Run</div>
+  <button id="run-btn" onclick="triggerRun()">Jetzt scrapen</button>
+  <div id="run-status"></div>
+</div>
+
+<!-- BRIEFING -->
+<div class="section">
+  <div class="section-head">Weekly Briefing</div>
+  <div class="briefing-box">
+    <div>
+      <div style="color:var(--fg);font-size:12px;margin-bottom:3px">Basel Radar · Weekly</div>
+      <div style="color:var(--dim);font-size:10px">Montags generiert</div>
     </div>
-  </section>
+    <a href="briefing_latest.md" target="_blank">Öffnen →</a>
+  </div>
+  <div style="height:16px"></div>
+</div>
 
-  <!-- RUN -->
-  <section class="run-section">
-    <div class="section-label">Manueller Run</div>
-    <button id="run-btn" onclick="triggerRun()">Jetzt scrapen</button>
-    <div id="run-status">Letzter Run: wird geladen...</div>
-  </section>
+<!-- QUELLEN -->
+<div class="section">
+  <div class="section-head">Quellen</div>
+  <div class="sources-grid" id="sources-grid"></div>
+  <div style="height:16px"></div>
+</div>
 
-  <!-- BRIEFING -->
-  <section>
-    <div class="section-label">Weekly Briefing</div>
-    <div class="briefing-box">
-      <div>
-        <div style="color: var(--fg); font-size: 12px; margin-bottom: 4px">Basel Radar · Weekly</div>
-        <div class="briefing-date" id="briefing-date">Montags 12:00 generiert</div>
-      </div>
-      <a href="https://drive.google.com/drive/folders/FOLDER_ID_HERE" target="_blank">Drive öffnen →</a>
-    </div>
-  </section>
+<!-- GEPLANT -->
+<div class="section">
+  <div class="section-head">Geplant</div>
+  <div class="phase-list">
+    <div class="phase-item"><span class="phase-badge">Phase 2</span>Browser Push Notifications</div>
+    <div class="phase-item"><span class="phase-badge">Phase 3</span>Instagram — Kollektive ohne Website</div>
+    <div class="phase-item"><span class="phase-badge">Phase 4</span>Gmail Newsletter-Extraktion</div>
+    <div class="phase-item"><span class="phase-badge">Phase 5</span>Artist-Playlists SoundCloud + Spotify</div>
+    <div class="phase-item"><span class="phase-badge">Phase 5</span>Kalender Export / .ics Feed</div>
+  </div>
+  <div style="height:16px"></div>
+</div>
 
-  <!-- QUELLEN -->
-  <section>
-    <div class="section-label">Quellen (28)</div>
-    <div class="sources-grid" id="sources-grid">
-      <!-- wird via JS befüllt -->
-    </div>
-  </section>
-
-  <!-- COMING SOON -->
-  <section>
-    <div class="section-label">Geplant</div>
-    <div class="features-list">
-      <div class="feature-item"><span class="phase">Phase 2</span>Browser Push Notifications</div>
-      <div class="feature-item"><span class="phase">Phase 3</span>Instagram — Kollektive ohne Website</div>
-      <div class="feature-item"><span class="phase">Phase 4</span>Gmail Newsletter-Extraktion</div>
-      <div class="feature-item"><span class="phase">Phase 5</span>Artist-Playlists via SoundCloud + Spotify</div>
-      <div class="feature-item"><span class="phase">Phase 5</span>Neue Quelle hinzufügen = 1 File + 1 Zeile</div>
-    </div>
-  </section>
-
-</main>
-
-<footer>
+<div class="footer">
   <span>Basel Radar v1.0</span>
-  <span>0 CHF / Monat</span>
-  <span id="footer-count">— Events</span>
-</footer>
+  <span id="event-count">— Events</span>
+  <span>0 CHF / Mo</span>
+</div>
 
 <script>
-// ── ZEIT ──────────────────────────────────────────────────────────────────────
-function updateTime() {
-  const now = new Date();
-  document.getElementById("live-time").textContent =
-    now.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-setInterval(updateTime, 1000);
-updateTime();
+// ── UHRZEIT ──────────────────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("de-CH", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}, 1000);
 
-// ── EVENTS LADEN ─────────────────────────────────────────────────────────────
+// ── EVENTS ───────────────────────────────────────────────────────────────────
+const WEEKDAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+const MONTHS   = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
 async function loadEvents() {
   try {
-    const resp = await fetch("events_raw.json?t=" + Date.now());
-    if (!resp.ok) throw new Error("Keine Events gefunden");
-    const events = await resp.json();
+    const r = await fetch("events_raw.json?t=" + Date.now());
+    if (!r.ok) throw new Error();
+    const events = await r.json();
 
+    // Filter vergangene Events + laufende Clubs
     const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
     const filtered = events.filter(ev => {
       if (!ev.date) return true;
-      const evDate = new Date(ev.date);
-      // Wenn heute: nur Events die noch nicht zu sind
-      if (ev.date === now.toISOString().slice(0, 10) && ev.close) {
+      if (ev.date < todayStr) return false;
+      if (ev.date === todayStr && ev.close) {
         const [h, m] = ev.close.split(":").map(Number);
-        const closeTime = new Date(evDate);
-        // Close nach Mitternacht = nächster Tag
+        const closeTime = new Date(ev.date + "T00:00:00");
         if (h < 12) closeTime.setDate(closeTime.getDate() + 1);
         closeTime.setHours(h, m, 0);
-        return closeTime > now;
+        if (closeTime < now) return false;
       }
-      return evDate >= new Date(now.toDateString());
+      return true;
     });
 
     renderEvents(filtered);
-    document.getElementById("status-events").innerHTML =
-      `<span class="dot" style="background:var(--accent)"></span>${filtered.length} Events`;
-    document.getElementById("footer-count").textContent = `${filtered.length} Events`;
 
-    // Last updated
-    if (events.length && events[0].scraped_at) {
+    // Status updaten
+    document.getElementById("status-events").innerHTML =
+      `<span class="dot on"></span>${filtered.length} Events`;
+    document.getElementById("event-count").textContent = `${filtered.length} Events`;
+
+    if (events[0]?.scraped_at) {
       const d = new Date(events[0].scraped_at);
       document.getElementById("last-updated").textContent =
-        "Stand: " + d.toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        "Stand: " + d.toLocaleString("de-CH", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
     }
-
-  } catch (e) {
-    document.getElementById("events-container").innerHTML =
-      `<div class="no-events">Noch keine Events — erst nach dem ersten Run.</div>`;
+  } catch(e) {
+    document.getElementById("events-list").innerHTML =
+      '<div class="no-events">Noch keine Events — erst nach dem ersten Run.</div>';
   }
 }
 
 function renderEvents(events) {
-  const container = document.getElementById("events-container");
-
+  const list = document.getElementById("events-list");
   if (!events.length) {
-    container.innerHTML = `<div class="no-events">Keine Events in den nächsten Tagen.</div>`;
+    list.innerHTML = '<div class="no-events">Keine kommenden Events.</div>';
     return;
   }
 
@@ -492,122 +341,102 @@ function renderEvents(events) {
   let html = "";
   for (const date of Object.keys(byDate).sort()) {
     byDate[date].forEach((ev, i) => {
-      const d = new Date(date + "T12:00:00");
-      const dayNum = d.toLocaleDateString("de-CH", { day: "2-digit" });
-      const month = d.toLocaleDateString("de-CH", { month: "short" });
-      const weekday = d.toLocaleDateString("de-CH", { weekday: "short" });
+      let dayNum = "", mon = "", wd = "";
+      if (date !== "?") {
+        const d = new Date(date + "T12:00:00");
+        dayNum = d.getDate();
+        mon = MONTHS[d.getMonth()];
+        wd = WEEKDAYS[d.getDay()];
+      }
 
-      const hours = (ev.doors || ev.close)
-        ? `${ev.doors || "??"} – ${ev.close || "??"}`
+      const hours = ev.doors
+        ? ev.doors + (ev.close ? "–" + ev.close : "")
         : "";
 
-      // Links bauen
+      // Links
       let links = "";
-      if (ev.url && ev.url !== ev.venue_url) {
-        links += `<a href="${ev.url}" target="_blank">Event</a>`;
-      }
-      if (ev.ig) links += `<a href="${ev.ig}" target="_blank" class="ig">IG</a>`;
-
-      // Artist Links
-      const artistUrls = ev.artist_urls || {};
-      for (const [artist, urls] of Object.entries(artistUrls)) {
+      if (ev.url) links += `<a href="${ev.url}" target="_blank">Event</a>`;
+      if (ev.ig)  links += `<a href="${ev.ig}" target="_blank" class="ig">IG</a>`;
+      for (const [artist, urls] of Object.entries(ev.artist_urls || {})) {
         if (urls.soundcloud) links += `<a href="${urls.soundcloud}" target="_blank" class="sc">SC</a>`;
-        if (urls.spotify) links += `<a href="${urls.spotify}" target="_blank" class="sp">SP</a>`;
+        if (urls.spotify)    links += `<a href="${urls.spotify}" target="_blank" class="sp">SP</a>`;
       }
 
-      html += `
-        <div class="event-card" onclick="window.open('${ev.url || ev.venue_url}', '_blank')">
-          <div class="event-date">
-            ${i === 0 ? `<span class="day">${dayNum}</span>${month}<br>${weekday}` : ''}
-          </div>
-          <div class="event-body">
-            <div class="event-title">${ev.title}</div>
-            <div class="event-venue">${ev.venue}</div>
-            ${hours ? `<div class="event-hours">${hours}</div>` : ""}
-          </div>
-          <div class="event-links">${links}</div>
-        </div>`;
+      html += `<a class="event" href="${ev.url || ev.venue_url || '#'}" target="_blank" onclick="event.preventDefault(); if(this.href!='#') window.open(this.href)">
+        <div class="event-date">${i===0 ? `<b>${dayNum}</b>${mon}<br>${wd}` : ''}</div>
+        <div class="event-body">
+          <div class="event-title">${ev.title}</div>
+          <div class="event-venue">${ev.venue}</div>
+          ${hours ? `<div class="event-hours">${hours}</div>` : ''}
+          ${links ? `<div class="event-links">${links}</div>` : ''}
+        </div>
+      </a>`;
     });
   }
-
-  container.innerHTML = html;
+  list.innerHTML = html;
 }
 
-// ── QUELLEN LADEN ─────────────────────────────────────────────────────────────
+// ── QUELLEN ──────────────────────────────────────────────────────────────────
 async function loadSources() {
   try {
-    const resp = await fetch("sources.json");
-    const data = await resp.json();
-    const grid = document.getElementById("sources-grid");
-    grid.innerHTML = data.sources.map(s => `
-      <div class="source-chip ${s.platform === 'ra_graphql' ? 'api' : ''}">
-        <span class="source-name">${s.name}</span>
-        <span class="source-type">${s.platform === 'ra_graphql' ? 'GraphQL' : 'HTML'}</span>
-      </div>
-    `).join("");
+    const r = await fetch("sources.json");
+    const data = await r.json();
+    document.getElementById("sources-grid").innerHTML = data.sources.map(s =>
+      `<div class="src ${s.platform === 'ra_graphql' ? 'api' : ''} ${!s.active ? 'off' : ''}">
+        <span class="src-name">${s.name}</span>
+        <span class="src-type">${s.platform === 'ra_graphql' ? 'GraphQL' : 'HTML'}${!s.active ? ' · inaktiv' : ''}</span>
+      </div>`
+    ).join("");
   } catch(e) {}
 }
 
-// ── MANUELLER RUN ─────────────────────────────────────────────────────────────
+// ── MANUELLER RUN ────────────────────────────────────────────────────────────
 async function triggerRun() {
   const btn = document.getElementById("run-btn");
   const status = document.getElementById("run-status");
+  const OWNER = "bummdidumm", REPO = "Basel-Radar";
 
-  btn.disabled = true;
-  btn.classList.add("running");
-  btn.textContent = "Wird gestartet...";
-  status.textContent = "GitHub Actions Workflow wird getriggert...";
-
-  // GitHub API — PAT wird als URL-Parameter übergeben (oder hardcoded für persönliche Nutzung)
-  const OWNER = "bummdidumm";
-  const REPO = "Basel-Radar";
-  const PAT = localStorage.getItem("gh_pat") || prompt("GitHub Personal Access Token (wird lokal gespeichert):");
-
-  if (!PAT) {
-    btn.disabled = false;
-    btn.classList.remove("running");
-    btn.textContent = "Jetzt scrapen";
-    status.textContent = "Abgebrochen — kein Token.";
-    return;
+  let pat = localStorage.getItem("gh_pat");
+  if (!pat) {
+    pat = prompt("GitHub Personal Access Token (wird lokal gespeichert):");
+    if (!pat) return;
+    localStorage.setItem("gh_pat", pat);
   }
 
-  localStorage.setItem("gh_pat", PAT);
+  btn.disabled = true;
+  btn.textContent = "läuft...";
+  status.textContent = "Workflow wird gestartet...";
 
   try {
-    const resp = await fetch(
+    const r = await fetch(
       `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/radar.yml/dispatches`,
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${PAT}`,
+          "Authorization": `Bearer ${pat}`,
           "Accept": "application/vnd.github+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ref: "main" }),
+        body: JSON.stringify({ref: "main"})
       }
     );
-
-    if (resp.status === 204) {
-      status.textContent = "Gestartet. Dauert ca. 2–3 Minuten.";
-      btn.textContent = "Läuft...";
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.classList.remove("running");
-        btn.textContent = "Jetzt scrapen";
-        loadEvents();
-      }, 180000); // 3 min
+    if (r.status === 204) {
+      status.textContent = "Gestartet — dauert ca. 3 Minuten.";
+      setTimeout(() => { btn.disabled=false; btn.textContent="Jetzt scrapen"; loadEvents(); }, 200000);
+    } else if (r.status === 401) {
+      localStorage.removeItem("gh_pat");
+      status.textContent = "Token ungültig — bitte neu eingeben.";
+      btn.disabled = false; btn.textContent = "Jetzt scrapen";
     } else {
-      throw new Error(`Status ${resp.status}`);
+      throw new Error(`Status ${r.status}`);
     }
-  } catch (e) {
+  } catch(e) {
     status.textContent = `Fehler: ${e.message}`;
-    btn.disabled = false;
-    btn.classList.remove("running");
-    btn.textContent = "Jetzt scrapen";
+    btn.disabled = false; btn.textContent = "Jetzt scrapen";
   }
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
+// ── INIT ─────────────────────────────────────────────────────────────────────
 loadEvents();
 loadSources();
 </script>

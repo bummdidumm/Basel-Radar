@@ -1,186 +1,180 @@
 """
-Basel Radar · Deduplication
-Entfernt doppelte Events aus verschiedenen Quellen.
-Strategie: gleicher Titel (fuzzy) + gleiches Datum + ähnliche Venue → Duplikat.
-Behält die "beste" Version (mehr Felder ausgefüllt, bevorzugt RA als Quelle).
+Basel Radar · Deduplication (hardened)
+- Verwirft kaputte/undatierte Events früh.
+- Behalten werden nur Events >= heute.
+- Gibt Qualitätswarnungen pro Quelle aus.
 """
 
 import json
 import re
+from collections import Counter
+from datetime import date
 from pathlib import Path
 
-OUTPUT_FILE = Path(__file__).parent.parent / "events_raw.json"
-RA_EVENTS_FILE = Path(__file__).parent.parent / "ra_events.json"
-HTML_EVENTS_FILE = Path(__file__).parent.parent / "html_events.json"
+BASE = Path(__file__).parent.parent
+RA_FILE = BASE / "ra_events.json"
+HTML_FILE = BASE / "html_events.json"
+SOURCES_FILE = BASE / "sources.json"
+OUT = BASE / "events_raw.json"
 
-# Quellen-Priorität: höher = besser (wird behalten bei Duplikat)
-SOURCE_PRIORITY = {
-    "ra_basel": 10,
-    "ra_zurich": 9,
-    "nordstern": 8,
-    "ava_club": 8,
-    "kinker": 8,
-    "elysia": 8,
-    "humbug": 8,
-    "basso": 8,
-    "kuppel": 7,
-    "viertel_klub": 7,
-    "kaserne": 7,
-    "gannet": 7,
-    "basellive": 5,
-    "denkmal": 6,
-    "proz": 4,
-    "eventfrog": 3,
-    "songkick": 3,
+SOURCE_PRIO = {
+    "ra_basel": 10, "ra_zurich": 9,
+    "nordstern": 8, "ava_club": 8,
+    "kuppel": 7, "viertel_klub": 7, "kaserne": 7,
+    "hirscheneck": 7, "denkmal": 6, "basellive": 6,
+    "radiox": 5, "proz": 4, "eventfrog": 3, "songkick": 3,
 }
 
 
-def normalize_title(title: str) -> str:
-    """Titel normalisieren für Vergleich: lowercase, nur alphanum."""
-    title = title.lower()
-    title = re.sub(r"[^a-z0-9äöüß\s]", "", title)
-    title = re.sub(r"\s+", " ", title).strip()
-    return title
+def norm(text):
+    text = (text or "").lower()
+    text = re.sub(r"[^a-z0-9äöüß\s]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
-def normalize_venue(venue: str) -> str:
-    """Venue-Name normalisieren."""
-    venue = venue.lower()
-    venue = re.sub(r"[^a-z0-9\s]", "", venue)
-    return re.sub(r"\s+", " ", venue).strip()
-
-
-def similarity(a: str, b: str) -> float:
-    """Einfache Ähnlichkeit: gemeinsame Wörter / max Wörter."""
-    words_a = set(a.split())
-    words_b = set(b.split())
-    if not words_a or not words_b:
+def sim(a, b):
+    wa, wb = set(a.split()), set(b.split())
+    if not wa or not wb:
         return 0.0
-    intersection = words_a & words_b
-    return len(intersection) / max(len(words_a), len(words_b))
+    return len(wa & wb) / max(len(wa), len(wb))
 
 
-def is_duplicate(ev_a: dict, ev_b: dict, threshold: float = 0.7) -> bool:
-    """Prüft ob zwei Events Duplikate sind."""
-    # Gleiches Datum ist Pflicht
-    if ev_a.get("date") != ev_b.get("date"):
+def looks_like_date_title(title: str):
+    t = (title or "").strip().lower()
+    return bool(re.fullmatch(r"\d{1,2}[\.\-/]\d{1,2}([\.\-/]\d{2,4})?", t) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", t))
+
+
+def is_dup(a, b):
+    if a.get("date") != b.get("date"):
         return False
-
-    title_a = normalize_title(ev_a.get("title", ""))
-    title_b = normalize_title(ev_b.get("title", ""))
-
-    # Exakter Titel-Match
-    if title_a == title_b:
+    ta, tb = norm(a.get("title")), norm(b.get("title"))
+    if not ta or not tb:
+        return False
+    if ta == tb:
         return True
-
-    # Fuzzy Match bei gleichem Datum + ähnlichem Titel
-    if similarity(title_a, title_b) >= threshold:
+    if (ta in tb or tb in ta) and len(min(ta, tb, key=len)) >= 5:
         return True
-
-    # Einer ist Teilstring des anderen (z.B. "Colyn" in "Colyn @ Nordstern")
-    if title_a in title_b or title_b in title_a:
-        if len(min(title_a, title_b, key=len)) >= 4:
-            return True
-
-    # Gleiche Venue + Datum → wahrscheinlich dasselbe Event
-    venue_a = normalize_venue(ev_a.get("venue", ""))
-    venue_b = normalize_venue(ev_b.get("venue", ""))
-    if venue_a == venue_b and similarity(title_a, title_b) >= 0.5:
+    if sim(ta, tb) >= 0.72:
         return True
+    va, vb = norm(a.get("venue")), norm(b.get("venue"))
+    return va and vb and va == vb and sim(ta, tb) >= 0.5
 
-    return False
 
+def merge(a, b):
+    pa = SOURCE_PRIO.get(a.get("source", ""), 0)
+    pb = SOURCE_PRIO.get(b.get("source", ""), 0)
+    winner, loser = (a, b) if pa >= pb else (b, a)
+    winner = dict(winner)
 
-def best_event(ev_a: dict, ev_b: dict) -> dict:
-    """Gibt das 'bessere' Event zurück — mehr Felder + höhere Quellen-Priorität."""
-    prio_a = SOURCE_PRIORITY.get(ev_a.get("source", ""), 0)
-    prio_b = SOURCE_PRIORITY.get(ev_b.get("source", ""), 0)
+    for k in ["doors", "close", "ig", "fb", "artists", "genres", "cost", "venue", "venue_url"]:
+        if (winner.get(k) in [None, "", [], {}]) and loser.get(k):
+            winner[k] = loser[k]
 
-    # Höhere Priorität gewinnt
-    winner = ev_a if prio_a >= prio_b else ev_b
-    loser = ev_b if prio_a >= prio_b else ev_a
+    winner.setdefault("artist_urls", {})
+    winner["artist_urls"].update(loser.get("artist_urls", {}))
 
-    # Fehlende Felder vom Verlierer ergänzen
-    for key in ["doors", "close", "ig", "fb", "artists", "genres", "cost"]:
-        if not winner.get(key) and loser.get(key):
-            winner[key] = loser[key]
-
-    # Artist-URLs zusammenführen
-    if loser.get("artist_urls"):
-        winner.setdefault("artist_urls", {}).update(loser["artist_urls"])
-
-    # Alle Quellen tracken
-    sources = winner.get("sources", [winner.get("source", "")])
-    if loser.get("source") not in sources:
-        sources.append(loser.get("source", ""))
-    winner["sources"] = sources
-
+    srcs = list(dict.fromkeys((winner.get("sources") or [winner.get("source")]) + [loser.get("source")]))
+    winner["sources"] = [s for s in srcs if s]
     return winner
 
 
-def dedup(events: list[dict]) -> list[dict]:
-    """Dedupliziert eine Liste von Events."""
-    deduplicated = []
+def load_events(path: Path):
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return []
 
+
+def load_active_sources():
+    if not SOURCES_FILE.exists():
+        return {}
+    try:
+        data = json.loads(SOURCES_FILE.read_text())
+    except Exception:
+        return {}
+    active = {}
+    for s in data.get("sources", []):
+        if s.get("active"):
+            active[s.get("id")] = s.get("url")
+    return active
+
+
+def clean_event(ev):
+    if not isinstance(ev, dict):
+        return None
+    title = (ev.get("title") or "").strip()
+    event_date = (ev.get("date") or "").strip()
+    source = (ev.get("source") or "").strip()
+
+    if not title or not event_date or not source:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", event_date):
+        return None
+    if looks_like_date_title(title):
+        return None
+
+    ev = dict(ev)
+    ev["title"] = title
+    ev["date"] = event_date
+    ev.setdefault("sources", [source])
+    ev["sources"] = [s for s in ev["sources"] if s]
+    return ev
+
+
+def run():
+    events = load_events(RA_FILE) + load_events(HTML_FILE)
+    print(f"Dedup input: {len(events)}")
+
+    cleaned = []
+    dropped_invalid = 0
+    today = date.today().isoformat()
     for ev in events:
+        ev = clean_event(ev)
+        if not ev:
+            dropped_invalid += 1
+            continue
+        if ev["date"] < today:
+            continue
+        cleaned.append(ev)
+
+    print(f"Valid upcoming events: {len(cleaned)} (dropped invalid/no-date: {dropped_invalid})")
+
+    deduped = []
+    for ev in cleaned:
         merged = False
-        for i, existing in enumerate(deduplicated):
-            if is_duplicate(ev, existing):
-                deduplicated[i] = best_event(existing, ev)
+        for i, existing in enumerate(deduped):
+            if is_dup(ev, existing):
+                deduped[i] = merge(existing, ev)
                 merged = True
                 break
         if not merged:
-            ev.setdefault("sources", [ev.get("source", "")])
-            deduplicated.append(ev)
+            deduped.append(ev)
 
-    return deduplicated
+    deduped.sort(key=lambda e: (e.get("date", "9999-99-99"), norm(e.get("title", ""))))
 
+    # Sanity checks
+    counts = Counter(e.get("source", "") for e in deduped)
+    total = len(deduped) or 1
+    for source, count in counts.items():
+        share = count / total
+        if share > 0.40:
+            print(f"WARN: Quelle {source} liefert {share:.0%} aller Events ({count}/{total})")
 
-def filter_past(events: list[dict]) -> list[dict]:
-    """Entfernt Events ohne Datum oder in der Vergangenheit."""
-    from datetime import date
-    today = date.today().isoformat()
-    result = []
-    for ev in events:
-        d = ev.get("date", "")
-        if d and d >= today:
-            result.append(ev)
-        elif not d:
-            result.append(ev)  # Datum unbekannt → behalten
-    return result
+    for ev in deduped:
+        if looks_like_date_title(ev.get("title", "")):
+            print(f"WARN: Titel wirkt wie Datum: {ev.get('title')} ({ev.get('source')})")
 
+    active_sources = load_active_sources()
+    for src, url in active_sources.items():
+        if counts.get(src, 0) == 0 and src not in {"ra_basel", "ra_zurich"}:
+            print(f"WARN: Quelle {src} liefert 0 Events (URL: {url})")
 
-def run(events: list[dict]) -> list[dict]:
-    """Dedupliziert und filtert Events. Speichert events_raw.json."""
-    print(f"Dedup: {len(events)} Events rein...")
-
-    events = filter_past(events)
-    print(f"Nach Datum-Filter: {len(events)}")
-
-    events = dedup(events)
-    print(f"Nach Dedup: {len(events)} unique Events")
-
-    # Nach Datum sortieren
-    events.sort(key=lambda e: e.get("date", "9999"))
-
-    # Speichern
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, "w") as f:
-        json.dump(events, f, indent=2, ensure_ascii=False)
-    print(f"Gespeichert: {OUTPUT_FILE}")
-
-    return events
+    OUT.write_text(json.dumps(deduped, indent=2, ensure_ascii=False))
+    print(f"Dedup output: {len(deduped)} unique events -> {OUT}")
+    return deduped
 
 
 if __name__ == "__main__":
-    from ra_scraper import run as run_ra_scraper
-    from html_scraper import run as run_html_scraper
-
-    ra_events = run_ra_scraper()
-    html_events = run_html_scraper()
-    scraped_events = ra_events + html_events
-
-    result = run(scraped_events)
-    print(f"\nResult: {len(result)} Events")
-    for ev in result:
-        print(f"  {ev['date']} · {ev['title']} · {ev['venue']} · sources: {ev.get('sources')}")
+    run()

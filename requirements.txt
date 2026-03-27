@@ -1,4 +1,4 @@
 httpx
 beautifulsoup4
-google-auth
-google-api-python-client
+playwright
+scrapling[fetchers]>=0.4,<0.5
