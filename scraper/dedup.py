@@ -8,10 +8,6 @@ Basel Radar · Deduplication (hardened)
 import json
 import re
 from collections import Counter
-Basel Radar · Deduplication
-Liest ra_events.json + html_events.json, dedup, speichert events_raw.json.
-"""
-import json, re
 from datetime import date
 from pathlib import Path
 
@@ -83,22 +79,8 @@ def merge(a, b):
 
     srcs = list(dict.fromkeys((winner.get("sources") or [winner.get("source")]) + [loser.get("source")]))
     winner["sources"] = [s for s in srcs if s]
-    for k in ["doors", "close", "ig", "fb", "artists", "genres", "cost"]:
-        if not winner.get(k) and loser.get(k):
-            winner[k] = loser[k]
-    if loser.get("artist_urls"):
-        winner.setdefault("artist_urls", {}).update(loser["artist_urls"])
-    srcs = winner.get("sources", [winner.get("source", "")])
-    if loser.get("source") not in srcs:
-        srcs.append(loser["source"])
-    winner["sources"] = srcs
     return winner
 
-def run():
-    events = []
-    for f in [RA_FILE, HTML_FILE]:
-        if f.exists():
-            events.extend(json.loads(f.read_text()))
 
 def load_events(path: Path):
     if not path.exists():
@@ -196,25 +178,6 @@ def run():
     OUT.write_text(json.dumps(deduped, indent=2, ensure_ascii=False))
     print(f"Dedup output: {len(deduped)} unique events -> {OUT}")
     return deduped
-    print(f"Dedup: {len(events)} Events rein...")
-
-    # Filter vergangene Events
-    today = date.today().isoformat()
-    events = [e for e in events if not e.get("date") or e["date"] >= today]
-    print(f"Nach Datumsfilter: {len(events)}")
-
-    # Deduplizieren
-    result = []
-    for ev in events:
-        ev.setdefault("sources", [ev.get("source", "")])
-        merged = False
-        for i, existing in enumerate(result):
-            if is_dup(ev, existing):
-                result[i] = merge(existing, ev)
-                merged = True
-                break
-        if not merged:
-            result.append(ev)
 
     result.sort(key=lambda e: e.get("date", "9999"))
     OUT.write_text(json.dumps(result, indent=2, ensure_ascii=False))

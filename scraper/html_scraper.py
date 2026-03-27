@@ -525,7 +525,26 @@ def parse_generic(source):
     else:
         soup = fetch_static(source["url"])
     if not soup:
-        return []
+        return [], fetched
+    events = parse_from_ldjson(source, soup)
+
+    # adaptive selectors gezielt nur hier
+    doc = fetched.get("document")
+    nodes = adaptive_select(doc, "article,li", profile_key="denkmal_cards", auto_save=True, adaptive=False)
+    if not nodes:
+        nodes = adaptive_select(doc, "article,li", profile_key="denkmal_cards", auto_save=False, adaptive=True)
+
+    for day in soup.select("section, article, li, tr"):
+        text = day.get_text(" ", strip=True)
+        date = parse_date(text)
+        link = day.select_one('a[href*="/de/"][href]') or day.select_one("a[href]")
+        title_el = day.select_one("h2, h3, h4, .title, strong, a")
+        if not (date and link and title_el):
+            continue
+        title = title_el.get_text(" ", strip=True)
+        if len(title) >= 4:
+            events.append(make_event(source, title, date, urljoin(fetched.get("final_url") or source["url"], link.get("href"))))
+    return unique_by_title_date(events), fetched
 
     events = []
 

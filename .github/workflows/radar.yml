@@ -33,7 +33,8 @@ jobs:
 
       - name: Dependencies
         run: |
-          pip install httpx beautifulsoup4 playwright
+          pip install -r requirements.txt
+          scrapling install
           playwright install chromium --with-deps
 
       - name: RA Scraper
