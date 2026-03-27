@@ -1,0 +1,1001 @@
+[
+  {
+    "title": "Whitechapel",
+    "date": "",
+    "doors": null,
+    "close": null,
+    "venue": "Songkick Basel",
+    "venue_url": "https://www.songkick.com/concerts/43092114-whitechapel-at-z7-konzertfabrik",
+    "url": "https://www.songkick.com/concerts/43092114-whitechapel-at-z7-konzertfabrik",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "touring"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "touring"
+    ],
+    "source": "songkick",
+    "scraped_at": "2026-03-27T10:50:01.598360+00:00",
+    "sources": [
+      "songkick"
+    ]
+  },
+  {
+    "title": "Samm (BE)",
+    "date": "",
+    "doors": null,
+    "close": null,
+    "venue": "Songkick Basel",
+    "venue_url": "https://www.songkick.com/concerts/43120171-samm-be-at-das-viertel",
+    "url": "https://www.songkick.com/concerts/43120171-samm-be-at-das-viertel",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "touring"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "touring"
+    ],
+    "source": "songkick",
+    "scraped_at": "2026-03-27T10:50:01.598697+00:00",
+    "sources": [
+      "songkick"
+    ]
+  },
+  {
+    "title": "Fortuna Ehrenfeld",
+    "date": "",
+    "doors": null,
+    "close": null,
+    "venue": "Songkick Basel",
+    "venue_url": "https://www.songkick.com/concerts/43094433-fortuna-ehrenfeld-at-burghof",
+    "url": "https://www.songkick.com/concerts/43094433-fortuna-ehrenfeld-at-burghof",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "touring"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "touring"
+    ],
+    "source": "songkick",
+    "scraped_at": "2026-03-27T10:50:01.599000+00:00",
+    "sources": [
+      "songkick"
+    ]
+  },
+  {
+    "title": "The New Roses",
+    "date": "",
+    "doors": null,
+    "close": null,
+    "venue": "Songkick Basel",
+    "venue_url": "https://www.songkick.com/concerts/43112573-new-roses-at-z7-konzertfabrik",
+    "url": "https://www.songkick.com/concerts/43112573-new-roses-at-z7-konzertfabrik",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "touring"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "touring"
+    ],
+    "source": "songkick",
+    "scraped_at": "2026-03-27T10:50:01.599295+00:00",
+    "sources": [
+      "songkick"
+    ]
+  },
+  {
+    "title": "Aktuell",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/newsletter-anmeldung/",
+    "url": "https://sommercasino.ch/newsletter-anmeldung/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.747859+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Deaf’n’Dumb – Album Release Show",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/deafndumb-album-release-show/",
+    "url": "https://sommercasino.ch/events/deafndumb-album-release-show/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.748231+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Osterbrunch und Eiermalen",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/osterbrunch-und-eiermalen/",
+    "url": "https://sommercasino.ch/events/osterbrunch-und-eiermalen/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.748581+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Vacuous (UK), Bastard Mycosis (UK) & Murge (CH)",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/vacuous-uk-bastard-mycosis-uk-murge-ch/",
+    "url": "https://sommercasino.ch/events/vacuous-uk-bastard-mycosis-uk-murge-ch/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.748952+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Ausverkauft! | Ring Workshop mit Noah Giger",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/schmuck-gestalten-mit-noah-giger-3/",
+    "url": "https://sommercasino.ch/events/schmuck-gestalten-mit-noah-giger-3/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.749357+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Bubble Buster Jam",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/bubble-buster-jam-2/",
+    "url": "https://sommercasino.ch/events/bubble-buster-jam-2/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.749723+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Schauspiel Workshop",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/schauspiel-workshop/",
+    "url": "https://sommercasino.ch/events/schauspiel-workshop/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.750056+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Ak’Chamel (USA) & Melebe",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/akchamel-usa-support/",
+    "url": "https://sommercasino.ch/events/akchamel-usa-support/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.750400+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Day Dance",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/daydance/",
+    "url": "https://sommercasino.ch/events/daydance/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.751116+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "ZtanZ",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/ztanz/",
+    "url": "https://sommercasino.ch/events/ztanz/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.751827+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Musikquiz | Opening Weekend",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/musikquiz/",
+    "url": "https://sommercasino.ch/events/musikquiz/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.752175+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Kleidertausch",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/kleidertausch-2/",
+    "url": "https://sommercasino.ch/events/kleidertausch-2/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.752525+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Los Surfer Smokers (CO), Mono Mojo & The Stereocats, Angry Strings | Opening Weekend",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/los-surfer-smokers-col-mono-mojo-the-stereocats-ch-angry-strings-ch/",
+    "url": "https://sommercasino.ch/events/los-surfer-smokers-col-mono-mojo-the-stereocats-ch-angry-strings-ch/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.752889+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Primitive Man (USA), Kollaps (AUS)",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/primitive-man-usa/",
+    "url": "https://sommercasino.ch/events/primitive-man-usa/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.753957+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Don Jules & The Juliettes | Laurel Bloom",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/don-jules-the-juliettes-laurel-bloom/",
+    "url": "https://sommercasino.ch/events/don-jules-the-juliettes-laurel-bloom/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.754301+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "glitchBABY | MISS C-LINE",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/glitchbaby-miss-c-line/",
+    "url": "https://sommercasino.ch/events/glitchbaby-miss-c-line/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.754655+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Parasolic | Luci Bling",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/newcomer-slot-luci-bling/",
+    "url": "https://sommercasino.ch/events/newcomer-slot-luci-bling/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.755000+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Chimera Paul | Long Tall Jefferson",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/newcomer-slot-long-tall-jefferson/",
+    "url": "https://sommercasino.ch/events/newcomer-slot-long-tall-jefferson/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.755339+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "RAMPIG | Livia Rita",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/rampig-livia-rita/",
+    "url": "https://sommercasino.ch/events/rampig-livia-rita/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.755693+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Vinyl Session",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/vinyl-session/",
+    "url": "https://sommercasino.ch/events/vinyl-session/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.756035+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Deville (SWE), Fancy and the Boys & Miss Moons",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/deville-swefancy-and-the-boys-ch-local-act-ch/",
+    "url": "https://sommercasino.ch/events/deville-swefancy-and-the-boys-ch-local-act-ch/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.756379+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Juni Nami „1000 Füess“",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/juni-nami-1000-fueess/",
+    "url": "https://sommercasino.ch/events/juni-nami-1000-fueess/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.756748+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "ESC Revival Party",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/esc-revival-party/",
+    "url": "https://sommercasino.ch/events/esc-revival-party/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.757444+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Cocopalooza",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/cocopalooza/",
+    "url": "https://sommercasino.ch/events/cocopalooza/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.758156+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Der Wal im Garten",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/der-wal-im-garten/",
+    "url": "https://sommercasino.ch/events/der-wal-im-garten/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.758863+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Requiem, Erupdead & I Cut Out Your Name",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/requiem-erupdead-i-cut-out-your-name/",
+    "url": "https://sommercasino.ch/events/requiem-erupdead-i-cut-out-your-name/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.759205+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Save the date! | Casino Biandapid Vol. 4",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/save-the-date-casino-biandapid-vol-4/",
+    "url": "https://sommercasino.ch/events/save-the-date-casino-biandapid-vol-4/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.759531+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Mittwoch ist Sprittwoch",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/mittwoch-ist-sprittwoch/",
+    "url": "https://sommercasino.ch/events/mittwoch-ist-sprittwoch/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.759887+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Tichu Turnier",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/tichu-turnier/",
+    "url": "https://sommercasino.ch/events/tichu-turnier/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.760231+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Deconstructing NORA",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/deconstructing-nora/",
+    "url": "https://sommercasino.ch/events/deconstructing-nora/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.760566+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "16 Jahre Sixteentimes Music",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/16-jahre-seixteentimes-music/",
+    "url": "https://sommercasino.ch/events/16-jahre-seixteentimes-music/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.762585+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Rites of Destruction VII",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/rites-of-destruction-vii/",
+    "url": "https://sommercasino.ch/events/rites-of-destruction-vii/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.762932+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  },
+  {
+    "title": "Catalyst | Support: Corokia",
+    "date": "",
+    "doors": "19:00",
+    "close": "23:00",
+    "venue": "Sommercasino",
+    "venue_url": "https://sommercasino.ch/events/catalyst-support-corokia/",
+    "url": "https://sommercasino.ch/events/catalyst-support-corokia/",
+    "artists": [],
+    "artist_urls": {},
+    "genres": [
+      "konzerte",
+      "kultur"
+    ],
+    "cost": null,
+    "ig": null,
+    "fb": null,
+    "tags": [
+      "konzerte",
+      "kultur"
+    ],
+    "source": "sommercasino",
+    "scraped_at": "2026-03-27T10:50:12.763279+00:00",
+    "sources": [
+      "sommercasino"
+    ]
+  }
+]
