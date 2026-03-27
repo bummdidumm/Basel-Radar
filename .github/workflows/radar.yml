@@ -1,18 +1,13 @@
 name: Basel Radar
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   schedule:
-    # Täglich 06:00 UTC (= 07:00 MEZ / 08:00 MESZ)
-    - cron: "0 6 * * *"
-    # Montags 11:00 UTC (= 12:00 MEZ / 13:00 MESZ) — Weekly Briefing
-    - cron: "0 11 * * 1"
+    - cron: "0 6 * * *"      # Täglich 06:00 UTC — scrape + enrich
+    - cron: "0 11 * * 1"     # Montags 12:00 MEZ — Weekly Briefing
   workflow_dispatch:
     inputs:
       weekly:
-        description: "Weekly Briefing generieren?"
-        required: false
+        description: "Weekly Briefing?"
         default: "false"
         type: choice
         options: ["false", "true"]
@@ -20,49 +15,35 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Python Setup
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+          cache: pip
 
-      - name: Dependencies installieren
-        run: pip install httpx beautifulsoup4
+      - name: Dependencies
+        run: |
+          pip install -r requirements.txt
+          scrapling install
+          playwright install chromium --with-deps
 
       - name: RA Scraper
-        run: |
-          python - <<'PY'
-          import json
-          from scraper.ra_scraper import run
-
-          events = run()
-          with open("ra_events.json", "w", encoding="utf-8") as f:
-              json.dump(events, f, indent=2, ensure_ascii=False)
-          print(f"RA events gespeichert: {len(events)}")
-          PY
+        run: python scraper/ra_scraper.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: HTML Scraper
-        run: |
-          python - <<'PY'
-          import json
-          from scraper.html_scraper import run
-
-          events = run()
-          with open("html_events.json", "w", encoding="utf-8") as f:
-              json.dump(events, f, indent=2, ensure_ascii=False)
-          print(f"HTML events gespeichert: {len(events)}")
-          PY
+        run: python scraper/html_scraper.py
 
       - name: Deduplication
         run: python scraper/dedup.py
@@ -72,21 +53,16 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-      - name: Briefing generieren
-        run: |
-          # Montag oder manuell mit weekly=true → Weekly Briefing
-          if [ "$(date +%u)" = "1" ] || [ "${{ github.event.inputs.weekly }}" = "true" ]; then
-            python scraper/gemini_summary.py --weekly
-          else
-            python scraper/gemini_summary.py
-          fi
+      - name: Weekly Briefing
+        if: github.event.schedule == '0 11 * * 1' || github.event.inputs.weekly == 'true'
+        run: python scraper/gemini_summary.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-      - name: events_raw.json committen
+      - name: Commit & Push
         run: |
           git config user.name "Basel Radar Bot"
           git config user.email "bot@basel-radar"
-          git add -f events_raw.json briefing_latest.md
-          git diff --staged --quiet || git commit -m "chore: events update $(date +%Y-%m-%d)"
+          git add -f events_raw.json artist_cache.json briefing_latest.md || true
+          git diff --staged --quiet || git commit -m "chore: events $(date +%Y-%m-%d)"
           git push
