@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basel Radar · Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans" x-data="dashboard()">
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight">Basel Radar</h1>
+                <p class="text-indigo-100 mt-1">Event-Scan Dashboard</p>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button @click="triggerScan()"
+                        class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-md disabled:opacity-50"
+                        :disabled="scanning">
+                    <span x-show="!scanning">Neuer Scan</span>
+                    <span x-show="scanning" class="flex items-center">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Scanne...
+                    </span>
+                </button>
+                <div class="text-xs text-right hidden sm:block">
+                    <p class="text-indigo-200">Generiert am:</p>
+                    <p class="font-mono" x-text="formatDate(summary?.generated_at_utc || '')"></p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider mb-1">Scanned Days</p>
+                <p class="text-3xl font-bold text-indigo-600" x-text="summary?.days_scanned || '0'"></p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider mb-1">Events (Merged)</p>
+                <p class="text-3xl font-bold text-indigo-600" x-text="summary?.merged_event_count || '0'"></p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider mb-1">Raw Records</p>
+                <p class="text-3xl font-bold text-indigo-600" x-text="summary?.raw_event_count || '0'"></p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider mb-1">Model</p>
+                <p class="text-lg font-semibold text-slate-700 mt-2 truncate" :title="summary?.model" x-text="summary?.model || 'N/A'"></p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 mb-8 sticky top-28 z-40">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Region</label>
+                    <select x-model="filters.region" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 bg-slate-50">
+                        <option value="">Alle Regionen</option>
+                        <option value="Basel">Basel</option>
+                        <option value="Zürich">Zürich</option>
+                        <option value="Bern">Bern</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Datum</label>
+                    <input type="date" x-model="filters.date" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 bg-slate-50">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Suche</label>
+                    <input type="text" x-model="filters.search" placeholder="Titel, Artist, Venue..." class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 bg-slate-50">
+                </div>
+            </div>
+        </div>
+
+        <!-- Event List -->
+        <div class="space-y-4">
+            <template x-for="event in filteredEvents" :key="eventKey(event)">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow overflow-hidden group">
+                    <div class="md:flex">
+                        <!-- Date/Region Side -->
+                        <div class="md:w-48 bg-slate-50 p-4 border-r border-slate-100 flex flex-col justify-center items-center text-center">
+                            <span class="text-indigo-600 font-bold text-lg" x-text="formatDateShort(event.date)"></span>
+                            <span class="text-slate-500 text-sm font-medium uppercase" x-text="event.region"></span>
+                            <div class="mt-2 flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-slate-200 text-[10px] font-bold text-slate-400" :title="'Confidence: ' + (event.confidence * 100) + '%'">
+                                <div class="h-1.5 w-1.5 rounded-full" :class="event.confidence >= 0.9 ? 'bg-green-500' : (event.confidence >= 0.7 ? 'bg-amber-500' : 'bg-red-500')"></div>
+                                <span x-text="Math.round(event.confidence * 100) + '%'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="flex-grow p-5">
+                            <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+                                <div class="flex-grow">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase rounded" x-text="event.source_name"></span>
+                                        <span x-show="event.start_time" class="text-slate-500 text-xs font-mono" x-text="event.start_time + (event.end_time ? ' - ' + event.end_time : '')"></span>
+                                    </div>
+                                    <h3 class="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors" x-text="event.title"></h3>
+                                    <p class="text-slate-600 font-medium mb-2" x-text="event.venue"></p>
+
+                                    <!-- Artists -->
+                                    <div class="flex flex-wrap gap-2 mb-3" x-show="event.artists && event.artists.length">
+                                        <template x-for="artist in event.artists">
+                                            <span class="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md" x-text="artist"></span>
+                                        </template>
+                                    </div>
+
+                                    <!-- Genres -->
+                                    <div class="flex flex-wrap gap-2" x-show="event.genres && event.genres.length">
+                                        <template x-for="genre in event.genres">
+                                            <span class="text-indigo-500 text-xs font-semibold italic" x-text="'#' + genre"></span>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-end gap-3 w-full md:w-auto">
+                                    <div class="text-right" x-show="event.price">
+                                        <p class="text-xs text-slate-400 uppercase font-bold tracking-tighter">Eintritt</p>
+                                        <p class="text-lg font-bold text-slate-700" x-text="event.price + ' ' + (event.currency || 'CHF')"></p>
+                                    </div>
+                                    <div class="flex gap-2 w-full md:w-auto">
+                                        <a :href="event.event_url || event.source_url" target="_blank"
+                                           class="flex-grow md:flex-grow-0 bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center shadow-sm">
+                                            Details
+                                        </a>
+                                        <a :href="event.source_url" target="_blank" title="Quelle"
+                                           class="bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-lg transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 005.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd" />
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notes -->
+                            <div x-show="event.notes" class="mt-4 pt-4 border-t border-slate-50 text-slate-500 text-sm italic" x-text="event.notes"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Empty State -->
+            <div x-show="filteredEvents.length === 0" class="bg-white p-12 rounded-xl border border-slate-200 border-dashed text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 9.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-slate-500 font-medium">Keine Events gefunden.</p>
+                <button @click="resetFilters()" class="text-indigo-600 text-sm font-semibold mt-2 hover:underline">Filter zurücksetzen</button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="container mx-auto px-4 py-12 border-t border-slate-200 mt-12 text-center text-slate-400 text-xs">
+        <p>&copy; 2024 Basel Radar · Gemini Day Scan Pipeline</p>
+    </footer>
+
+    <script>
+        function dashboard() {
+            return {
+                summary: null,
+                events: [],
+                scanning: false,
+                filters: {
+                    region: '',
+                    date: '',
+                    search: ''
+                },
+
+                async init() {
+                    await this.fetchData();
+                },
+
+                async fetchData() {
+                    try {
+                        const [summaryResp, eventsResp] = await Promise.all([
+                            fetch('/data/summary.json'),
+                            fetch('/data/merged_events.json')
+                        ]);
+
+                        if (summaryResp.ok) this.summary = await summaryResp.json();
+                        if (eventsResp.ok) this.events = await eventsResp.json();
+                    } catch (e) {
+                        console.error('Error fetching data:', e);
+                    }
+                },
+
+                get filteredEvents() {
+                    return this.events.filter(ev => {
+                        const matchRegion = !this.filters.region || ev.region === this.filters.region;
+                        const matchDate = !this.filters.date || ev.date === this.filters.date;
+                        const searchLower = this.filters.search.toLowerCase();
+                        const matchSearch = !this.filters.search ||
+                            ev.title.toLowerCase().includes(searchLower) ||
+                            ev.venue.toLowerCase().includes(searchLower) ||
+                            (ev.artists && ev.artists.some(a => a.toLowerCase().includes(searchLower)));
+
+                        return matchRegion && matchDate && matchSearch;
+                    });
+                },
+
+                async triggerScan() {
+                    this.scanning = true;
+                    try {
+                        const resp = await fetch('/api/scan', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                        });
+                        if (resp.ok) {
+                            alert('Scan gestartet! Bitte lade die Seite in ein paar Minuten neu.');
+                        } else {
+                            alert('Fehler beim Starten des Scans.');
+                        }
+                    } catch (e) {
+                        console.error('Error triggering scan:', e);
+                        alert('Netzwerkfehler beim Starten des Scans.');
+                    } finally {
+                        this.scanning = false;
+                    }
+                },
+
+                resetFilters() {
+                    this.filters = { region: '', date: '', search: '' };
+                },
+
+                formatDate(iso) {
+                    if (!iso) return 'N/A';
+                    return new Date(iso).toLocaleString('de-CH');
+                },
+
+                formatDateShort(dateStr) {
+                    if (!dateStr) return '';
+                    const d = new Date(dateStr);
+                    return d.toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                },
+
+                eventKey(ev) {
+                    return `${ev.date}-${ev.region}-${ev.venue}-${ev.title}`.replace(/\s+/g, '-');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

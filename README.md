@@ -27,6 +27,17 @@ export GEMINI_API_KEY="dein_key"
 python scraper/gemini_day_scan.py
 ```
 
+## Dashboard starten
+
+Um das HTML-Dashboard zu starten:
+
+```bash
+python server.py
+```
+
+Danach ist das Dashboard unter [http://localhost:8000](http://localhost:8000) erreichbar.
+Über den Button "Neuer Scan" kann ein neuer Scan-Vorgang im Hintergrund gestartet werden.
+
 ## Wichtige ENV-Variablen
 
 - `GEMINI_API_KEY` – erforderlich
