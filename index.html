@@ -222,7 +222,8 @@
                         if (resp.ok) {
                             alert('Scan gestartet! Bitte lade die Seite in ein paar Minuten neu.');
                         } else {
-                            alert('Fehler beim Starten des Scans.');
+                            const err = await resp.json();
+                            alert('Fehler beim Starten des Scans: ' + (err.detail || 'Unbekannter Fehler'));
                         }
                     } catch (e) {
                         console.error('Error triggering scan:', e);
