@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any, Tuple
 from urllib.parse import urljoin
 
+from scraper.utils import normalize_text, uniq_list
+
 import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field, ValidationError
@@ -160,24 +162,6 @@ def daterange(start_iso: str, end_iso: str) -> List[str]:
     return out
 
 
-def normalize_text(s: Optional[str]) -> str:
-    s = (s or "").strip().lower()
-    s = re.sub(r"\s+", " ", s)
-    s = re.sub(r"[|–—\-_:;,./\\]+", " ", s)
-    s = re.sub(r"\([^)]*\)", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
-def uniq_list(items: List[str]) -> List[str]:
-    out = []
-    seen = set()
-    for x in items:
-        n = normalize_text(x)
-        if n and n not in seen:
-            seen.add(n)
-            out.append(x.strip())
-    return out
 
 
 def event_key(ev: Dict[str, Any]) -> str:
