@@ -399,7 +399,7 @@ def run_day_scan(day_iso: str, region: str, region_sources: List[Dict[str, str]]
                     "grounding_metadata": getattr(resp.candidates[0], "grounding_metadata", None) if getattr(resp, "candidates", None) else None,
                 }
                 write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_meta.json"), meta)
-                write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_events.json"), json.loads(parsed.model_dump_json()))
+                write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_events.json"), parsed.model_dump(mode='json'))
 
             return parsed
 
@@ -452,7 +452,7 @@ def merge_events(events: List[EventRecord]) -> List[Dict[str, Any]]:
     merged: Dict[str, Dict[str, Any]] = {}
 
     for ev in events:
-        d = json.loads(ev.model_dump_json())
+        d = ev.model_dump(mode='json')
         key = event_key(d)
         if key not in merged:
             merged[key] = d
@@ -490,7 +490,7 @@ def scan_region_for_day(day_iso: str, region: str, region_sources: List[Dict[str
         "used_pass": used_pass,
         "pass1_count": len(pass1.events),
         "pass2_count": len(pass2.events) if pass2 else None,
-        "events": [json.loads(e.model_dump_json()) for e in chosen_events],
+        "events": [e.model_dump(mode='json') for e in chosen_events],
     }
 
 
@@ -522,7 +522,7 @@ def main() -> None:
 
         time.sleep(1.0)
 
-    raw_json = [json.loads(e.model_dump_json()) for e in all_raw_records]
+    raw_json = [e.model_dump(mode='json') for e in all_raw_records]
     final_merged = merge_events(all_raw_records)
 
     summary = {
