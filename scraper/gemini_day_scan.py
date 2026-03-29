@@ -30,10 +30,11 @@ from google.genai import types
 # ============================================================
 
 API_KEY = os.environ.get("GEMINI_API_KEY")
-if not API_KEY:
-    raise RuntimeError("GEMINI_API_KEY fehlt.")
 
-client = genai.Client(api_key=API_KEY)
+if API_KEY:
+    client = genai.Client(api_key=API_KEY)
+else:
+    client = None
 
 MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
 DATE_FROM = os.environ.get("DATE_FROM", "2026-03-23")
@@ -76,6 +77,12 @@ DENKMAL_HEADERS = {
     ),
     "Accept-Language": "de-CH,de;q=0.9,en;q=0.8",
 }
+
+httpx_client = httpx.Client(
+    headers=DENKMAL_HEADERS,
+    timeout=20.0,
+    follow_redirects=True
+)
 
 
 class EventRecord(BaseModel):
@@ -191,10 +198,9 @@ def denkmal_day_url(city: str, day_iso: str, lang: str = "de") -> str:
 
 
 def fetch_plain_html(url: str) -> str:
-    with httpx.Client(headers=DENKMAL_HEADERS, timeout=20.0, follow_redirects=True) as client:
-        response = client.get(url)
-        response.raise_for_status()
-        return response.text
+    response = httpx_client.get(url)
+    response.raise_for_status()
+    return response.text
 
 
 def extract_denkmal_detail_urls(day_url: str, max_links: int = 12) -> List[str]:
