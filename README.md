@@ -27,16 +27,23 @@ export GEMINI_API_KEY="dein_key"
 python scraper/gemini_day_scan.py
 ```
 
-## Dashboard starten
+## Dashboard
 
-Um das HTML-Dashboard zu starten:
+Das HTML-Dashboard ist als statische Seite konzipiert und wird automatisch über GitHub Pages bereitgestellt.
+
+### Lokal betrachten
+
+Um das Dashboard lokal mit den bereits generierten Daten zu betrachten:
 
 ```bash
-python server.py
+python -m http.server 8000
 ```
 
 Danach ist das Dashboard unter [http://localhost:8000](http://localhost:8000) erreichbar.
-Über den Button "Neuer Scan" kann ein neuer Scan-Vorgang im Hintergrund gestartet werden.
+
+### Automatisierung
+
+Ein GitHub Action Workflow (`.github/workflows/gemini_day_scan.yml`) führt den Scan täglich (oder manuell via Workflow Dispatch) aus, bereitet die statischen Dateien vor und deployt sie auf GitHub Pages.
 
 ## Wichtige ENV-Variablen
 
