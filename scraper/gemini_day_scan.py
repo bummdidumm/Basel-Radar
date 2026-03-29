@@ -4,7 +4,7 @@ import json
 import time
 import random
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any, Tuple
 from urllib.parse import urljoin
 
@@ -533,7 +533,7 @@ def main() -> None:
         "raw_event_count": len(raw_json),
         "merged_event_count": len(final_merged),
         "scan_reports_count": len(scan_reports),
-        "generated_at_utc": datetime.utcnow().isoformat() + "Z",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
     write_json(os.path.join(DEBUG_DIR, "raw_extraction.json"), raw_json)
