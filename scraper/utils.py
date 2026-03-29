@@ -1,9 +1,11 @@
 import re
-from typing import Optional, List
+from typing import List, Optional
 
 def normalize_text(s: Optional[str]) -> str:
     s = (s or "").strip().lower()
-    s = re.sub(r"[|–—\-_:;,./\\]+|\([^)]*\)", " ", s)
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"[|–—\-_:;,./\\]+", " ", s)
+    s = re.sub(r"\([^)]*\)", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 

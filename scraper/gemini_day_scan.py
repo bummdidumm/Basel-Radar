@@ -4,7 +4,7 @@ import json
 import time
 import random
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any, Tuple
 from urllib.parse import urljoin
 
@@ -30,10 +30,11 @@ from google.genai import types
 # ============================================================
 
 API_KEY = os.environ.get("GEMINI_API_KEY")
-if not API_KEY:
-    raise RuntimeError("GEMINI_API_KEY fehlt.")
 
-client = genai.Client(api_key=API_KEY)
+if API_KEY:
+    client = genai.Client(api_key=API_KEY)
+else:
+    client = None
 
 MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
 DATE_FROM = os.environ.get("DATE_FROM", "2026-03-23")
@@ -76,6 +77,12 @@ DENKMAL_HEADERS = {
     ),
     "Accept-Language": "de-CH,de;q=0.9,en;q=0.8",
 }
+
+httpx_client = httpx.Client(
+    headers=DENKMAL_HEADERS,
+    timeout=20.0,
+    follow_redirects=True
+)
 
 
 class EventRecord(BaseModel):
@@ -162,8 +169,6 @@ def daterange(start_iso: str, end_iso: str) -> List[str]:
     return out
 
 
-
-
 def event_key(ev: Dict[str, Any]) -> str:
     raw = "||".join([
         ev.get("date", ""),
@@ -193,10 +198,9 @@ def denkmal_day_url(city: str, day_iso: str, lang: str = "de") -> str:
 
 
 def fetch_plain_html(url: str) -> str:
-    with httpx.Client(headers=DENKMAL_HEADERS, timeout=20.0, follow_redirects=True) as client:
-        response = client.get(url)
-        response.raise_for_status()
-        return response.text
+    response = httpx_client.get(url)
+    response.raise_for_status()
+    return response.text
 
 
 def extract_denkmal_detail_urls(day_url: str, max_links: int = 12) -> List[str]:
@@ -383,7 +387,7 @@ def run_day_scan(day_iso: str, region: str, region_sources: List[Dict[str, str]]
                     "grounding_metadata": getattr(resp.candidates[0], "grounding_metadata", None) if getattr(resp, "candidates", None) else None,
                 }
                 write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_meta.json"), meta)
-                write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_events.json"), json.loads(parsed.model_dump_json()))
+                write_json(os.path.join(DEBUG_DIR, f"{day_iso}_{region}_{pass_name}_events.json"), parsed.model_dump(mode='json'))
 
             return parsed
 
@@ -436,7 +440,7 @@ def merge_events(events: List[EventRecord]) -> List[Dict[str, Any]]:
     merged: Dict[str, Dict[str, Any]] = {}
 
     for ev in events:
-        d = json.loads(ev.model_dump_json())
+        d = ev.model_dump(mode='json')
         key = event_key(d)
         if key not in merged:
             merged[key] = d
@@ -474,7 +478,7 @@ def scan_region_for_day(day_iso: str, region: str, region_sources: List[Dict[str
         "used_pass": used_pass,
         "pass1_count": len(pass1.events),
         "pass2_count": len(pass2.events) if pass2 else None,
-        "events": [json.loads(e.model_dump_json()) for e in chosen_events],
+        "events": [e.model_dump(mode='json') for e in chosen_events],
     }
 
 
@@ -506,7 +510,7 @@ def main() -> None:
 
         time.sleep(1.0)
 
-    raw_json = [json.loads(e.model_dump_json()) for e in all_raw_records]
+    raw_json = [e.model_dump(mode='json') for e in all_raw_records]
     final_merged = merge_events(all_raw_records)
 
     summary = {
@@ -517,7 +521,7 @@ def main() -> None:
         "raw_event_count": len(raw_json),
         "merged_event_count": len(final_merged),
         "scan_reports_count": len(scan_reports),
-        "generated_at_utc": datetime.utcnow().isoformat() + "Z",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
     write_json(os.path.join(DEBUG_DIR, "raw_extraction.json"), raw_json)
