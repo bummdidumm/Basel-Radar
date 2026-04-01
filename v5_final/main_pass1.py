@@ -8,6 +8,7 @@ from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
 from shared.drive_helpers import DriveManager
 from shared.hash_helpers import calculate_sha256_streaming
+from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
 from shared.models import FileRecord
 
 TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID")
@@ -18,66 +19,6 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 SKIP_OVER_MB = int(os.environ.get("SKIP_OVER_MB", "500"))
 ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
-
-def determine_change_type(f: dict, known_file_details: dict, is_initial: bool) -> str:
-    """Implementiert echte Statusfelder: NEW, UPDATED, RENAMED, MOVED, TRASHED, DELETED"""
-    if is_initial: return "NEW"
-
-    file_id = f.get("id")
-    removed = f.get("removed", False)
-    trashed = f.get("trashed", False)
-
-    if removed:
-        return "REMOVED_OR_NO_ACCESS"
-
-    if trashed:
-        return "TRASHED"
-
-    if file_id not in known_file_details:
-        return "NEW"
-
-    # File is known, evaluate what changed
-    cached = known_file_details[file_id]
-
-    # Check parent folder movement
-    current_parents = f.get("parents", [])
-    # Wir nehmen hier stark vereinfacht das erste Parent als "Move" Indikator.
-    # Für exaktes Path-Tracking bräuchte man den kompletten Pfad in der Hash_Index Tabelle.
-    cached_path = cached.get("path", "")
-    if cached_path and current_parents and current_parents[0] not in cached_path:
-        return "MOVED"
-
-    # Check Name change
-    cached_name = cached.get("name")
-    if cached_name and cached_name != f.get("name"):
-        return "RENAMED"
-
-    # If not moved or renamed, it must be content updated (since it showed up in delta)
-    return "UPDATED"
-
-def check_md5_size_prefilter(f: dict, known_file_details: dict) -> bool:
-    """True = Die Datei wurde mit Sicherheit nicht geändert (Größe + MD5 stimmen exakt überein)."""
-    file_id = f.get("id")
-    if file_id not in known_file_details:
-        return False # Datei unbekannt
-
-    mime_type = f.get("mimeType", "")
-    # Google Native Formate haben keine md5Checksum in Drive.
-    if mime_type.startswith("application/vnd.google-apps"):
-        return False
-
-    current_md5 = f.get("md5Checksum")
-    current_size = str(f.get("size", "0"))
-
-    cached = known_file_details[file_id]
-    cached_md5 = cached.get("md5")
-    cached_size = str(cached.get("size_bytes", "0"))
-
-    # Wenn md5 existiert und übereinstimmt, und die Größe exakt passt:
-    if current_md5 and cached_md5 and current_md5 == cached_md5 and current_size == cached_size:
-        return True
-
-    return False
 
 def suggest_rename(name: str, created_time: str) -> str:
     if not created_time: return name
@@ -102,20 +43,8 @@ def run_pass1():
     start_token = state.get_val("drive_start_page_token")
     in_progress_token = state.get_val("in_progress_page_token")
 
-    # Baue erweiterten File-Cache für echtes Change-Type Tracking und Prefilter
-    known_file_details = {}
-    rows = sheet_mgr.read_all_rows("Hash_Index", "A:H") # sha, fid, name, path, updated_at, size_bytes, md5, eff_mime
-    for r in rows:
-        if len(r) >= 7 and r[0] != "sha256":
-            known_file_details[r[1]] = {
-                "sha": r[0],
-                "name": r[2],
-                "path": r[3],
-                "size_bytes": r[5],
-                "md5": r[6]
-            }
-
-    known_hashes = state.load_known_hashes()
+    # 1. Load known state for heuristics
+    known_file_details = state.load_known_hashes()
 
     processed = 0
     errors = 0
@@ -126,19 +55,13 @@ def run_pass1():
             print("Initialer Run: Führe kompletten Walk über TARGET_FOLDER durch.")
             state.set_val("current_phase", "INITIAL_SCAN")
 
-            # 1. Fetch all items (Recursive Walk)
             all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
-
-            # 2. Get initial token to mark point in time for future deltas
             new_start_page_token = drive_mgr.get_initial_token()
 
-            # 3. Process batch
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, known_hashes, True, all_records)
-
+            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True)
             processed = len(files)
 
-            # End Initial Run
             state.set_val("drive_start_page_token", new_start_page_token)
 
         else:
@@ -152,11 +75,9 @@ def run_pass1():
             while active_token:
                 print(f"Hole Delta Chunk: {active_token}")
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
-
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, known_hashes, False, all_records)
-
+                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False)
                 processed += len(files)
 
                 if next_token:
@@ -166,7 +87,6 @@ def run_pass1():
                     new_start_page_token = new_start
                     break
 
-            # Erfolgreicher Abschluss des Deltas
             if new_start_page_token:
                 state.set_val("drive_start_page_token", new_start_page_token)
                 state.set_val("in_progress_page_token", "")
@@ -182,9 +102,9 @@ def run_pass1():
         state.log_run("PASS_1", "FAILED", processed, errors + 1)
         raise e
 
-def _process_file_batch(drive_service, drive_mgr: DriveManager, state: StateTracker, files: List[Dict], known_file_details: Dict, known_hashes: Dict, is_initial: bool, all_records: List):
-
+def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial):
     records_to_process = []
+    duplicate_groups_accumulator = {}
 
     for f in files:
         file_id = f.get("id", "")
@@ -198,7 +118,8 @@ def _process_file_batch(drive_service, drive_mgr: DriveManager, state: StateTrac
         rec = FileRecord(
             file_id=file_id,
             name=name,
-            path="UNKNOWN_PATH_DUE_TO_DELTA", # Simplification. Real implementation walks parents to root.
+            parent_ids_sorted=",".join(sorted(f.get("parents", []))),
+            path_display=drive_mgr.get_full_path(file_id, name, f.get("parents")),
             mime_type=mime,
             size_bytes=size,
             md5=f.get("md5Checksum", ""),
@@ -215,19 +136,58 @@ def _process_file_batch(drive_service, drive_mgr: DriveManager, state: StateTrac
             records_to_process.append(rec)
             continue
 
-        if size > SKIP_OVER_MB * 1024 * 1024:
-            rec.status = "SKIPPED_SIZE"
+        # Reiner Metadaten-Zustand, der nicht ge-hashed werden muss (falls Inhalt identisch und kein MOVED/RENAMED stattfand)
+        if change_type == "UNCHANGED_CONTENT_METADATA_ONLY":
+            rec.status = "UNCHANGED_CONTENT"
+            rec.sha256 = known_file_details[file_id].get("sha", "")
+
+            if rec.sha256 == "HASH_SKIPPED":
+                rec.status = "SKIPPED_SIZE"
+
+            known_file_details[rec.file_id].update({
+                "name": rec.name,
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
+                "updated_at": rec.updated_at
+            })
             records_to_process.append(rec)
             continue
 
-        # MD5 + Size Prefilter für Binary Files
+        if size > SKIP_OVER_MB * 1024 * 1024:
+            rec.status = "SKIPPED_SIZE"
+            rec.sha256 = "HASH_SKIPPED"
+            # Update cache sofort für denselben Batch, damit nachfolgende Deltas ihn kennen
+            known_file_details[rec.file_id] = {
+                "sha": rec.sha256,
+                "name": rec.name,
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
+                "updated_at": rec.updated_at,
+                "size_bytes": rec.size_bytes,
+                "md5": rec.md5,
+                "effective_mime_type": rec.effective_mime_type
+            }
+            records_to_process.append(rec)
+            continue
+
         if not is_initial and check_md5_size_prefilter(f, known_file_details):
             rec.status = "UNCHANGED_CONTENT"
             rec.sha256 = known_file_details[file_id].get("sha", "")
+
+            # Falls SKIPPED_SIZE Datei jetzt wegen Metadaten-Update als UNCHANGED_CONTENT durchgeht,
+            # beenden wir die Iteration hier, da wir den Hash immer noch skippen.
+            if rec.sha256 == "HASH_SKIPPED":
+                rec.status = "SKIPPED_SIZE"
+
+            known_file_details[rec.file_id].update({
+                "name": rec.name,
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
+                "updated_at": rec.updated_at
+            })
             records_to_process.append(rec)
             continue
 
-        # Streaming Hash Calculation
         sha, export_source = calculate_sha256_streaming(drive_service, rec.file_id, rec.mime_type, drive_mgr._base_params())
         rec.sha256 = sha or ""
         rec.export_source = export_source
@@ -236,25 +196,47 @@ def _process_file_batch(drive_service, drive_mgr: DriveManager, state: StateTrac
             state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "Fehler bei SHA256 Berechnung")
             continue
 
-        # Dedupe Logik
-        if rec.sha256 in known_hashes:
-            rec.status = "DUPLICATE"
-            rec.duplicate_of = known_hashes[rec.sha256]
+        # Dedupe Logik über Value Iteration (da dict jetzt nach File-ID organisiert ist)
+        duplicate_of_id = None
+        for fid, meta in known_file_details.items():
+            if meta.get("sha") == rec.sha256:
+                duplicate_of_id = fid
+                break
+
+        if duplicate_of_id:
+            if duplicate_of_id == rec.file_id:
+                rec.status = "ORIGINAL_RESUMED"
+            else:
+                rec.status = "DUPLICATE"
+                rec.duplicate_of = duplicate_of_id
         else:
             rec.status = "ORIGINAL"
-            known_hashes[rec.sha256] = rec.file_id
+            # Update cache sofort für denselben Batch
+            known_file_details[rec.file_id] = {
+                "sha": rec.sha256,
+                "name": rec.name,
+                "path": ",".join(rec.parents) if rec.parents else "",
+                "updated_at": rec.updated_at,
+                "size_bytes": rec.size_bytes,
+                "md5": rec.md5,
+                "effective_mime_type": rec.effective_mime_type
+            }
 
         if rec.status == "DUPLICATE" and ENABLE_ARCHIVE:
             rec.archive_result = drive_mgr.archive_duplicate(rec.file_id, rec.parents, ARCHIVE_FOLDER_ID)
             if "SUCCESS" in rec.archive_result:
                 rec.status = f"DUPLICATE_OF:{rec.duplicate_of}|ARCHIVED"
-                state.append_duplicate_group(rec.sha256, rec.duplicate_of, rec.file_id)
+
+                # Accumulate for batched writes
+                if rec.sha256 not in duplicate_groups_accumulator:
+                    duplicate_groups_accumulator[rec.sha256] = {"original": rec.duplicate_of, "duplicates": set()}
+                duplicate_groups_accumulator[rec.sha256]["duplicates"].add(rec.file_id)
 
         records_to_process.append(rec)
 
-    # Append Chunk to State
     state.append_new_hashes(records_to_process)
     state.append_dedupe_reports(records_to_process)
+    state.flush_duplicate_groups(duplicate_groups_accumulator)
 
 if __name__ == "__main__":
     run_pass1()

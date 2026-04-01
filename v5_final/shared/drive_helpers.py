@@ -48,8 +48,18 @@ class DriveManager:
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
+    def get_full_path(self, file_id: str, name: str, parents: List[str] = None) -> str:
+        """
+        Returns a simplified path.
+        To track MOVED efficiently in delta scans without massive API overhead,
+        we store the immediate parent_id as the prefix: 'parent_id/name'.
+        """
+        if parents and len(parents) > 0:
+            return f"{parents[0]}/{name}"
+        return name
+
     def walk_recursive(self, folder_id: str) -> List[Dict]:
-        """Führt einen rekursiven Scan für den allerersten Lauf durch."""
+        """Performs initial recursive scan."""
         records = []
         page_token = None
 
@@ -82,7 +92,6 @@ class DriveManager:
         params = self._list_params()
         params["pageToken"] = page_token
         params["spaces"] = "drive"
-        # Hole extra Metadaten für echtes Change-Type Tracking
         params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed))"
 
         res = self.drive.changes().list(**params).execute()
@@ -92,11 +101,18 @@ class DriveManager:
             f = change.get("file")
             removed = change.get("removed", False)
 
-            # Falls Datei hart gelöscht oder Rechte entzogen wurden (kein file-Objekt vorhanden)
             if removed or not f:
+                # Distinguish explicit DELETED vs REMOVED_OR_NO_ACCESS
+                # According to Drive API, if the resource was permanently deleted, "removed" is true
+                # AND there's no "file" object attached, just the fileId.
+                is_deleted = False
+                if removed and not f:
+                    is_deleted = True
+
                 changes.append({
                     "id": change["fileId"],
                     "removed": True,
+                    "explicitly_trashed_or_deleted_flag": is_deleted,
                     "trashed": False,
                     "name": "UNKNOWN_REMOVED",
                     "mimeType": "",
@@ -104,15 +120,12 @@ class DriveManager:
                 })
                 continue
 
-            # Wenn sie noch existiert (trashed oder aktiv) prüfen wir den Zielordner
-            # (bzw. bei Trashed wissen wir die parents nicht immer sicher, wir nehmen sie mit,
-            # wenn wir sie in unserem State als bekannt finden, können wir sie später als TRASHED markieren).
             if f.get("parents") and self.is_in_target_folder(f["id"], f["parents"]):
                 f["removed"] = False
                 changes.append(f)
             elif f.get("trashed"):
                  f["removed"] = False
-                 changes.append(f) # Trashed items might not show up in target folder tree easily, but we catch them here.
+                 changes.append(f)
 
         return changes, res.get("nextPageToken"), res.get("newStartPageToken")
 

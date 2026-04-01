@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 class ExtractedDocument(BaseModel):
     doc_type: str = Field(description="Art des Dokuments (z.B. Rechnung, Brief, Foto, Vertrag, Sonstiges)")
@@ -10,30 +10,43 @@ class ExtractedDocument(BaseModel):
     full_text: Optional[str] = Field(description="Der vollständige extrahierte Text aus dem Dokument")
 
 class FileRecord(BaseModel):
-    """Internal model for processing files before they go to JSONL or Sheets."""
-    file_id: str
-    name: str
-    path: str
-    mime_type: str
-    size_bytes: int
-    md5: str
-    updated_at: str
-    created_time: str
-    web_link: str
-    parents: list[str] = []
-
-    # Computed during Pass 1
-    sha256: str = ""
+    """Internal model holding all state for a single file through the pipeline."""
+    run_utc: str = ""
+    run_id: str = ""
+    path_display: str = ""
+    name: str = ""
+    file_id: str = ""
+    parent_ids_sorted: str = ""
+    mime_type: str = ""
     effective_mime_type: str = ""
-    export_source: str = ""
+    size_bytes: int = 0
+    md5: str = ""
+    sha256: str = ""
     status: str = "PENDING"
     change_type: str = "UNKNOWN"
     duplicate_of: str = ""
     archive_result: str = ""
     suggested_name: str = ""
+    web_link: str = ""
     notes: str = ""
 
-    # Computed during Pass 2
+    # Folder Aware Indexing & Sorting
+    current_parent_id: str = ""
+    current_path: str = ""
+    target_parent_id: str = ""
+    target_path: str = ""
+    folder_rule: str = ""
+    folder_rule_reason: str = ""
+    sort_mode: str = ""
+    move_result: str = ""
+
+    # Internal helpers (not directly in Dedupe_Report unless mapped)
+    updated_at: str = ""
+    created_time: str = ""
+    parents: List[str] = []
+    export_source: str = ""
+
+    # OCR properties
     ocr_doc_type: str = ""
     ocr_amount: str = ""
     ocr_date: str = ""
