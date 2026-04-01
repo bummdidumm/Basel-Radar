@@ -10,11 +10,11 @@ Dieser Masterplan skizziert die Roadmap für V5. Hier geht es nicht um noch mehr
    - Dateiumbenennungen werden von der Deduplizierung (Löschen/Verschieben) entkoppelt.
    - Vorschläge für neue Namen (`Suggest_Name`) werden zunächst nur in den Report (Sheet) geschrieben.
    - Eine separate Funktion (z.B. ein zweiter Job oder ein eigener API-Call per `files.update`) wendet diese Vorschläge nach menschlicher Prüfung gezielt an.
-2. **MD5 + Size Vorfilter nur für Binaries:**
+2. **MD5 + Size Vorfilter als Performance-Hilfe, nicht als Logikanker:**
+   - MD5 + Größe dienen rein als schneller Vorfilter. **SHA-256 bleibt die alleinige Entscheidungsgrundlage** für Duplikate.
    - Die Drive API liefert `md5Checksum` nicht zuverlässig für alle Dateitypen (z.B. Google-native Formate wie Docs/Sheets).
-   - Der Vorfilter wird nur angewendet, wenn die Checksumme sicher verfügbar ist.
 3. **Konsequente Shared-Drive-Unterstützung:**
-   - Parameter wie `driveId`, `includeItemsFromAllDrives=True` und `supportsAllDrives=True` werden lückenlos in *allen* API-Calls (`files.list`, `files.get`, `changes.list`) gesetzt.
+   - Parameter wie `driveId`, `includeItemsFromAllDrives=True` und `supportsAllDrives=True` werden Shared-Drive-kompatibel pro API-Call korrekt dort gesetzt, wo der jeweilige Call sie benötigt.
    - Dies verhindert inkonsistente Ergebnisse zwischen "My Drive" und "Shared Drives".
 4. **Service Identity Härten:**
    - Der Cloud Run Job läuft nicht mehr unter der (zu weit gefassten) Default-Compute-Engine-Identität.
@@ -29,7 +29,7 @@ Dieser Masterplan skizziert die Roadmap für V5. Hier geht es nicht um noch mehr
    - Feste Felder: `doc_type` (Rechnung, Brief, Foto), `amount` (Betrag), `date` (Belegdatum), `vendor` (Absender/Händler), `summary`.
 2. **Gezieltes OCR-Targeting:**
    - OCR/Extraktion wird *nur* für relevante Kandidaten gestartet: PDFs (`application/pdf`) und Bilder (`image/*`).
-   - Google Docs/Sheets/Slides werden (bei Bedarf) per Drive-Export-API als Text oder PDF heruntergeladen und dann verarbeitet.
+   - Google Docs/Sheets/Slides werden (bei Bedarf) per Drive-Export-API als Text oder PDF heruntergeladen und dann verarbeitet. *Wichtig: Der Hash bezieht sich dann auf den exportierten Repräsentationsinhalt, nicht auf das interne Google-Dateiformat.*
 3. **Gemini File-Lifecycle Management:**
    - Dateien, die via `gemini_client.files.upload()` an Google gesendet werden, bleiben sonst 48 Stunden auf den Google-Servern liegen.
    - V5 implementiert einen sauberen Lifecycle: `Upload` → `Verarbeitung (generate_content)` → `Explizites Löschen (client.files.delete)` im `finally`-Block.
@@ -41,7 +41,7 @@ Dieser Masterplan skizziert die Roadmap für V5. Hier geht es nicht um noch mehr
 1. **Robuste Delta-Logik (Idempotenz):**
    - Das Paginieren von `changes.list` wird streng abgearbeitet.
    - Der `newStartPageToken` wird erst ganz am Ende, wenn alle Chunks und Verarbeitungen (OCR, Dedupe) erfolgreich abgeschlossen sind, im Sheet gespeichert.
-   - Ein Abbruch (Timeout/OOM) führt beim nächsten Start dazu, dass der Lauf exakt beim letzten erfolgreichen `nextPageToken` wiederaufsetzt, ohne Chaos zu verursachen.
+   - Ein Abbruch (Timeout/OOM) führt beim nächsten Start nicht zum Chaos, weil das Skript zusätzlich den In-Progress-`nextPageToken` und die jeweilige Verarbeitungsphase persistiert, um ein echtes Resume zu ermöglichen.
 2. **Statusklassifizierung im Delta:**
    - Geänderte Dateien werden im Report und im JSONL klar unterschieden in:
      - `NEW` (neue Datei)
@@ -92,8 +92,8 @@ Sämtliche Logik wird über das Environment steuerbar:
 - `ENABLE_ARCHIVE` (true/false)
 - `ENABLE_SHARED_DRIVES` (true/false)
 
-### 4. Ausgebautes Apps Script Menü
-Deine Schaltzentrale in Google Sheets bekommt mehr Knöpfe:
+### 4. Ausgebautes Apps Script Menü (Control Plane)
+Deine Schaltzentrale in Google Sheets (die strikt als Control Plane agiert, während Cloud Run die Processing Plane bleibt) bekommt mehr Knöpfe:
 - `🚀 Fast Delta-Scan starten` (Nur Pass 1)
 - `🧠 OCR & Indexing starten` (Nur Pass 2)
 - `🔄 Kompletten Lauf starten` (Pass 1 + 2)
@@ -101,4 +101,4 @@ Deine Schaltzentrale in Google Sheets bekommt mehr Knöpfe:
 
 ---
 
-**Fazit:** V5 ist der Weg vom Skript zur Plattform. Es fokussiert sich auf sauberes Error-Handling, exakte Rechte, Kosteneffizienz bei der API-Nutzung und eine robuste Pipeline-Architektur, die auch bei 100.000+ Dateien im Drive nicht zusammenbricht.
+**Fazit:** V5 ist der Weg vom Skript zur Plattform. Es fokussiert sich auf sauberes Error-Handling, exakte Rechte, Kosteneffizienz bei der API-Nutzung und eine architektonisch skalierbare Pipeline. *(Hinweis: Für den Hash_Index ist das Google Sheet bei sehr großen Beständen jenseits der 100.000+ Dateien langfristig der erste Engpass und sollte später in SQLite, BigQuery oder Cloud SQL ausgelagert werden).*
