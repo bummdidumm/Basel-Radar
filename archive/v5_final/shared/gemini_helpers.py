@@ -1,11 +1,9 @@
 import os
 import json
-import time
 import tempfile
 from typing import Optional, Tuple
 from googleapiclient.http import MediaIoBaseDownload
 from google import genai
-from google.genai.errors import APIError
 from .models import ExtractedDocument
 
 class GeminiOCR:
@@ -56,28 +54,14 @@ class GeminiOCR:
             gemini_file = self.client.files.upload(file=tmp_path, mime_type=effective_mime)
             prompt = "Bitte analysiere dieses Dokument und extrahiere die angeforderten strukturierten Daten."
 
-            max_retries = 5
-            for attempt in range(max_retries):
-                try:
-                    response = self.client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=[gemini_file, prompt],
-                        config={"response_mime_type": "application/json", "response_schema": ExtractedDocument}
-                    )
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[gemini_file, prompt],
+                config={"response_mime_type": "application/json", "response_schema": ExtractedDocument}
+            )
 
-                    if response.text:
-                        return json.loads(response.text), effective_mime
-                    break
-
-                except APIError as api_err:
-                    if api_err.code == 429:
-                        sleep_time = (2 ** attempt) * 5 # 5, 10, 20, 40, 80s
-                        print(f"Gemini Rate Limit (429) erreicht. Backoff für {sleep_time}s... (Versuch {attempt+1}/{max_retries})")
-                        time.sleep(sleep_time)
-                    else:
-                        raise api_err
-
-            return None, effective_mime
+            if response.text:
+                return json.loads(response.text), effective_mime
 
         except Exception as e:
             print(f"Gemini OCR Fehler für {file_id}: {e}")

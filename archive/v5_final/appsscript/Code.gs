@@ -1,26 +1,10 @@
 // Control Plane für Bummdidumm V5
 
+const PROJECT_ID = "DEIN_PROJEKT_ID";
 const REGION = "us-central1";
 
-function getProjectId() {
-  const props = PropertiesService.getScriptProperties();
-  let projectId = props.getProperty("PROJECT_ID");
-  if (!projectId) {
-    const ui = SpreadsheetApp.getUi();
-    const res = ui.prompt("Konfiguration fehlt", "Bitte gib deine Google Cloud PROJECT_ID ein:", ui.ButtonSet.OK_CANCEL);
-    if (res.getSelectedButton() === ui.Button.OK) {
-      projectId = res.getResponseText().trim();
-      props.setProperty("PROJECT_ID", projectId);
-    } else {
-      throw new Error("Abbruch: PROJECT_ID wird für Cloud Run Aufrufe zwingend benötigt.");
-    }
-  }
-  return projectId;
-}
-
 function triggerJob(jobName) {
-  const projectId = getProjectId();
-  const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${REGION}/jobs/${jobName}:run`;
+  const url = `https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${jobName}:run`;
 
   const res = UrlFetchApp.fetch(url, {
     method: "post",
@@ -212,17 +196,20 @@ function initializeFolderStructure() {
     "99_archive"
   ];
 
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Folder_Registry");
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Folder_Registry");
   if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Folder_Registry");
-    sheet.appendRow(["folder_key", "folder_name", "folder_id", "parent_folder_id", "full_path"]);
-  } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["folder_key", "folder_name", "folder_id", "parent_folder_id", "full_path"]);
+    ui.alert("❌ Das Tab 'Folder_Registry' fehlt. Bitte führe Pass 1 einmal testweise aus, um die Tabs aufzubauen oder lege es manuell an.");
+    return;
   }
 
   try {
     const root = DriveApp.getFolderById(folderIdStr);
     const registryRows = [];
+
+    // Header check
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(["folder_key", "folder_name", "folder_id", "parent_folder_id", "full_path"]);
+    }
 
     // Helfer für rekursives Erzeugen
     const createOrGet = (parent, name, fullPath) => {

@@ -39,22 +39,20 @@ def run_pass2():
         state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Kein erfolgreicher Pass 1 gefunden.")
         return
 
-    # Lese Folder-Aware Indexing Daten chunkweise aus Sorting_Suggestions ein, um OOM bei >100k Files zu verhindern.
-    # Wir projizieren nur die absolut notwendigen Felder des AKTUELLEN Runs in ein lokales Dict.
-    # Da dies nur die Deltas eines Runs sind, bleibt der RAM-Footprint auch bei Millionen historischer Einträge im Sheet minimal (<50MB) und locker im 2GiB Limit.
+    # Lese Folder-Aware Indexing Daten aus Sorting_Suggestions (Pass 3) ein
     # Schema: ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "suggested_target_folder", "suggested_target_folder_id", "target_path", "rule_reason", "action_mode", "move_result"]
     sorting_data = {}
-    for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
-        for s_row in sort_chunk:
-            if len(s_row) >= 12 and s_row[0] == current_run_id:
-                sorting_data[s_row[1]] = {
-                    "current_parent_id": s_row[5],
-                    "target_parent_id": s_row[7],
-                    "target_path": s_row[8],
-                    "folder_rule_reason": s_row[9],
-                    "sort_mode": s_row[10],
-                    "move_result": s_row[11]
-                }
+    sort_rows = sheet_mgr.read_all_rows("Sorting_Suggestions")
+    for s_row in sort_rows:
+        if len(s_row) >= 12 and s_row[0] == current_run_id:
+            sorting_data[s_row[1]] = {
+                "current_parent_id": s_row[5],
+                "target_parent_id": s_row[7],
+                "target_path": s_row[8],
+                "folder_rule_reason": s_row[9],
+                "sort_mode": s_row[10],
+                "move_result": s_row[11]
+            }
 
     records_to_index = []
     processed = 0

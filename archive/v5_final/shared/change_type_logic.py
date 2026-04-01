@@ -37,10 +37,9 @@ def determine_change_type(f: dict, known_file_details: dict, is_initial: bool) -
     current_parents_sorted_str = ",".join(sorted(f.get("parents", [])))
     parents_changed = (current_parents_sorted_str != cached_parents_sorted_str)
 
-    # 5/6. MOVED / RENAMED
-    # Gemäß Zielschema gibt es nur "MOVED" oder "RENAMED".
-    # Hat sich das Parent geändert, ist es MOVED. Falls sich auch der Name geändert hat,
-    # dominiert MOVED (oder man löst es beliebig auf).
+    # 5/6/7. MOVED / RENAMED / MOVED_AND_RENAMED
+    if parents_changed and name_changed:
+        return "MOVED_AND_RENAMED"
     if parents_changed:
         return "MOVED"
     if name_changed:
@@ -63,10 +62,8 @@ def determine_change_type(f: dict, known_file_details: dict, is_initial: bool) -
     if current_time and cached_time and current_time != cached_time:
         return "UPDATED"
 
-    # 9. UNCHANGED_CONTENT_METADATA_ONLY
-    # Fallback, falls Metadaten-Update vorliegt (z.B. Beschreibung/Sternchen),
-    # aber weder Name noch Path, Hash oder Size abweichen.
-    return "UNCHANGED_CONTENT_METADATA_ONLY"
+    # Fallback, falls Metadaten-Update vorliegt (z.B. Beschreibung/Sternchen geändert)
+    return "UPDATED"
 
 def check_md5_size_prefilter(f: dict, known_file_details: dict) -> bool:
     """True = Content definitely unchanged (Size and MD5 match exactly)."""

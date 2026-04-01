@@ -1,19 +1,11 @@
 #!/bin/bash
 set -e
 
-if [ -z "$PROJECT_ID" ]; then
-  read -p "Bitte gib deine Google Cloud PROJECT_ID ein: " PROJECT_ID
-fi
-
-if [ -z "$PROJECT_ID" ]; then
-  echo "Abbruch: PROJECT_ID ist zwingend erforderlich."
-  exit 1
-fi
-
+PROJECT_ID="DEIN_PROJEKT_ID"
 REGION="us-central1"
 SA_EMAIL="bummdidumm-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
-echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID..."
+echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs..."
 
 # Deploy Pass 1: Delta & Dedupe
 gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \

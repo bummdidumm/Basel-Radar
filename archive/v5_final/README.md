@@ -17,21 +17,20 @@ Es ist strikt erforderlich, einen eigenen Service Account zu verwenden.
 ```bash
 gcloud iam service-accounts create bummdidumm-runner --display-name="Bummdidumm Job Runner"
 ```
-Gib diesem Service Account (E-Mail: `bummdidumm-runner@<DEINE_GOOGLE_CLOUD_PROJECT_ID>.iam.gserviceaccount.com`) in den Google Drive und Google Sheet Einstellungen "Bearbeiter"-Rechte für:
+Gib diesem Service Account (E-Mail: `bummdidumm-runner@DEIN_PROJEKT.iam.gserviceaccount.com`) in den Google Drive und Google Sheet Einstellungen "Bearbeiter"-Rechte für:
 - Den `TARGET_FOLDER`
 - Den `ARCHIVE_FOLDER`
 - Den `INDEX_FOLDER`
 - Das Control Sheet
 
 ### 2. Google Sheet Initialisierung
-Du brauchst nur ein leeres Google Sheet anlegen und die `CONTROL_SHEET_ID` aus der URL kopieren. Wenn du den ersten Pass-1-Run startest, baut das Skript die Tabs (`State`, `Hash_Index`, `Dedupe_Report`, `Duplicate_Groups`, `Error_Report`, `Run_Log`, `Folder_Registry`, `Sorting_Suggestions`) samt Headern automatisch auf, falls sie fehlen.
+Du brauchst nur ein leeres Google Sheet anlegen und die `CONTROL_SHEET_ID` aus der URL kopieren. Wenn du den ersten Pass-1-Run startest, baut das Skript die Tabs (`State`, `Hash_Index`, `Dedupe_Report`, `Duplicate_Groups`, `Error_Report`, `Run_Log`) samt Headern automatisch auf, falls sie fehlen.
 
 ### 3. Cloud Run Deploy
-Führe `bash deploy.sh` in deiner Cloud Shell aus. Das Skript wird dich interaktiv nach deiner Google Cloud `PROJECT_ID` fragen, damit keine festen Platzhalter im Quellcode verbleiben. Passe vorher in `deploy.sh` deine Ordner-IDs (`TARGET_FOLDER_ID`, etc.) an.
+Führe `bash deploy.sh` in deiner Cloud Shell aus (nachdem du die Umgebungsvariablen wie IDs und Keys im Script gesetzt hast). Die Cloud Run Jobs werden ohne persistente Server deployed.
 
 ### 4. Apps Script UI
-Kopiere den Inhalt aus `appsscript/Code.gs` in den Apps Script Editor (Erweiterungen > Apps Script in deinem Google Sheet).
-Wenn du das erste Mal einen Job per Button startest, wirst du interaktiv nach deiner `PROJECT_ID` gefragt. Diese wird dann sicher im internen `PropertiesService` des Sheets verankert.
+Kopiere den Inhalt aus `appsscript/Code.gs` in den Apps Script Editor (Erweiterungen > Apps Script in deinem Google Sheet) und ersetze `DEIN_PROJEKT_ID`.
 Öffne die Datei `appsscript.json` im Manifest-Editor und stelle sicher, dass die Scopes korrekt übernommen wurden. Nach dem ersten Klick musst du OAuth bestätigen.
 
 ## 🚀 Lauf-Zyklen (Run Cycles)

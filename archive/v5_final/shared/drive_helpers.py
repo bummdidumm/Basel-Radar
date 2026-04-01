@@ -48,10 +48,11 @@ class DriveManager:
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
-    def get_parent_and_name_path(self, file_id: str, name: str, parents: List[str] = None) -> str:
+    def get_full_path(self, file_id: str, name: str, parents: List[str] = None) -> str:
         """
-        Returns a descriptive pseudo-path consisting of the first parent ID and the file name.
-        Allows for basic visual distinction in logs without executing costly tree-walks.
+        Returns a simplified path.
+        To track MOVED efficiently in delta scans without massive API overhead,
+        we store the immediate parent_id as the prefix: 'parent_id/name'.
         """
         if parents and len(parents) > 0:
             return f"{parents[0]}/{name}"
@@ -123,10 +124,8 @@ class DriveManager:
                 f["removed"] = False
                 changes.append(f)
             elif f.get("trashed"):
-                # Nur trashed Files reinnehmen, wenn sie auch wirklich im Target Ordner Baum hängen
-                if f.get("parents") and self.is_in_target_folder(f["id"], f["parents"]):
-                    f["removed"] = False
-                    changes.append(f)
+                 f["removed"] = False
+                 changes.append(f)
 
         return changes, res.get("nextPageToken"), res.get("newStartPageToken")
 

@@ -119,7 +119,7 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             file_id=file_id,
             name=name,
             parent_ids_sorted=",".join(sorted(f.get("parents", []))),
-            path_display=drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents")),
+            path_display=drive_mgr.get_full_path(file_id, name, f.get("parents")),
             mime_type=mime,
             size_bytes=size,
             md5=f.get("md5Checksum", ""),
@@ -136,14 +136,12 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             records_to_process.append(rec)
             continue
 
-        # Wenn sich Inhalte nicht geändert haben (UNCHANGED_CONTENT_METADATA_ONLY) ODER
-        # wenn ein MOVED/RENAMED stattfand, bei dem die Binärdaten laut Prefilter
-        # identisch geblieben sind, wollen wir das Hashing überspringen.
-        if change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (not is_initial and check_md5_size_prefilter(f, known_file_details)):
+        # Reiner Metadaten-Zustand, der nicht ge-hashed werden muss (falls Inhalt identisch und kein MOVED/RENAMED stattfand)
+        if change_type == "UNCHANGED_CONTENT_METADATA_ONLY":
             rec.status = "UNCHANGED_CONTENT"
             rec.sha256 = known_file_details[file_id].get("sha", "")
 
-            if rec.sha256 == "HASH_SKIPPED_SIZE":
+            if rec.sha256 == "HASH_SKIPPED":
                 rec.status = "SKIPPED_SIZE"
 
             known_file_details[rec.file_id].update({
@@ -157,7 +155,7 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
 
         if size > SKIP_OVER_MB * 1024 * 1024:
             rec.status = "SKIPPED_SIZE"
-            rec.sha256 = "HASH_SKIPPED_SIZE"
+            rec.sha256 = "HASH_SKIPPED"
             # Update cache sofort für denselben Batch, damit nachfolgende Deltas ihn kennen
             known_file_details[rec.file_id] = {
                 "sha": rec.sha256,
@@ -169,6 +167,24 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
                 "md5": rec.md5,
                 "effective_mime_type": rec.effective_mime_type
             }
+            records_to_process.append(rec)
+            continue
+
+        if not is_initial and check_md5_size_prefilter(f, known_file_details):
+            rec.status = "UNCHANGED_CONTENT"
+            rec.sha256 = known_file_details[file_id].get("sha", "")
+
+            # Falls SKIPPED_SIZE Datei jetzt wegen Metadaten-Update als UNCHANGED_CONTENT durchgeht,
+            # beenden wir die Iteration hier, da wir den Hash immer noch skippen.
+            if rec.sha256 == "HASH_SKIPPED":
+                rec.status = "SKIPPED_SIZE"
+
+            known_file_details[rec.file_id].update({
+                "name": rec.name,
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
+                "updated_at": rec.updated_at
+            })
             records_to_process.append(rec)
             continue
 

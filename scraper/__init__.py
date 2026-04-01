@@ -1,0 +1,1 @@
+"""Basel Radar scraper package."""

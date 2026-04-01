@@ -1,5 +1,6 @@
 import os
 import re
+import atexit
 import json
 import time
 import random
@@ -83,6 +84,7 @@ httpx_client = httpx.Client(
     timeout=20.0,
     follow_redirects=True
 )
+atexit.register(httpx_client.close)
 
 
 class EventRecord(BaseModel):
@@ -482,7 +484,13 @@ def scan_region_for_day(day_iso: str, region: str, region_sources: List[Dict[str
     }
 
 
+
+def ensure_client_configured() -> None:
+    if client is None:
+        raise RuntimeError("GEMINI_API_KEY is not set. Please export GEMINI_API_KEY before running the scan.")
+
 def main() -> None:
+    ensure_client_configured()
     ensure_debug_dir()
 
     days = daterange(DATE_FROM, DATE_TO)
