@@ -6,3 +6,4 @@ venv/
 debug_gemini_day_scan/
 *.log
 .DS_Store
+*.zip
