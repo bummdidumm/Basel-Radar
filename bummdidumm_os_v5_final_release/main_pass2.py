@@ -42,18 +42,19 @@ def run_pass2():
     # Lese Folder-Aware Indexing Daten chunkweise aus Sorting_Suggestions ein, um OOM bei >100k Files zu verhindern.
     # Wir projizieren nur die absolut notwendigen Felder des AKTUELLEN Runs in ein lokales Dict.
     # Da dies nur die Deltas eines Runs sind, bleibt der RAM-Footprint auch bei Millionen historischer Einträge im Sheet minimal (<50MB) und locker im 2GiB Limit.
-    # Schema: ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "suggested_target_folder", "suggested_target_folder_id", "target_path", "rule_reason", "action_mode", "move_result"]
+    # Schema: ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule", "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"]
     sorting_data = {}
     for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
         for s_row in sort_chunk:
             if len(s_row) >= 12 and s_row[0] == current_run_id:
                 sorting_data[s_row[1]] = {
                     "current_parent_id": s_row[5],
-                    "target_parent_id": s_row[7],
-                    "target_path": s_row[8],
-                    "folder_rule_reason": s_row[9],
-                    "sort_mode": s_row[10],
-                    "move_result": s_row[11]
+                    "folder_rule": s_row[6],
+                    "folder_rule_reason": s_row[7],
+                    "target_parent_id": s_row[9],
+                    "target_path": s_row[10],
+                    "sort_mode": s_row[11],
+                    "move_result": s_row[12]
                 }
 
     records_to_index = []
@@ -98,12 +99,14 @@ def run_pass2():
             )
 
             # Folder-Aware Indexing anreichern
+            rec.current_path = rec.path_display
             s_data = sorting_data.get(file_id, {})
             if s_data:
                 rec.current_parent_id = s_data.get("current_parent_id", "")
+                rec.current_path = rec.path_display
                 rec.target_parent_id = s_data.get("target_parent_id", "")
                 rec.target_path = s_data.get("target_path", "")
-                rec.folder_rule = "Auto-Sort"
+                rec.folder_rule = s_data.get("folder_rule", "")
                 rec.folder_rule_reason = s_data.get("folder_rule_reason", "")
                 rec.sort_mode = s_data.get("sort_mode", "")
                 rec.move_result = s_data.get("move_result", "")
@@ -125,7 +128,7 @@ def run_pass2():
                     state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion")
 
             # Pfad B: Statusereignisse ohne OCR
-            elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED", "RENAMED", "MOVED_AND_RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] or status == "UNCHANGED_CONTENT":
+            elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] or status == "UNCHANGED_CONTENT":
                 # Kein OCR, wir signalisieren dem nachgelagerten System nur die Bestandsänderung
                 rec.notes = "event_only_no_content_processing"
 

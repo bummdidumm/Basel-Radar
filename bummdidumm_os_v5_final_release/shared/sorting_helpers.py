@@ -1,67 +1,62 @@
-import os
 from typing import Dict, Tuple
 
 class SortingRules:
-    """
-    Kapselt die Sortierregeln (Prioritäten 1-8) für das automatische File-Routing
-    in die Bummdidumm-Ordnerstruktur.
-    """
+    """Sortierregeln + Registry-Navigation für folder-aware Zielermittlung."""
 
-    def __init__(self, folder_ids: Dict[str, str]):
-        """Erwartet ein Dictionary der Form {'00_inbox': 'id123', '99_archive': 'id456', ...}"""
-        self.folder_ids = folder_ids
+    def __init__(self, folder_registry: Dict[str, Dict[str, str]]):
+        self.folder_registry = folder_registry
 
-    def determine_target(self, file_meta: dict) -> Tuple[str, str, str]:
-        """
-        Gibt (target_folder_name, target_folder_id, rule_reason) zurück.
-        file_meta muss enthalten: name, mime_type, status, duplicate_of, path
-        """
+    def resolve_target(self, folder_key: str) -> Tuple[str, str, str]:
+        entry = self.folder_registry.get(folder_key, {})
+        return (
+            entry.get("folder_name", folder_key),
+            entry.get("folder_id", ""),
+            entry.get("full_path", f"/{folder_key}")
+        )
+
+    def determine_target(self, file_meta: dict) -> Tuple[str, str, str, str, str]:
+        """Returns (folder_rule, folder_rule_reason, target_name, target_id, target_path)."""
         name = file_meta.get("name", "").lower()
         mime = file_meta.get("mime_type", "").lower()
         status = file_meta.get("status", "")
         path = file_meta.get("path", "").lower()
 
-        # Prio 1: Sonderfälle (Archive & Quarantine)
         if "DUPLICATE" in status:
-            return "99_archive", self.folder_ids.get("99_archive", ""), "Prio 1: Duplikat"
+            key = "99_archive"
+            reason = "Prio 1: Duplikat"
+        elif status in ["ERROR", "FATAL", "UNREADABLE"]:
+            key = "99_quarantine"
+            reason = "Prio 1: Fehlerfall/Quarantäne"
+        elif mime.startswith("image/"):
+            key = "50a_fotos"
+            reason = "Prio 2: Bilddatei (Mime-Type)"
+        elif mime.startswith("video/"):
+            key = "50b_videos"
+            reason = "Prio 2: Videodatei (Mime-Type)"
+        elif mime.startswith("audio/"):
+            key = "50c_audio"
+            reason = "Prio 2: Audiodatei (Mime-Type)"
+        elif any(name.endswith(ext) for ext in [".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql"]):
+            key = "30_scripts"
+            reason = "Prio 3: Code/Skript (Dateiendung)"
+        elif name.endswith(".md") and ("script" in path or "code" in path or "project" in path):
+            key = "30_scripts"
+            reason = "Prio 3: Markdown im Code-Kontext"
+        elif mime == "application/pdf":
+            key = "40b_referenzen"
+            reason = "Prio 4: PDF Dokument"
+        elif any(marker in name or marker in path for marker in ["projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os"]):
+            key = "40c_projekte"
+            reason = "Prio 5: Projektmarker im Namen/Pfad"
+        elif any(marker in name for marker in ["decision", "entscheid", "adr", "architecture_decision"]):
+            key = "10_decisions"
+            reason = "Prio 6: Entscheidungs-Kontext im Namen"
+        elif any(name.endswith(ext) for ext in [".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z"]):
+            key = "60_software"
+            reason = "Prio 7: Software/Binärpaket (Dateiendung)"
+        else:
+            key = "00_inbox"
+            reason = "Prio 8: Unsicher/Keine Regel greift"
 
-        if status in ["ERROR", "FATAL", "UNREADABLE"]:
-            return "99_quarantine", self.folder_ids.get("99_quarantine", ""), "Prio 1: Fehlerfall/Quarantäne"
-
-        # Prio 2: Medien
-        if mime.startswith("image/"):
-            return "50a_fotos", self.folder_ids.get("50a_fotos", ""), "Prio 2: Bilddatei (Mime-Type)"
-        if mime.startswith("video/"):
-            return "50b_videos", self.folder_ids.get("50b_videos", ""), "Prio 2: Videodatei (Mime-Type)"
-        if mime.startswith("audio/"):
-            return "50c_audio", self.folder_ids.get("50c_audio", ""), "Prio 2: Audiodatei (Mime-Type)"
-
-        # Prio 3: Code / Skripte
-        code_exts = [".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql"]
-        if any(name.endswith(ext) for ext in code_exts):
-            return "30_scripts", self.folder_ids.get("30_scripts", ""), f"Prio 3: Code/Skript (Dateiendung)"
-
-        if name.endswith(".md") and ("script" in path or "code" in path or "project" in path):
-             return "30_scripts", self.folder_ids.get("30_scripts", ""), "Prio 3: Markdown im Code-Kontext"
-
-        # Prio 4: Dokumente / Referenzen (Standard)
-        if mime == "application/pdf":
-            return "40b_referenzen", self.folder_ids.get("40b_referenzen", ""), "Prio 4: PDF Dokument"
-
-        # Prio 5: Projektdateien
-        project_markers = ["projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os"]
-        if any(marker in name or marker in path for marker in project_markers):
-            return "40c_projekte", self.folder_ids.get("40c_projekte", ""), "Prio 5: Projektmarker im Namen/Pfad"
-
-        # Prio 6: Entscheidungen
-        decision_markers = ["decision", "entscheid", "adr", "architecture_decision"]
-        if any(marker in name for marker in decision_markers):
-            return "10_decisions", self.folder_ids.get("10_decisions", ""), "Prio 6: Entscheidungs-Kontext im Namen"
-
-        # Prio 7: Software / Binärartefakte
-        sw_exts = [".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z"]
-        if any(name.endswith(ext) for ext in sw_exts):
-            return "60_software", self.folder_ids.get("60_software", ""), "Prio 7: Software/Binärpaket (Dateiendung)"
-
-        # Prio 8: Nicht eindeutig zuordenbar
-        return "00_inbox", self.folder_ids.get("00_inbox", ""), "Prio 8: Unsicher/Keine Regel greift"
+        target_name, target_id, target_path = self.resolve_target(key)
+        return key, reason, target_name, target_id, target_path
