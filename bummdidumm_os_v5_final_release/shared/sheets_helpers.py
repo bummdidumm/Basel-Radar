@@ -16,7 +16,7 @@ class SheetManager:
             "Error_Report": ["run_utc", "run_id", "phase", "file_id", "path", "error_type", "error_message"],
             "Run_Log": ["run_utc", "run_id", "phase", "status", "files_processed", "errors"],
             "Folder_Registry": ["folder_key", "folder_name", "folder_id", "parent_folder_id", "full_path"],
-            "Sorting_Suggestions": ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "suggested_target_folder", "suggested_target_folder_id", "target_path", "rule_reason", "action_mode", "move_result"]
+            "Sorting_Suggestions": ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule", "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"]
         }
 
     def _execute_with_backoff(self, request_op):
@@ -111,4 +111,28 @@ class SheetManager:
                 start_row += chunk_size
             except Exception as e:
                 print(f"Fehler bei chunked read ({range_str}): {e}")
+                break
+
+    def read_rows_chunked_with_row_numbers(self, tab: str, chunk_size: int = 1000):
+        """Yieldt (sheet_row_number, row_values) chunkweise für präzise Updates ohne rows.index()."""
+        start_row = 1
+
+        while True:
+            range_str = f"{tab}!A{start_row}:Z{start_row + chunk_size - 1}"
+            try:
+                res = self._execute_with_backoff(self.sheets.spreadsheets().values().get(
+                    spreadsheetId=self.spreadsheet_id, range=range_str
+                ))
+                values = res.get("values", [])
+                if not values:
+                    break
+
+                for offset, row in enumerate(values):
+                    yield (start_row + offset, row)
+
+                if len(values) < chunk_size:
+                    break
+                start_row += chunk_size
+            except Exception as e:
+                print(f"Fehler bei chunked read with row numbers ({range_str}): {e}")
                 break

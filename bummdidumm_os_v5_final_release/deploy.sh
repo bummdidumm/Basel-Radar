@@ -1,83 +1,51 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-if [ -z "$PROJECT_ID" ]; then
-  read -p "Bitte gib deine Google Cloud PROJECT_ID ein: " PROJECT_ID
-fi
+: "${PROJECT_ID:?Bitte PROJECT_ID setzen}"
+: "${TARGET_FOLDER_ID:?Bitte TARGET_FOLDER_ID setzen}"
+: "${ARCHIVE_FOLDER_ID:?Bitte ARCHIVE_FOLDER_ID setzen}"
+: "${INDEX_FOLDER_ID:?Bitte INDEX_FOLDER_ID setzen}"
+: "${CONTROL_SHEET_ID:?Bitte CONTROL_SHEET_ID setzen}"
+: "${GEMINI_API_KEY:?Bitte GEMINI_API_KEY setzen}"
 
-if [ -z "$PROJECT_ID" ]; then
-  echo "Abbruch: PROJECT_ID ist zwingend erforderlich."
-  exit 1
-fi
+REGION="${REGION:-us-central1}"
+SKIP_OVER_MB="${SKIP_OVER_MB:-500}"
+SA_EMAIL="${SA_EMAIL:-bummdidumm-runner@${PROJECT_ID}.iam.gserviceaccount.com}"
 
-REGION="us-central1"
-SA_EMAIL="bummdidumm-runner@${PROJECT_ID}.iam.gserviceaccount.com"
+echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID"
 
-echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID..."
-
-# Deploy Pass 1: Delta & Dedupe
 gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
   --source . \
-  --region $REGION \
-  --service-account $SA_EMAIL \
-  --set-env-vars="TARGET_FOLDER_ID=DEIN_TARGET_FOLDER_ID,ARCHIVE_FOLDER_ID=DEIN_ARCHIVE_FOLDER_ID,CONTROL_SHEET_ID=DEINE_SHEET_ID,SKIP_OVER_MB=500" \
-  --max-retries=0 \
-  --tasks=1 \
-  --cpu=1 \
-  --memory=2Gi \
-  --task-timeout=3600s \
+  --region "$REGION" \
+  --service-account "$SA_EMAIL" \
+  --set-env-vars="TARGET_FOLDER_ID=${TARGET_FOLDER_ID},ARCHIVE_FOLDER_ID=${ARCHIVE_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},SKIP_OVER_MB=${SKIP_OVER_MB}" \
+  --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
   --command="python","main_pass1.py"
 
-# Deploy Pass 2: OCR & Indexing
 gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --source . \
-  --region $REGION \
-  --service-account $SA_EMAIL \
-  --set-env-vars="INDEX_FOLDER_ID=DEIN_INDEX_FOLDER_ID,CONTROL_SHEET_ID=DEINE_SHEET_ID,GEMINI_API_KEY=DEIN_API_KEY" \
-  --max-retries=0 \
-  --tasks=1 \
-  --cpu=1 \
-  --memory=2Gi \
-  --task-timeout=3600s \
+  --region "$REGION" \
+  --service-account "$SA_EMAIL" \
+  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY}" \
+  --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
   --command="python","main_pass2.py"
 
-# Deploy Renames (Optional)
 gcloud run jobs deploy bummdidumm-apply-renames \
-  --source . \
-  --region $REGION \
-  --service-account $SA_EMAIL \
-  --set-env-vars="CONTROL_SHEET_ID=DEINE_SHEET_ID" \
-  --max-retries=0 \
-  --tasks=1 \
-  --cpu=1 \
-  --memory=1Gi \
-  --task-timeout=1800s \
+  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=1800s \
   --command="python","main_apply_renames.py"
 
-# Deploy Safe Sort
 gcloud run jobs deploy bummdidumm-safe-sort \
-  --source . \
-  --region $REGION \
-  --service-account $SA_EMAIL \
-  --set-env-vars="CONTROL_SHEET_ID=DEINE_SHEET_ID,FOLDER_MAP_JSON=" \
-  --max-retries=0 \
-  --tasks=1 \
-  --cpu=1 \
-  --memory=1Gi \
-  --task-timeout=3600s \
+  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command="python","main_safe_sort.py"
 
-# Deploy Apply Sort
 gcloud run jobs deploy bummdidumm-apply-sort \
-  --source . \
-  --region $REGION \
-  --service-account $SA_EMAIL \
-  --set-env-vars="CONTROL_SHEET_ID=DEINE_SHEET_ID" \
-  --max-retries=0 \
-  --tasks=1 \
-  --cpu=1 \
-  --memory=1Gi \
-  --task-timeout=3600s \
+  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command="python","main_apply_sort.py"
 
 echo "Done!"
