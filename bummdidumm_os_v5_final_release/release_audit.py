@@ -1,16 +1,24 @@
 import json
-import os
 from pathlib import Path
 
 ROOT = Path("bummdidumm_os_v5_final_release")
 
+_PLACEHOLDER_TOKENS = [
+    "DEIN_PROJEKT_ID",
+    "DEINE_SHEET_ID",
+    "DEIN_API_KEY",
+    "DEIN_TARGET_FOLDER_ID",
+]
+
+_AUDIT_OUTPUT_FILES = {"release_audit.py", "SELF_AUDIT.md", "release_audit.json"}
+
 
 def _read(path: Path) -> str:
-    if not path.exists() or not path.is_file():
+    if not path.is_file():
         return ""
     try:
         return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -21,17 +29,17 @@ def run_audit() -> bool:
         errors.append("Release root fehlt: bummdidumm_os_v5_final_release")
 
     for p in ROOT.rglob("*"):
-        if p.name == "__pycache__":
+        if "__pycache__" in p.parts:
             errors.append(f"__pycache__ gefunden: {p}")
         if p.suffix == ".pyc":
             errors.append(f".pyc gefunden: {p}")
 
-    tokens = ["DEIN"+"_PROJEKT_ID", "DEINE"+"_SHEET_ID", "DEIN"+"_API_KEY", "DEIN"+"_TARGET_FOLDER_ID"]
-    for bad in tokens:
-        for p in ROOT.rglob("*"):
-            if "__pycache__" in p.parts or p.suffix == ".pyc":
-                continue
-            if p.is_file() and p.name not in {"release_audit.py", "SELF_AUDIT.md", "release_audit.json"} and bad in _read(p):
+        if not p.is_file() or p.name in _AUDIT_OUTPUT_FILES:
+            continue
+
+        text = _read(p)
+        for bad in _PLACEHOLDER_TOKENS:
+            if bad in text:
                 errors.append(f"Platzhalter {bad} gefunden in {p}")
 
     code = _read(ROOT / "appsscript" / "Code.gs")
@@ -79,7 +87,7 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
-    (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + "\n" + "\n".join(f"- {e}" for e in errors), encoding="utf-8")
 
     if errors:
