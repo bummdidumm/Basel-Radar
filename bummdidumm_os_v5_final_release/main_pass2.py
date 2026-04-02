@@ -122,11 +122,12 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 import hashlib
                                 from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
+                                canonical_sub_path = f"{rec.path_display or rec.name}/{zinfo.filename}"
                                 sources.append({
                                     "file_id": f"{rec.file_id}_{zinfo.filename}",
                                     "bundle_id": rec.file_id,
-                                    "source_path": sub_local_path,
-                                    "source_path_rel": f"{rec.path_display or rec.name}/{zinfo.filename}",
+                                    "source_path": canonical_sub_path,
+                                    "source_path_rel": canonical_sub_path,
                                     "original_filename": zinfo.filename,
                                     "mime": sub_mime,
                                     "ext": sub_ext,
@@ -175,10 +176,11 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         content.setdefault("topics", [ocr_topic] if ocr_topic else [])
         content.setdefault("url", rec.web_link or "")
 
+        canonical_path = rec.path_display or rec.name
         sources.append({
             "file_id": rec.file_id,
-            "source_path": local_path or rec.path_display or rec.name,
-            "source_path_rel": rec.path_display or rec.name,
+            "source_path": canonical_path,
+            "source_path_rel": canonical_path,
             "original_filename": rec.name,
             "mime": mime,
             "ext": ext,

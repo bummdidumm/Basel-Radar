@@ -65,6 +65,16 @@ class TestPipelineE2E(unittest.TestCase):
             # Sub-files from zip should be extracted
             self.assertGreater(len(sources_v1), 2)
 
+            # Assert that no temporary paths leak into the source dict paths
+            for s in sources_v1:
+                self.assertNotIn("/tmp/", s["source_path"])
+                self.assertNotIn("/tmp/", s["source_path_rel"])
+
+            # Find the inner zip source correctly
+            inner_src = next(s for s in sources_v1 if s["file_id"] == "zip-123_instagram/messages.json")
+            self.assertEqual(inner_src["source_path"], "dir/takeout.zip/instagram/messages.json")
+            self.assertEqual(inner_src["source_path_rel"], "dir/takeout.zip/instagram/messages.json")
+
             runtime = PersonalBrainRuntime(project_id="test-project", out_root=out_root)
             runtime.process_sources(sources_v1)
 
