@@ -1,0 +1,4 @@
+[15.03.2025, 08:00:00] Alice: Guten Morgen! Treffen wir uns heute?
+[15.03.2025, 08:01:15] Bob: Morgen Alice! Ja, um 12 Uhr am Marktplatz?
+[15.03.2025, 08:02:30] Alice: Super, bin dabei. Bis dann!
+[15.03.2025, 08:03:00] Bob: Prima. Bis später!

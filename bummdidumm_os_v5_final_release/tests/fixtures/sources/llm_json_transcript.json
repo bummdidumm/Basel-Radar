@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "id": "transcript-001",
+    "model": "gpt-4o",
+    "created_at": "2025-03-15T11:00:00Z",
+    "title": "Code Review Session"
+  },
+  "messages": [
+    {
+      "id": "t-msg-001",
+      "role": "user",
+      "content": "Please review this Python function for performance issues.",
+      "timestamp": "2025-03-15T11:00:00Z"
+    },
+    {
+      "id": "t-msg-002",
+      "role": "assistant",
+      "content": "I see several optimisation opportunities. The main loop could use a generator expression instead of building a list.",
+      "timestamp": "2025-03-15T11:00:03Z"
+    }
+  ]
+}

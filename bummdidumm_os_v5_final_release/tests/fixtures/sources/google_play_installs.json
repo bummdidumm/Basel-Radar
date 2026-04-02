@@ -1,0 +1,12 @@
+{
+  "installed_apps": [
+    {
+      "app_name": "Signal",
+      "package_name": "org.thoughtcrime.securesms",
+      "installed_at": "2025-03-15T09:00:00Z",
+      "device": "Pixel 8",
+      "account": "me@example.com",
+      "install_source": "google_play"
+    }
+  ]
+}
