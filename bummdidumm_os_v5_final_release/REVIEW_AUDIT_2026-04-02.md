@@ -13,7 +13,7 @@ This run executes all requested review modes:
 ### What was checked
 - Release self-audit script outcome.
 - Python syntax/compilation across release package.
-- Smoke test suite in `tests/smoke`.
+- Smoke test suite in `bummdidumm_os_v5_final_release/tests/smoke`.
 
 ### Results
 - `release_audit.py`: **PASS**.
