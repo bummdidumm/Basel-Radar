@@ -6,7 +6,12 @@ ROOT = Path("bummdidumm_os_v5_final_release")
 
 
 def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else ""
+    if not path.exists() or not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return ""
 
 
 def run_audit() -> bool:
@@ -24,6 +29,8 @@ def run_audit() -> bool:
     tokens = ["DEIN"+"_PROJEKT_ID", "DEINE"+"_SHEET_ID", "DEIN"+"_API_KEY", "DEIN"+"_TARGET_FOLDER_ID"]
     for bad in tokens:
         for p in ROOT.rglob("*"):
+            if "__pycache__" in p.parts or p.suffix == ".pyc":
+                continue
             if p.is_file() and p.name not in {"release_audit.py", "SELF_AUDIT.md", "release_audit.json"} and bad in _read(p):
                 errors.append(f"Platzhalter {bad} gefunden in {p}")
 
