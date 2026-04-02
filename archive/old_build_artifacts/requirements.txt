@@ -1,4 +1,0 @@
-google-genai>=1.30.0
-pydantic>=2.7.0
-httpx>=0.28.0
-beautifulsoup4>=4.13.0
