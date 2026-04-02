@@ -18,7 +18,7 @@ This run executes all requested review modes:
 ### Results
 - `release_audit.py`: **PASS**.
 - `compileall`: all modules compile.
-- `pytest -q tests/smoke`: **23 passed**.
+- `pytest -q bummdidumm_os_v5_final_release/tests/smoke`: **23 passed**.
 
 ### Code quality observations
 - Module boundaries are clean (`shared/`, `personal_brain/`, entrypoints at root).
