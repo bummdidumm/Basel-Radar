@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import json
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
 from shared.gemini_helpers import GeminiOCR
 from shared.models import FileRecord
+from personal_brain.runtime import PersonalBrainRuntime
+from personal_brain.source_ingestion import inspect_source
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -17,6 +20,48 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
+
+
+
+def _build_personal_brain_sources(records_to_index):
+    sources = []
+    for rec in records_to_index:
+        detected = inspect_source(
+            source_path=rec.path_display or rec.name,
+            mime=rec.effective_mime_type or rec.mime_type,
+            ext=os.path.splitext(rec.name)[1].lower(),
+            fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+        )
+        content = detected.get("content", {})
+        content.setdefault("title", rec.name)
+        content.setdefault("summary", rec.ocr_summary or rec.notes)
+        content.setdefault("event_time_start", rec.ocr_date or rec.run_utc)
+        content.setdefault("event_date", (rec.ocr_date or rec.run_utc)[:10])
+        content.setdefault("apps", [rec.folder_rule] if rec.folder_rule else [])
+        content.setdefault("topics", [rec.change_type])
+        content.setdefault("url", rec.web_link)
+
+        sources.append({
+            "source_path": rec.path_display or rec.name,
+            "source_path_rel": rec.path_display or rec.name,
+            "original_filename": rec.name,
+            "mime": rec.effective_mime_type or rec.mime_type,
+            "ext": os.path.splitext(rec.name)[1].lower(),
+            "checksum_sha256": rec.sha256,
+            "raw_ref": rec.web_link or rec.path_display,
+            "preview": {"coverage_start": rec.run_utc, "coverage_end": rec.run_utc, **detected.get("preview", {})},
+            "text_preview": detected.get("text_preview", ""),
+            "content": content,
+            "is_export": detected.get("is_export", True),
+            "is_bundle": detected.get("is_bundle", False),
+            "is_archive": detected.get("is_archive", False),
+            "contains_pii": bool(rec.ocr_full_text),
+            "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
+            "contains_geo": "map" in (rec.path_display or "").lower(),
+            "contains_financial": bool(rec.ocr_amount),
+            "contains_media_refs": rec.mime_type.startswith("image/"),
+        })
+    return sources
 
 def run_pass2():
     print("Starte Pass 2: OCR + Indexing")
@@ -191,6 +236,9 @@ def run_pass2():
             fields="id",
             **params
         ).execute()
+
+        runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=Path("."))
+        runtime.process_sources(_build_personal_brain_sources(records_to_index))
 
         state.set_val("current_phase", "PASS2_DONE")
         state.log_run("PASS_2", "SUCCESS", processed, errors)

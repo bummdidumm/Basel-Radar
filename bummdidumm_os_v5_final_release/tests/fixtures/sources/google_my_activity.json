@@ -1,0 +1,13 @@
+{
+  "activity": [
+    {
+      "id": "act-1",
+      "time": "2025-03-15T10:30:00Z",
+      "product": "Search",
+      "type": "query",
+      "title": "Searched: Basel weather",
+      "description": "User searched for weather.",
+      "url": "https://google.com/search?q=basel+weather"
+    }
+  ]
+}
