@@ -79,6 +79,49 @@ class JsonlWriter:
             for k in sorted(merged):
                 f.write(json.dumps(merged[k], ensure_ascii=False) + "\n")
 
+    def _merge_entities(self, merged: dict, new_entity: dict) -> None:
+        # Min/max bounds for dates
+        fs_list = [t for t in (merged.get("first_seen"), new_entity.get("first_seen")) if t]
+        if fs_list:
+            merged["first_seen"] = min(fs_list)
+        ls_list = [t for t in (merged.get("last_seen"), new_entity.get("last_seen")) if t]
+        if ls_list:
+            merged["last_seen"] = max(ls_list)
+
+        # Merge lists
+        merged["source_systems"] = sorted(list(set(merged.get("source_systems", []) + new_entity.get("source_systems", []))))
+        merged["source_ids"] = sorted(list(set(merged.get("source_ids", []) + new_entity.get("source_ids", []))))
+        merged["aliases"] = sorted(list(set(merged.get("aliases", []) + new_entity.get("aliases", []))))
+
+        # For counts, we avoid blind accumulation to prevent inflation on re-runs.
+        # Instead of adding, we keep track of counts mapped by source_id.
+        # Initialize dictionary if missing, or backfill from existing flat counts if necessary.
+        merged_counts = merged.get("_counts_by_source", {})
+
+        # Backfill legacy flat counts if we have none tracked but there is historical data
+        if not merged_counts and (merged.get("related_record_count", 0) > 0 or merged.get("related_relation_count", 0) > 0):
+            # Assign the legacy totals to the first known source_id or a generic fallback
+            legacy_sid = merged.get("source_ids", ["legacy_unknown"])[0]
+            merged_counts[legacy_sid] = {
+                "records": merged.get("related_record_count", 0),
+                "relations": merged.get("related_relation_count", 0)
+            }
+
+        # Determine the source_id driving the current batch update.
+        # Usually, an entity in a batch is derived from the single source currently being parsed.
+        # If it's a new entity being merged, we record its counts for its source_ids.
+        for sid in new_entity.get("source_ids", []):
+            merged_counts[sid] = {
+                "records": new_entity.get("related_record_count", 0),
+                "relations": new_entity.get("related_relation_count", 0)
+            }
+
+        merged["_counts_by_source"] = merged_counts
+
+        # Update the top level aggregate counts dynamically based on the dictionary.
+        merged["related_record_count"] = sum(v.get("records", 0) for v in merged_counts.values())
+        merged["related_relation_count"] = sum(v.get("relations", 0) for v in merged_counts.values())
+
     # ------------------------------------------------------------------
     # Public write methods
     # ------------------------------------------------------------------
@@ -92,7 +135,23 @@ class JsonlWriter:
     ) -> None:
         self._write_jsonl(self.published / "00_source_registry.jsonl", sources, "source_id")
         self._write_jsonl(self.published / "01_record_index.jsonl", records, "record_id")
-        self._write_jsonl(self.published / "02_entity_index.jsonl", entities, "entity_id")
+
+        # Custom merge logic for entities
+        entity_path = self.published / "02_entity_index.jsonl"
+        entity_path.parent.mkdir(parents=True, exist_ok=True)
+        merged_entities = self._read_existing(entity_path, "entity_id")
+
+        for new_ent in entities:
+            eid = new_ent["entity_id"]
+            if eid in merged_entities:
+                self._merge_entities(merged_entities[eid], new_ent)
+            else:
+                merged_entities[eid] = new_ent
+
+        with entity_path.open("w", encoding="utf-8") as f:
+            for k in sorted(merged_entities):
+                f.write(json.dumps(merged_entities[k], ensure_ascii=False) + "\n")
+
         self._write_jsonl(self.published / "03_relation_index.jsonl", relations, "relation_id")
 
     def write_daily_memory(self, _records: list[dict]) -> dict[str, dict]:
@@ -129,13 +188,7 @@ class JsonlWriter:
         )
         return views
 
-    def write_reports(
-        self,
-        _sources: list[dict],
-        _records: list[dict],
-        _entities: list[dict],
-        _relations: list[dict],
-    ) -> None:
+    def write_reports(self) -> None:
         """Write stats and summary from the full merged indices."""
         sources = self._load_full_sources()
         records = self._load_full_records()
@@ -161,9 +214,27 @@ class JsonlWriter:
             "parse_warnings": sum(1 for s in sources if s.get("parse_warning")),
             "ocr_files_count": sum(1 for s in sources if s.get("source_format") == "image"),
             "high_sensitivity_sources": [s["source_id"] for s in sources if s.get("sensitivity") == "high"],
+            "dedicated_parsers": sum(1 for s in sources if not s.get("parser_name", "").startswith("parser_generic")),
+            "generic_sources": sum(1 for s in sources if s.get("parser_name", "").startswith("parser_generic")),
+            "ocr_only_sources": sum(1 for s in sources if "event_only_no_content_processing" in str(s.get("notes", ""))),
+            "missing_parser_families": list(set(
+                system for system in ["instagram", "facebook", "telegram", "whatsapp", "messenger", "perplexity"]
+                if any(system in s.get("source_path", "").lower() for s in sources) and
+                not any(system in s.get("parser_name", "").lower() for s in sources)
+            )),
+            "shallow_archive_count": sum(1 for s in sources if s.get("is_archive") and not s.get("record_count", 0)),
         }
         (self.published / "CURRENT_personal_brain_stats.json").write_text(
             json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        (self.published / "CURRENT_personal_brain_quality_report.json").write_text(
+            json.dumps({
+                "dedicated_parsers_used": stats["dedicated_parsers"],
+                "generic_fallback_sources": stats["generic_sources"],
+                "ocr_or_placeholder_only": stats["ocr_only_sources"],
+                "shallow_archives": stats["shallow_archive_count"],
+                "missing_important_parser_families": stats["missing_parser_families"]
+            }, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         (self.published / "CURRENT_personal_brain_summary.md").write_text(
             f"# Personal Brain Summary\n\n"
@@ -176,4 +247,40 @@ class JsonlWriter:
         (self.published / "CURRENT_personal_brain_index.jsonl").write_text(
             "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
             encoding="utf-8",
+        )
+
+        # Build Master Output combining all data
+        master_output = {
+            "sources": sources,
+            "records": records,
+            "entities": entities,
+            "relations": relations,
+            "daily_memory": {},
+            "search_views": {}
+        }
+
+        # Load daily memory
+        if self.daily_dir.exists():
+            for f in self.daily_dir.glob("*.json"):
+                if f.is_file():
+                    try:
+                        master_output["daily_memory"][f.stem] = json.loads(f.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+
+        # Load search views
+        search_view_dir = self.published / "12_search_views"
+        if search_view_dir.exists():
+            for f in search_view_dir.glob("*.jsonl"):
+                if f.is_file():
+                    view_name = f.stem
+                    master_output["search_views"][view_name] = []
+                    for line in f.read_text(encoding="utf-8").splitlines():
+                        if line.strip():
+                            master_output["search_views"][view_name].append(json.loads(line))
+
+        # Write master output
+        (self.published / "CURRENT_personal_brain_master_index.json").write_text(
+            json.dumps(master_output, ensure_ascii=False, indent=2),
+            encoding="utf-8"
         )

@@ -74,7 +74,7 @@ class PersonalBrainRuntime:
         self.writer.write_source_record_entity_relation(source_list, record_list, entity_list, relation_list)
         self.writer.write_daily_memory(record_list)
         views = self.writer.write_search_views(record_list)
-        self.writer.write_reports(source_list, record_list, entity_list, relation_list)
+        self.writer.write_reports()
 
         return {
             "total_sources": len(source_list),
@@ -85,8 +85,17 @@ class PersonalBrainRuntime:
         }
 
     def _build_source(self, item: dict, parser, md: dict) -> dict:
-        source_key = f"{self.project_id}:{item['source_path_rel']}:{item.get('checksum_sha256', '')}:{parser.parser_name}:{parser.parser_version}"
+        # Prioritize file_id or checksum over path to ensure renames/moves maintain identity.
+        stable_id = item.get("file_id") or item.get("checksum_sha256") or item["source_path_rel"]
+        source_key = f"{self.project_id}:{stable_id}:{parser.parser_name}:{parser.parser_version}"
         source_id_value = source_id(self.project_id, source_key)
+
+        # Unify field identity (source_path, source_path_rel, raw_ref, checksum_sha256, status, sot_status, canonical_format)
+        s_path = item.get("source_path", "")
+        s_path_rel = item.get("source_path_rel", s_path)
+        raw_ref = item.get("raw_ref", item.get("web_link", s_path_rel))
+        chk_sum = item.get("checksum_sha256") or stable_hash(item)
+
         return {
             "project_id": self.project_id,
             "source_id": source_id_value,
@@ -94,13 +103,13 @@ class PersonalBrainRuntime:
             "bundle_id": item.get("bundle_id", ""),
             "parent_bundle_id": item.get("parent_bundle_id", ""),
             **md,
-            "source_path": item["source_path"],
-            "source_path_rel": item.get("source_path_rel", item["source_path"]),
+            "source_path": s_path,
+            "source_path_rel": s_path_rel,
             "original_filename": item["original_filename"],
             "normalized_filename": norm_filename(item["original_filename"]),
             "mime": item.get("mime", ""),
             "ext": item.get("ext", ""),
-            "checksum_sha256": item.get("checksum_sha256", stable_hash(item)),
+            "checksum_sha256": chk_sum,
             "semantic_hash": stable_hash(item.get("content", {})),
             "parser_name": parser.parser_name,
             "parser_version": parser.parser_version,
@@ -112,9 +121,9 @@ class PersonalBrainRuntime:
             "scanned_at": utc_now(),
             "llm_readiness": item.get("llm_readiness", "medium"),
             "sensitivity": item.get("sensitivity", "unknown"),
-            "status": "indexed",
-            "sot_status": "derived",
-            "canonical_format": md.get("source_format", "unknown"),
+            "status": item.get("status", "indexed"),
+            "sot_status": item.get("sot_status", "derived"),
+            "canonical_format": item.get("canonical_format") or md.get("source_format", "unknown"),
             "is_export": item.get("is_export", True),
             "is_bundle": item.get("is_bundle", False),
             "is_archive": item.get("is_archive", False),
@@ -128,7 +137,7 @@ class PersonalBrainRuntime:
             "entity_count": 0,
             "relation_count": 0,
             "source_url": item.get("source_url", ""),
-            "raw_ref": item.get("raw_ref", item["source_path"]),
+            "raw_ref": raw_ref,
         }
 
     def _build_record(self, source: dict, record: dict) -> dict:

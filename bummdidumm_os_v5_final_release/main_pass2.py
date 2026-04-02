@@ -76,7 +76,7 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         mime = rec.effective_mime_type or rec.mime_type or ""
 
         local_path: str | None = None
-        if rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES):
+        if rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
             local_path = _download_drive_file_to_tmp(
                 drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
             )
@@ -88,6 +88,82 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                 ext=ext,
                 fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
             )
+
+            # Fix leak of temp path in title
+            if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
+                detected["content"]["title"] = rec.name
+
+            # Recursive dispatch: if the detected content found parseable files inside a ZIP
+            if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
+                import zipfile
+                with zipfile.ZipFile(local_path, "r") as z:
+                    for zinfo in z.infolist():
+                        if zinfo.is_dir() or zinfo.file_size > 50 * 1024 * 1024:
+                            continue
+                        sub_ext = os.path.splitext(zinfo.filename)[1].lower()
+                        if sub_ext in _PARSEABLE_EXTS:
+                            sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
+                            import tempfile
+                            sub_local_path = None
+                            try:
+                                import tempfile
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
+                                    tf.write(z.read(zinfo))
+                                    sub_local_path = tf.name
+
+                                sub_detected = inspect_source(
+                                    source_path=sub_local_path,
+                                    mime=sub_mime,
+                                    ext=sub_ext,
+                                    fallback_text=""
+                                )
+                                sub_content = sub_detected.get("content", {})
+                                if sub_content.get("title") == os.path.basename(sub_local_path):
+                                    sub_content["title"] = zinfo.filename
+                                sub_content.setdefault("title", zinfo.filename)
+                                sub_event_time = rec.ocr_date or rec.run_utc or ""
+                                sub_content.setdefault("event_time_start", sub_event_time)
+                                sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
+
+                                import hashlib
+                                from pathlib import Path
+                                sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
+                                canonical_sub_path = f"{rec.path_display or rec.name}/{zinfo.filename}"
+                                sources.append({
+                                    "file_id": f"{rec.file_id}_{zinfo.filename}",
+                                    "bundle_id": rec.file_id,
+                                    "source_path": canonical_sub_path,
+                                    "source_path_rel": canonical_sub_path,
+                                    "original_filename": zinfo.filename,
+                                    "mime": sub_mime,
+                                    "ext": sub_ext,
+                                    "checksum_sha256": sub_checksum,
+                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{zinfo.filename}",
+                                    "status": rec.status,
+                                    "sot_status": "derived",
+                                    "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
+                                    "preview": {
+                                        "coverage_start": rec.run_utc,
+                                        "coverage_end": rec.run_utc,
+                                        **sub_detected.get("preview", {}),
+                                    },
+                                    "text_preview": sub_detected.get("text_preview", ""),
+                                    "content": sub_content,
+                                    "is_export": sub_detected.get("is_export", True),
+                                    "is_bundle": sub_detected.get("is_bundle", False),
+                                    "is_archive": False,
+                                    "contains_pii": False,
+                                    "contains_messages": "message" in zinfo.filename.lower() or "chat" in zinfo.filename.lower(),
+                                    "contains_geo": "map" in zinfo.filename.lower() or "location" in zinfo.filename.lower(),
+                                    "contains_financial": False,
+                                    "contains_media_refs": False,
+                                })
+                            except Exception as e:
+                                import logging
+                                logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
+                            finally:
+                                if sub_local_path and os.path.exists(sub_local_path):
+                                    os.remove(sub_local_path)
         finally:
             if local_path and os.path.exists(local_path):
                 os.remove(local_path)
@@ -106,14 +182,19 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         content.setdefault("topics", [ocr_topic] if ocr_topic else [])
         content.setdefault("url", rec.web_link or "")
 
+        canonical_path = rec.path_display or rec.name
         sources.append({
-            "source_path": local_path or rec.path_display or rec.name,
-            "source_path_rel": rec.path_display or rec.name,
+            "file_id": rec.file_id,
+            "source_path": canonical_path,
+            "source_path_rel": canonical_path,
             "original_filename": rec.name,
             "mime": mime,
             "ext": ext,
             "checksum_sha256": rec.sha256 or "",
             "raw_ref": rec.web_link or rec.path_display or rec.name,
+            "status": rec.status,
+            "sot_status": "derived",
+            "canonical_format": "binary" if mime == "application/octet-stream" else "text" if mime.startswith("text/") else "json" if "json" in mime else "unknown",
             "preview": {
                 "coverage_start": rec.run_utc,
                 "coverage_end": rec.run_utc,

@@ -147,6 +147,53 @@ class PersonalBrainSmokeTest(unittest.TestCase):
     # P2: Merge / incremental safety
     # ------------------------------------------------------------------
 
+    def test_rename_move_keeps_same_source_id(self):
+        """Simulate indexing a file, then moving/renaming it (same file_id/hash, diff path).
+        It must map to the identical source_id and not duplicate in the registry."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+
+            item_v1 = {
+                "file_id": "file-xyz-123",
+                "checksum_sha256": "abcdef123456",
+                "source_path": "/fake/dir/photo1.jpg",
+                "source_path_rel": "dir/photo1.jpg",
+                "original_filename": "photo1.jpg",
+                "mime": "image/jpeg",
+                "ext": ".jpg",
+                "content": {"title": "photo1.jpg"}
+            }
+
+            stats1 = runtime.process_sources([item_v1])
+            self.assertEqual(stats1["total_sources"], 1)
+
+            # Read registry to get the source ID
+            out = Path(td) / "20_index" / "published"
+            sources_v1 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            self.assertEqual(len(sources_v1), 1)
+            original_source_id = sources_v1[0]["source_id"]
+
+            # V2: file is moved and renamed, but file_id and hash remain exactly the same
+            item_v2 = {
+                "file_id": "file-xyz-123",
+                "checksum_sha256": "abcdef123456",
+                "source_path": "/fake/other_dir/renamed_photo.jpg",
+                "source_path_rel": "other_dir/renamed_photo.jpg",
+                "original_filename": "renamed_photo.jpg",
+                "mime": "image/jpeg",
+                "ext": ".jpg",
+                "content": {"title": "renamed_photo.jpg"}
+            }
+
+            stats2 = runtime.process_sources([item_v2])
+
+            # The registry should still contain exactly 1 source, mapped to the same ID.
+            sources_v2 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            self.assertEqual(len(sources_v2), 1, "A moved/renamed file created a duplicate source instead of updating.")
+            self.assertEqual(sources_v2[0]["source_id"], original_source_id, "The source_id changed after rename/move.")
+            # The new path should be reflected
+            self.assertEqual(sources_v2[0]["source_path_rel"], "other_dir/renamed_photo.jpg")
+
     def test_incremental_merge_does_not_lose_previous_records(self):
         """Run(A+B) followed by Run(A) must leave B's records intact on disk."""
         with tempfile.TemporaryDirectory() as td:
