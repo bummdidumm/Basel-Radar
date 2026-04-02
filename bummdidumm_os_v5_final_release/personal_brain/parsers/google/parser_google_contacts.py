@@ -25,11 +25,13 @@ class GoogleContactsParser(BaseParser):
             return super().parse_to_records(source_meta, content)
 
         for contact in contacts:
+            raw_name = contact.get("name")
+            name = raw_name if raw_name is not None else "Unknown"
             records.append({
                 "record_type": "contacts_export",
                 "subtype": "contact",
-                "title": f"Contact: {contact.get('name', 'Unknown')}",
-                "people": [contact.get("name", "Unknown")],
+                "title": f"Contact: {name}",
+                "people": [name],
                 "summary": contact.get("email", ""),
                 "external_id": contact.get("id", "")
             })

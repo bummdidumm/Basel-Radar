@@ -15,6 +15,15 @@ class TestNewParsers(unittest.TestCase):
         self.assertEqual(records[0]["record_type"], "contacts_export")
         self.assertIn("Alice", records[0]["people"])
 
+    def test_google_contacts_null_name(self):
+        parser = GoogleContactsParser()
+        content = {"contacts": [{"name": None, "email": "noname@test.com", "id": "2"}]}
+        source = {"original_filename": "contacts.json"}
+        records = parser.parse_to_records(source, content)
+        self.assertEqual(len(records), 1)
+        self.assertNotIn(None, records[0]["people"])
+        self.assertIn("Unknown", records[0]["people"])
+
     def test_google_tasks(self):
         parser = GoogleTasksParser()
         content = {"items": [{"title": "Buy milk", "updated": "2025-03-15T12:00:00Z"}]}
@@ -23,6 +32,16 @@ class TestNewParsers(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["record_type"], "task")
         self.assertEqual(records[0]["title"], "Buy milk")
+
+    def test_google_tasks_null_timestamp(self):
+        parser = GoogleTasksParser()
+        content = {"items": [{"title": "Buy milk", "updated": None, "due": None}]}
+        source = {"original_filename": "tasks.json"}
+        records = parser.parse_to_records(source, content)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["record_type"], "task")
+        self.assertEqual(records[0]["event_time_start"], "")
+        self.assertEqual(records[0]["event_date"], "")
 
     def test_telegram(self):
         parser = TelegramExportParser()

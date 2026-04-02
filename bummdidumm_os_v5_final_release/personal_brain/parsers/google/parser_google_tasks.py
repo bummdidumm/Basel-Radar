@@ -25,7 +25,7 @@ class GoogleTasksParser(BaseParser):
             return super().parse_to_records(source_meta, content)
 
         for task in tasks:
-            ts = task.get("updated", "") or task.get("due", "")
+            ts = task.get("updated") or task.get("due") or ""
             records.append({
                 "record_type": "task",
                 "subtype": "todo",
