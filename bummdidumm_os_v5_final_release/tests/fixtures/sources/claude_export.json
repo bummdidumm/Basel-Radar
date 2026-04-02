@@ -1,0 +1,24 @@
+{
+  "conversations": [
+    {
+      "uuid": "conv-claude-001",
+      "name": "API Architecture Discussion",
+      "created_at": "2025-03-15T09:00:00Z",
+      "updated_at": "2025-03-15T09:45:00Z",
+      "chat_messages": [
+        {
+          "uuid": "msg-c-001",
+          "sender": "human",
+          "text": "How should I structure a REST API for a personal data indexer?",
+          "created_at": "2025-03-15T09:00:00Z"
+        },
+        {
+          "uuid": "msg-c-002",
+          "sender": "assistant",
+          "text": "For a personal data indexer, I recommend a layered architecture with a source registry, record index, and entity graph.",
+          "created_at": "2025-03-15T09:00:05Z"
+        }
+      ]
+    }
+  ]
+}

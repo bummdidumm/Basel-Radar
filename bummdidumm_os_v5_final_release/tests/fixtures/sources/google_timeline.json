@@ -1,0 +1,18 @@
+{
+  "timeline_objects": [
+    {
+      "placeVisit": {
+        "location": {
+          "name": "Basel SBB",
+          "address": "Centralbahnstrasse, Basel",
+          "latitudeE7": 475476000,
+          "longitudeE7": 75898000
+        },
+        "duration": {
+          "startTimestamp": "2025-03-15T12:00:00Z",
+          "endTimestamp": "2025-03-15T13:00:00Z"
+        }
+      }
+    }
+  ]
+}

@@ -1,22 +1,137 @@
+from pathlib import Path
 import os
 import json
+import tempfile
 from datetime import datetime, timezone
 
 import google.auth
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
 from shared.gemini_helpers import GeminiOCR
 from shared.models import FileRecord
+from personal_brain.runtime import PersonalBrainRuntime
+from personal_brain.source_ingestion import inspect_source
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
 PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
+# Persistent root for the local brain index mirror.
+# Set BRAIN_INDEX_ROOT to a path that survives restarts (e.g. a mounted volume or
+# a directory synced back to Drive). Defaults to a subdirectory next to this file.
+BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
 
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
+
+# Extensions and MIME types for which we attempt a real Drive download so the
+# parser can open the actual file content rather than falling back to OCR text.
+_PARSEABLE_EXTS = {".json", ".html", ".htm", ".txt", ".md", ".csv", ".ics"}
+_PARSEABLE_MIMES = {
+    "application/json",
+    "text/html",
+    "text/plain",
+    "text/csv",
+    "text/calendar",
+    "text/markdown",
+}
+_MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024  # 20 MB cap per file
+
+
+def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, enable_shared_drives: bool) -> str | None:
+    """Download a Drive file to a NamedTemporaryFile and return the local path.
+
+    Returns None on any error. The caller is responsible for deleting the file.
+    We cap downloads at _MAX_DOWNLOAD_BYTES to avoid memory exhaustion on
+    accidentally large files landing in an export folder.
+    """
+    if size_bytes > _MAX_DOWNLOAD_BYTES:
+        return None
+    params = {"supportsAllDrives": True} if enable_shared_drives else {}
+    try:
+        request = drive_service.files().get_media(fileId=file_id, **params)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+            downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            tmp.flush()
+            return tmp.name
+    except Exception:
+        return None
+
+
+def _build_personal_brain_sources(records_to_index, drive_service, enable_shared_drives: bool) -> list[dict]:
+    """Convert FileRecord objects into personal-brain source dicts.
+
+    For parseable file types we download the actual file from Drive so that
+    inspect_source can open and read real content (JSON, HTML, ICS, CSV, TXT).
+    Temp files are deleted immediately after content is loaded into memory.
+    """
+    sources = []
+    for rec in records_to_index:
+        ext = os.path.splitext(rec.name)[1].lower()
+        mime = rec.effective_mime_type or rec.mime_type or ""
+
+        local_path: str | None = None
+        if rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES):
+            local_path = _download_drive_file_to_tmp(
+                drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
+            )
+
+        try:
+            detected = inspect_source(
+                source_path=local_path or rec.path_display or rec.name,
+                mime=mime,
+                ext=ext,
+                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+            )
+        finally:
+            if local_path and os.path.exists(local_path):
+                os.remove(local_path)
+
+        content = detected.get("content", {})
+        content.setdefault("title", rec.name)
+        content.setdefault("summary", rec.ocr_summary or rec.notes or "")
+        event_time = rec.ocr_date or rec.run_utc or ""
+        content.setdefault("event_time_start", event_time)
+        content.setdefault("event_date", event_time[:10] if event_time else "")
+        if rec.folder_rule:
+            content.setdefault("apps", [rec.folder_rule])
+        # Use OCR doc_type as a semantic topic hint; avoid using change_type
+        # (which is an internal delta status, not a meaningful topic).
+        ocr_topic = rec.ocr_doc_type.strip() if rec.ocr_doc_type else ""
+        content.setdefault("topics", [ocr_topic] if ocr_topic else [])
+        content.setdefault("url", rec.web_link or "")
+
+        sources.append({
+            "source_path": local_path or rec.path_display or rec.name,
+            "source_path_rel": rec.path_display or rec.name,
+            "original_filename": rec.name,
+            "mime": mime,
+            "ext": ext,
+            "checksum_sha256": rec.sha256 or "",
+            "raw_ref": rec.web_link or rec.path_display or rec.name,
+            "preview": {
+                "coverage_start": rec.run_utc,
+                "coverage_end": rec.run_utc,
+                **detected.get("preview", {}),
+            },
+            "text_preview": detected.get("text_preview", ""),
+            "content": content,
+            "is_export": detected.get("is_export", True),
+            "is_bundle": detected.get("is_bundle", False),
+            "is_archive": detected.get("is_archive", False),
+            "contains_pii": bool(rec.ocr_full_text),
+            "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
+            "contains_geo": "map" in (rec.path_display or "").lower(),
+            "contains_financial": bool(rec.ocr_amount),
+            "contains_media_refs": rec.mime_type.startswith("image/"),
+        })
+    return sources
+
 
 def run_pass2():
     print("Starte Pass 2: OCR + Indexing")
@@ -191,6 +306,12 @@ def run_pass2():
             fields="id",
             **params
         ).execute()
+
+        BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
+        runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=BRAIN_INDEX_ROOT)
+        runtime.process_sources(
+            _build_personal_brain_sources(records_to_index, drive_service, ENABLE_SHARED_DRIVES)
+        )
 
         state.set_val("current_phase", "PASS2_DONE")
         state.log_run("PASS_2", "SUCCESS", processed, errors)

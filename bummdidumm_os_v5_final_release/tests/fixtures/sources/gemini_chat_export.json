@@ -1,0 +1,23 @@
+{
+  "conversations": [
+    {
+      "id": "gem-conv-001",
+      "title": "Basel Sightseeing Planning",
+      "createTime": "2025-03-15T10:00:00Z",
+      "turns": [
+        {
+          "id": "gem-turn-001",
+          "role": "user",
+          "content": "What are the top sights in Basel for a one-day visit?",
+          "timestamp": "2025-03-15T10:00:00Z"
+        },
+        {
+          "id": "gem-turn-002",
+          "role": "model",
+          "content": "Basel has excellent museums. Start with the Kunstmuseum, then visit the Münster cathedral and Marktplatz.",
+          "timestamp": "2025-03-15T10:00:04Z"
+        }
+      ]
+    }
+  ]
+}

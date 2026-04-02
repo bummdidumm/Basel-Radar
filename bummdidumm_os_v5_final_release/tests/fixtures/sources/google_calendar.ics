@@ -1,0 +1,20 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+BEGIN:VEVENT
+DTSTART:20250315T120000Z
+DTEND:20250315T130000Z
+SUMMARY:Team Sync Basel
+DESCRIPTION:Weekly team synchronisation meeting to discuss project progress.
+LOCATION:Marktplatz Basel, Switzerland
+UID:team-sync-001@google.com
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20250315T150000Z
+DTEND:20250315T160000Z
+SUMMARY:Architecture Review
+DESCRIPTION:Review the personal brain index architecture proposal.
+LOCATION:Remote
+UID:arch-review-001@google.com
+END:VEVENT
+END:VCALENDAR

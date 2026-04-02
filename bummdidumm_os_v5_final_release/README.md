@@ -70,3 +70,12 @@ Statusereignisse ohne OCR werden dennoch geschrieben (u. a. `DELETED`, `TRASHED`
 
 ## Archivierung von Altlasten
 Nicht zum Release gehörende Alt-/Wrapper-Dateien wurden in `archive/` verschoben und sind **nicht** Teil des Release-ZIPs.
+
+## Personal Brain Index
+
+Pass 2 erweitert den klassischen Delta-Export um export-aware Parsing nach `20_index/published/`:
+- Source/Record/Entity/Relation JSONL
+- Daily Memory Shards
+- Search Views für Gemini/NotebookLM-nahe Nutzung
+
+Der Einstiegspunkt ist `personal_brain/runtime.py` und wird in `main_pass2.py` nach Delta-Erzeugung ausgeführt.
