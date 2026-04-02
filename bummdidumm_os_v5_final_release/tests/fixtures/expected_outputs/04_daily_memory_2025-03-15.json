@@ -1,0 +1,55 @@
+{
+  "date": "2025-03-15",
+  "title": "Daily Memory 2025-03-15",
+  "summary": "7 records on 2025-03-15",
+  "key_events": [
+    "Install Signal",
+    "Searched: Basel weather",
+    "Visited Basel SBB",
+    "Project Planning",
+    "Turn 1 (user)",
+    "Turn 2 (assistant)",
+    "Interesting Article"
+  ],
+  "people": [],
+  "places": [
+    "Basel SBB"
+  ],
+  "apps": [
+    "Search",
+    "Signal",
+    "browser",
+    "chatgpt"
+  ],
+  "purchases": [],
+  "subscriptions": [],
+  "tasks": [],
+  "calendar_events": [],
+  "messages": [],
+  "llm_activity": [
+    "rec::2cb5fd5b7912a43a0578",
+    "rec::29907752a2920ed3bed7",
+    "rec::c934c6b06be53660f6cd"
+  ],
+  "media_refs": [
+    "https://google.com/search?q=basel+weather",
+    "https://example.com"
+  ],
+  "source_ids": [
+    "src::181109459fe3e8867239",
+    "src::6a9fb671e4d001cd39bf",
+    "src::7d3651080669b9f14b19",
+    "src::acacf325501234d0594a",
+    "src::cdf0be8972efb13f7e26"
+  ],
+  "record_ids": [
+    "rec::4e30bbbc1403a601b0b5",
+    "rec::44643dd5a1460931dfb4",
+    "rec::6cc7e01a3b777f96e626",
+    "rec::2cb5fd5b7912a43a0578",
+    "rec::29907752a2920ed3bed7",
+    "rec::c934c6b06be53660f6cd",
+    "rec::26d13fc8a2f9de75474d"
+  ],
+  "importance_score": 4.25
+}

@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "gen-1",
+      "record_type": "bookmark",
+      "subtype": "saved_link",
+      "timestamp": "2025-03-15T15:00:00Z",
+      "title": "Interesting Article",
+      "summary": "A useful link.",
+      "raw_text": "Article notes",
+      "topics": ["knowledge"],
+      "apps": ["browser"],
+      "url": "https://example.com"
+    }
+  ]
+}

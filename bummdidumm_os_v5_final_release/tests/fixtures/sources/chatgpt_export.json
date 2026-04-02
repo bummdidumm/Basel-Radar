@@ -1,0 +1,16 @@
+{
+  "conversations": [
+    {
+      "id": "conv-1",
+      "title": "Project Planning",
+      "model": "gpt-4.1",
+      "create_time": "2025-03-15T14:00:00Z",
+      "topics": ["planning", "automation"],
+      "personal_relevance_score": 0.9,
+      "turns": [
+        {"id": "m1", "role": "user", "timestamp": "2025-03-15T14:00:00Z", "content": "Create a weekly plan"},
+        {"id": "m2", "role": "assistant", "timestamp": "2025-03-15T14:00:02Z", "content": "Here is the plan..."}
+      ]
+    }
+  ]
+}
