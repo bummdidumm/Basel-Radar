@@ -120,7 +120,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
 
                                 import hashlib
-                                sub_checksum = hashlib.sha256(open(sub_local_path, "rb").read()).hexdigest()
+                                from pathlib import Path
+                                sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                                 sources.append({
                                     "file_id": f"{rec.file_id}_{zinfo.filename}",
                                     "bundle_id": rec.file_id,
@@ -150,8 +151,9 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     "contains_financial": False,
                                     "contains_media_refs": False,
                                 })
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                import logging
+                                logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
                             finally:
                                 if sub_local_path and os.path.exists(sub_local_path):
                                     os.remove(sub_local_path)

@@ -98,6 +98,15 @@ class JsonlWriter:
         # Initialize dictionary if missing, or backfill from existing flat counts if necessary.
         merged_counts = merged.get("_counts_by_source", {})
 
+        # Backfill legacy flat counts if we have none tracked but there is historical data
+        if not merged_counts and (merged.get("related_record_count", 0) > 0 or merged.get("related_relation_count", 0) > 0):
+            # Assign the legacy totals to the first known source_id or a generic fallback
+            legacy_sid = merged.get("source_ids", ["legacy_unknown"])[0]
+            merged_counts[legacy_sid] = {
+                "records": merged.get("related_record_count", 0),
+                "relations": merged.get("related_relation_count", 0)
+            }
+
         # Determine the source_id driving the current batch update.
         # Usually, an entity in a batch is derived from the single source currently being parsed.
         # If it's a new entity being merged, we record its counts for its source_ids.

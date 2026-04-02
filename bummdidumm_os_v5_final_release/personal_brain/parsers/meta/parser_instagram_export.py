@@ -16,7 +16,8 @@ class InstagramExportParser(BaseParser):
     def can_handle(self, source_meta: dict, preview: dict) -> bool:
         filename = source_meta.get("original_filename", "").lower()
         if "instagram" in filename or "messages" in filename:
-            if "messages" in preview or "participants" in preview:
+            content_preview = getattr(preview, "content_preview", preview)
+            if isinstance(content_preview, dict) and ("messages" in content_preview or "participants" in content_preview):
                 return True
         return False
 

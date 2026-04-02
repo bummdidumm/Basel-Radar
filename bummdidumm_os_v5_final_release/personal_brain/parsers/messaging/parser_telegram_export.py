@@ -15,7 +15,8 @@ class TelegramExportParser(BaseParser):
 
     def can_handle(self, source_meta: dict, preview: dict) -> bool:
         if "telegram" in source_meta.get("original_filename", "").lower() or "result.json" in source_meta.get("original_filename", "").lower():
-            if "chats" in preview or "about" in preview:
+            content_preview = getattr(preview, "content_preview", preview)
+            if isinstance(content_preview, dict) and ("chats" in content_preview or "about" in content_preview):
                 return True
         return False
 
