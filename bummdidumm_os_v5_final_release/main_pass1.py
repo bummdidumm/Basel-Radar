@@ -19,6 +19,7 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 SKIP_OVER_MB = int(os.environ.get("SKIP_OVER_MB", "500"))
 ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
+INBOX_TRASH_FOLDER_ID = os.environ.get("INBOX_TRASH_FOLDER_ID", "")
 
 def suggest_rename(name: str, created_time: str) -> str:
     if not created_time: return name
@@ -45,6 +46,7 @@ def run_pass1():
 
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
+    inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
     processed = 0
     errors = 0
@@ -59,7 +61,7 @@ def run_pass1():
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
             new_start_page_token = drive_mgr.get_initial_token()
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True)
+            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id)
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -77,7 +79,7 @@ def run_pass1():
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False)
+                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id)
                 processed += len(files)
 
                 if next_token:
@@ -102,7 +104,22 @@ def run_pass1():
         state.log_run("PASS_1", "FAILED", processed, errors + 1)
         raise e
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial):
+def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
+    if INBOX_TRASH_FOLDER_ID:
+        return INBOX_TRASH_FOLDER_ID
+
+    try:
+        registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:C")
+        for row in registry_rows:
+            if len(row) >= 3 and row[0] == "01_inbox_trash":
+                return row[2]
+    except Exception:
+        return ""
+
+    return ""
+
+
+def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str):
     records_to_process = []
     duplicate_groups_accumulator = {}
 
@@ -116,8 +133,9 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         suggested_name = suggest_rename(name, f.get("createdTime", ""))
 
         lane = "ACTIVE"
-        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents"))
-        if "01_inbox_trash" in path_disp:
+        parents = f.get("parents", [])
+        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+        if inbox_trash_folder_id and inbox_trash_folder_id in parents:
             lane = "INBOX_TRASH"
 
         rec = FileRecord(

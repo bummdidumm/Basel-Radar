@@ -64,7 +64,8 @@ def run_apply_sort():
                     ).execute()
                     result_val = "SUCCESS"
 
-                processed += 1            except Exception as e:
+                processed += 1
+            except Exception as e:
                 errors += 1
                 state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
                 result_val = f"FAILED: {str(e)[:80]}"

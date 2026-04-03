@@ -3,16 +3,16 @@
 ## Setup
 1. Python 3.11+, `pip install -r requirements.txt`.
 2. Google Cloud Projekt mit aktivierten APIs: Drive API, Sheets API, Cloud Run Jobs.
-3. Service Account mit mindestens:
-   - `roles/drive.admin` (oder granular: Drive File/Folder Zugriff passend zum Scope)
-   - `roles/sheets.editor`
-   - `roles/run.developer`
-   - `roles/iam.serviceAccountUser`
+3. User OAuth Zugangsdaten als Environment-Variablen für Laufzeitjobs:
+   - `GOOGLE_OAUTH_CLIENT_ID`
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REFRESH_TOKEN`
 4. Ein Control-Sheet anlegen (Tabs werden automatisch erstellt).
 
 ## APIs, IAM und PROJECT_ID-Konfiguration
 - **Apps Script** liest `PROJECT_ID` aus `PropertiesService` (`Script Properties`).
 - **deploy.sh** nutzt ausschließlich Environment Variablen (`PROJECT_ID`, `TARGET_FOLDER_ID`, `ARCHIVE_FOLDER_ID`, `INDEX_FOLDER_ID`, `CONTROL_SHEET_ID`, `GEMINI_API_KEY`).
+- `TARGET_FOLDER_ID` ist optional; leer bedeutet Scan vom Drive-Root aus.
 - Keine Hardcoded-Projekt-ID und keine Platzhalter wie `<keine_hardcoded_project_id>`.
 
 ## Deployment
@@ -38,6 +38,8 @@ PROJECT_ID=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CO
 ## Safe Sort / Apply Sort
 - **Safe Sort (`main_safe_sort.py`)** erzeugt nur Vorschläge in `Sorting_Suggestions`.
 - **Apply Sort (`main_apply_sort.py`)** führt Bewegungen aus und schreibt Resultate per robuster Zeilenadressierung (ohne `rows.index(...)`).
+- `action_mode=SAFE` verschiebt Dateien in den Zielordner.
+- `action_mode=SWEEP_TRASH` markiert Inbox-Trash-Dateien direkt als `trashed=true`.
 
 ## Sorting-Regeln
 Jede Entscheidung enthält:
@@ -79,3 +81,7 @@ Pass 2 erweitert den klassischen Delta-Export um export-aware Parsing nach `20_i
 - Search Views für Gemini/NotebookLM-nahe Nutzung
 
 Der Einstiegspunkt ist `personal_brain/runtime.py` und wird in `main_pass2.py` nach Delta-Erzeugung ausgeführt.
+
+### Knowledge Lifecycle / Exclusions
+- Tab `Knowledge_Exclusions` steuert `ACTIVE`, `EXCLUDED`, `PURGED` pro `file_id`.
+- Exclusions gelten auch für abgeleitete Archive-Subeinträge (ZIP-Inhalte über `bundle_id`).
