@@ -109,7 +109,7 @@ Da wir unter Windows sind, nutzen wir am besten die sogenannten Umgebungsvariabl
    ```
 3. Jetzt kannst du das Hauptprogramm (z.B. Pass 1) starten:
    ```powershell
-   python bummdidumm_os_v5_final_release/main_pass1.py
+   python main_pass1.py
    ```
 
 🎉 **Herzlichen Glückwunsch!** Das System sollte jetzt starten. Du kannst in deiner Google Tabelle (Control-Sheet) sehen, wie sich die Daten füllen.
