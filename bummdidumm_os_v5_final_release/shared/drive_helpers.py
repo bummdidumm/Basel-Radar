@@ -21,6 +21,7 @@ class DriveManager:
         return params
 
     def is_in_target_folder(self, file_id: str, parents: List[str]) -> bool:
+        if not self.target_folder_id: return True
         if not parents: return False
         if self.target_folder_id in parents: return True
 
@@ -67,8 +68,10 @@ class DriveManager:
             if self.enable_shared_drives:
                 params["corpora"] = "allDrives"
 
+            query = f"'{folder_id}' in parents and trashed = false" if folder_id else "trashed = false"
+
             resp = self.drive.files().list(
-                q=f"'{folder_id}' in parents and trashed = false",
+                q=query,
                 pageSize=1000,
                 pageToken=page_token,
                 fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed)",

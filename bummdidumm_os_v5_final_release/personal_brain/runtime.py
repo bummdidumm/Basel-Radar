@@ -17,13 +17,21 @@ class PersonalBrainRuntime:
         self.registry = ParserRegistry()
         self.writer = JsonlWriter(out_root)
 
-    def process_sources(self, sources: list[dict[str, Any]]) -> dict[str, int]:
+    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
+        if exclusions is None: exclusions = {}
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}
         relation_rows: dict[str, dict] = {}
 
         for item in sources:
+            file_id = item.get("file_id", "")
+            knowledge_status = exclusions.get(file_id, "ACTIVE")
+            item["knowledge_status"] = knowledge_status
+
+            if knowledge_status in ["EXCLUDED", "PURGED"]:
+                continue
+
             preview = SourcePreview(
                 path=item["source_path"],
                 name=item["original_filename"],

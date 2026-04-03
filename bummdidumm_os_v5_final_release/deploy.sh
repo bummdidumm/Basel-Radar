@@ -2,7 +2,7 @@
 set -euo pipefail
 
 : "${PROJECT_ID:?Bitte PROJECT_ID setzen}"
-: "${TARGET_FOLDER_ID:?Bitte TARGET_FOLDER_ID setzen}"
+TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 : "${ARCHIVE_FOLDER_ID:?Bitte ARCHIVE_FOLDER_ID setzen}"
 : "${INDEX_FOLDER_ID:?Bitte INDEX_FOLDER_ID setzen}"
 : "${CONTROL_SHEET_ID:?Bitte CONTROL_SHEET_ID setzen}"

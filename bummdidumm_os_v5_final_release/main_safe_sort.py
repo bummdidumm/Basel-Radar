@@ -1,6 +1,6 @@
 import os
 
-import google.auth
+from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 
 from shared.sheets_helpers import SheetManager
@@ -15,7 +15,7 @@ def run_safe_sort():
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
-    credentials, _ = google.auth.default()
+    credentials = get_user_credentials()
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
@@ -79,9 +79,18 @@ def run_safe_sort():
                 errors += 1
                 folder_rule_reason = f"FEHLER: Zielordner-ID nicht gefunden ({target_name})"
 
+            action_mode = "SAFE"
+            if folder_rule == "01_inbox_trash":
+                action_mode = "SWEEP_TRASH"
+
             suggestions.append([
-                current_run_id, file_id, name, mime_type, current_path, current_parent_id,
-                folder_rule, folder_rule_reason, target_name, target_id, target_path, "SAFE", "PENDING"
+                current_run_id,
+                file_id,
+                name,
+                mime_type,
+                current_path,
+                current_parent_id,
+                folder_rule, folder_rule_reason, target_name, target_id, target_path, action_mode, "PENDING"
             ])
             processed += 1
 

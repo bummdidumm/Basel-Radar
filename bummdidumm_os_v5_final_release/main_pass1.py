@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict
-import google.auth
+from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
 
@@ -11,7 +11,7 @@ from shared.hash_helpers import calculate_sha256_streaming
 from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
 from shared.models import FileRecord
 
-TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID")
+TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID", "")
 ARCHIVE_FOLDER_ID = os.environ.get("ARCHIVE_FOLDER_ID")
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
@@ -29,10 +29,10 @@ def suggest_rename(name: str, created_time: str) -> str:
 
 def run_pass1():
     print("Starte Pass 1: Delta + Dedupe + Archivierung")
-    if not all([TARGET_FOLDER_ID, CONTROL_SHEET_ID]):
-        raise ValueError("Missing TARGET_FOLDER_ID or CONTROL_SHEET_ID")
+    if not CONTROL_SHEET_ID:
+        raise ValueError("Missing CONTROL_SHEET_ID")
 
-    credentials, _ = google.auth.default()
+    credentials = get_user_credentials()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
@@ -115,11 +115,16 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         change_type = determine_change_type(f, known_file_details, is_initial)
         suggested_name = suggest_rename(name, f.get("createdTime", ""))
 
+        lane = "ACTIVE"
+        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents"))
+        if "01_inbox_trash" in path_disp:
+            lane = "INBOX_TRASH"
+
         rec = FileRecord(
             file_id=file_id,
             name=name,
             parent_ids_sorted=",".join(sorted(f.get("parents", []))),
-            path_display=drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents")),
+            path_display=path_disp,
             mime_type=mime,
             size_bytes=size,
             md5=f.get("md5Checksum", ""),
@@ -130,6 +135,7 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         )
         rec.change_type = change_type
         rec.suggested_name = suggested_name
+        rec.notes = f"Lane: {lane}"
 
         if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
             rec.status = change_type
