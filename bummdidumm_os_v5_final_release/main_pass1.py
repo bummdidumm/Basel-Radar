@@ -20,6 +20,25 @@ SKIP_OVER_MB = int(os.environ.get("SKIP_OVER_MB", "500"))
 ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
+def sanitize_drive_date(date_str: str) -> str:
+    if not date_str:
+        return date_str
+    try:
+        # Expected format: "2023-01-01T12:00:00.000Z"
+        year = int(date_str[:4])
+        current_year = datetime.now(timezone.utc).year
+        if year > current_year:
+            # If the date is in the future, it's clearly wrong. Fallback to current year but keep format.
+            # A more robust fallback could be to use a valid parsed date, but simple replace works.
+            # We can just return the current timestamp.
+            return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        if year < 1980:
+            # Unix epoch or weird times, fallback to safe date or return original
+            pass
+    except Exception:
+        pass
+    return date_str
+
 def suggest_rename(name: str, created_time: str) -> str:
     if not created_time: return name
     iso_date = created_time[:10]
@@ -113,7 +132,9 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         name = f.get("name", "UNKNOWN_REMOVED")
 
         change_type = determine_change_type(f, known_file_details, is_initial)
-        suggested_name = suggest_rename(name, f.get("createdTime", ""))
+        c_time = sanitize_drive_date(f.get("createdTime", ""))
+        m_time = sanitize_drive_date(f.get("modifiedTime", ""))
+        suggested_name = suggest_rename(name, c_time)
 
         lane = "ACTIVE"
         path_disp = drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents"))
@@ -128,8 +149,8 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             mime_type=mime,
             size_bytes=size,
             md5=f.get("md5Checksum", ""),
-            updated_at=f.get("modifiedTime", ""),
-            created_time=f.get("createdTime", ""),
+            updated_at=m_time,
+            created_time=c_time,
             web_link=f.get("webViewLink", ""),
             parents=f.get("parents", [])
         )
