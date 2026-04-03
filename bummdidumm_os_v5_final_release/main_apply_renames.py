@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-import google.auth
+from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 
 from shared.sheets_helpers import SheetManager
@@ -14,7 +14,7 @@ def run_apply_renames():
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
-    credentials, _ = google.auth.default()
+    credentials = get_user_credentials()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 

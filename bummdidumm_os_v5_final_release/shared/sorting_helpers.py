@@ -21,7 +21,10 @@ class SortingRules:
         status = file_meta.get("status", "")
         path = file_meta.get("path", "").lower()
 
-        if "DUPLICATE" in status:
+        if "01_inbox_trash" in path:
+            key = "01_inbox_trash"
+            reason = "Prio 0: Inbox Trash Lane"
+        elif "DUPLICATE" in status:
             key = "99_archive"
             reason = "Prio 1: Duplikat"
         elif status in ["ERROR", "FATAL", "UNREADABLE"]:
