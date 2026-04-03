@@ -19,7 +19,14 @@ RECORD_REQUIRED_FIELDS = [
 ]
 
 ENTITY_REQUIRED_FIELDS = [
-    "entity_id","entity_type","canonical_name","display_name","aliases","first_seen","last_seen","source_systems","source_ids",
+    "entity_id",
+    "knowledge_tier",
+    "staleness_days",
+    "is_stale",
+    "exclude_from_context",
+    "aliases",
+    "merge_status",
+    "canonical_entity_id","entity_type","canonical_name","display_name","aliases","first_seen","last_seen","source_systems","source_ids",
     "tags","importance_score","current_status","related_record_count","related_relation_count","summary","compact_summary"
 ]
 

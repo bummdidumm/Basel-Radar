@@ -1,5 +1,5 @@
 import os
-from shared.oauth_user_credentials import get_user_credentials
+import google.auth
 from googleapiclient.discovery import build
 
 from shared.sheets_helpers import SheetManager
@@ -14,7 +14,7 @@ def run_apply_sort():
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
-    credentials = get_user_credentials()
+    credentials, _ = google.auth.default()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
@@ -40,31 +40,23 @@ def run_apply_sort():
         action_mode = row[11]
         move_result = row[12]
 
-        if action_mode in ["SAFE", "SWEEP_TRASH"] and (target_folder_id or action_mode == "SWEEP_TRASH") and move_result == "PENDING":
+        if action_mode == "SAFE" and target_folder_id and move_result == "PENDING":
             try:
                 params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
 
-                if action_mode == "SWEEP_TRASH":
-                    # Mark explicitly as trashed
-                    drive_service.files().update(
-                        fileId=file_id,
-                        body={"trashed": True},
-                        **params
-                    ).execute()
-                    result_val = "SUCCESS_TRASHED"
-                else:
-                    file_meta = drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
-                    previous_parents = ",".join(file_meta.get("parents", []))
+                file_meta = drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
+                previous_parents = ",".join(file_meta.get("parents", []))
 
-                    drive_service.files().update(
-                        fileId=file_id,
-                        addParents=target_folder_id,
-                        removeParents=previous_parents,
-                        **params
-                    ).execute()
-                    result_val = "SUCCESS"
+                drive_service.files().update(
+                    fileId=file_id,
+                    addParents=target_folder_id,
+                    removeParents=previous_parents,
+                    **params
+                ).execute()
 
-                processed += 1            except Exception as e:
+                processed += 1
+                result_val = "SUCCESS"
+            except Exception as e:
                 errors += 1
                 state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
                 result_val = f"FAILED: {str(e)[:80]}"

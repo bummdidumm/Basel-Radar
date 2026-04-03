@@ -8,6 +8,19 @@ from .daily_memory_builder import build_daily_memory
 from .search_view_builder import build_search_views
 
 
+from datetime import date
+
+def compute_is_stale(entity: dict) -> bool:
+    if entity.get("staleness_days") is None:
+        return False
+    last_seen = entity.get("last_seen")
+    if not last_seen:
+        return False
+    try:
+        return (date.today() - date.fromisoformat(last_seen[:10])).days > entity["staleness_days"]
+    except Exception:
+        return False
+
 class JsonlWriter:
     def __init__(self, out_root: Path):
         self.out_root = out_root

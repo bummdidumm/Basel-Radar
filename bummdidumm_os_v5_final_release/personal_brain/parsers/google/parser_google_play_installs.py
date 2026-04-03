@@ -4,6 +4,9 @@ from ..base import BaseParser
 
 
 class GooglePlayInstallsParser(BaseParser):
+    def populate_profile_layer(self, records: list[dict], profile_dir: Path):
+        pass # To implement full logic based on specific records
+
     parser_name = "parser_google_play_installs"
     parser_version = "2.0.0"
     source_system = "google"

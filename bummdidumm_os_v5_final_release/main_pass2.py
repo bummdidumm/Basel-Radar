@@ -4,7 +4,7 @@ import json
 import tempfile
 from datetime import datetime, timezone
 
-from shared.oauth_user_credentials import get_user_credentials
+import google.auth
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
@@ -219,7 +219,7 @@ def run_pass2():
     if not all([CONTROL_SHEET_ID, INDEX_FOLDER_ID]):
         raise ValueError("Missing CONTROL_SHEET_ID or INDEX_FOLDER_ID")
 
-    credentials = get_user_credentials()
+    credentials, _ = google.auth.default()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
@@ -234,12 +234,6 @@ def run_pass2():
     if not current_run_id:
         state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Kein erfolgreicher Pass 1 gefunden.")
         return
-
-    # Load Knowledge Exclusions
-    exclusions = {}
-    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:C"):
-        if len(row) >= 3 and row[0] != "file_id":
-            exclusions[row[0]] = row[2]  # file_id -> status (EXCLUDED/PURGED)
 
     # Lese Folder-Aware Indexing Daten chunkweise aus Sorting_Suggestions ein, um OOM bei >100k Files zu verhindern.
     # Wir projizieren nur die absolut notwendigen Felder des AKTUELLEN Runs in ein lokales Dict.
@@ -397,8 +391,7 @@ def run_pass2():
         BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
         runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=BRAIN_INDEX_ROOT)
         runtime.process_sources(
-            _build_personal_brain_sources(records_to_index, drive_service, ENABLE_SHARED_DRIVES),
-            exclusions
+            _build_personal_brain_sources(records_to_index, drive_service, ENABLE_SHARED_DRIVES)
         )
 
         state.set_val("current_phase", "PASS2_DONE")

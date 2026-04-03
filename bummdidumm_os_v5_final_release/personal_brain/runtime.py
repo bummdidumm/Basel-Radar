@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from .id_builder import entity_id, record_id, relation_id, source_id, stable_hash
+from .tier_classifier import TierClassifier
+from .entity_merger import EntityMerger
+from .context_pack_writer import LlmContextPackWriter
+from .stub_manager import StubManager
 from .parser_registry import ParserRegistry
 from .parsers.base import SourcePreview
 from .utils import norm_filename, utc_now
@@ -16,17 +20,20 @@ class PersonalBrainRuntime:
         self.project_id = project_id
         self.registry = ParserRegistry()
         self.writer = JsonlWriter(out_root)
+        self.tier_classifier = TierClassifier()
+        self.entity_merger = EntityMerger(out_root / "user_settings" / "entity_aliases.json")
+        self.context_pack_writer = LlmContextPackWriter()
 
-    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
-        if exclusions is None: exclusions = {}
+        StubManager().ensure_stubs(self.writer.published, out_root / "user_settings")
+
+    def process_sources(self, sources: list[dict[str, Any]]) -> dict[str, int]:
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}
         relation_rows: dict[str, dict] = {}
 
         for item in sources:
-            file_id = item.get("file_id", "")
-            knowledge_status = exclusions.get(file_id, "ACTIVE")
+            knowledge_status = "ACTIVE"
             item["knowledge_status"] = knowledge_status
 
             if knowledge_status in ["EXCLUDED", "PURGED"]:
@@ -79,10 +86,16 @@ class PersonalBrainRuntime:
         entity_list = list(entity_rows.values())
         relation_list = list(relation_rows.values())
 
-        self.writer.write_source_record_entity_relation(source_list, record_list, entity_list, relation_list)
+        merged_entities = self.entity_merger.apply_merge(entity_list)
+
+        self.writer.write_source_record_entity_relation(source_list, record_list, merged_entities, relation_list)
         self.writer.write_daily_memory(record_list)
         views = self.writer.write_search_views(record_list)
         self.writer.write_reports()
+
+        from .exclusions import ExclusionManager
+        exclusion_mgr = ExclusionManager(self.writer.published / "user_settings" / "exclusions.json")
+        self.context_pack_writer.write(self.writer.published, exclusion_mgr)
 
         return {
             "total_sources": len(source_list),
@@ -178,7 +191,10 @@ class PersonalBrainRuntime:
             "normalized_text": record.get("normalized_text", ""),
             "status": record.get("status", "active"),
             "confidence": record.get("confidence", 0.8),
-            "importance_score": record.get("importance_score", 0.5),
+"importance_score": record.get("importance_score", 0.5),
+            "content_preview": record.get("content_preview", ""),
+            "knowledge_tier": self.tier_classifier.classify_record(record.get("record_type", "generic_record"))["knowledge_tier"],
+            "exclude_from_context": False,
             "people": record.get("people", []),
             "places": record.get("places", []),
             "apps": record.get("apps", []),
@@ -225,6 +241,13 @@ class PersonalBrainRuntime:
             "related_relation_count": 0,
             "summary": f"Derived from {source['source_app']}",
             "compact_summary": f"Derived from {source['source_app']}",
+            "knowledge_tier": self.tier_classifier.classify_entity(entity.get("entity_type", "unknown"), entity.get("canonical_name", "Unknown Entity"))["knowledge_tier"],
+            "staleness_days": self.tier_classifier.classify_entity(entity.get("entity_type", "unknown"), entity.get("canonical_name", "Unknown Entity"))["staleness_days"],
+            "is_stale": False,
+            "exclude_from_context": False,
+            "aliases": [],
+            "merge_status": "standalone",
+            "canonical_entity_id": eid,
         }
 
     def _build_relation(

@@ -189,3 +189,46 @@ function onOpen() {
     .addItem("NOTBREMSE: Alle Hintergrund-Trigger stoppen", "emergencyStopAllTriggers")
     .addToUi();
 }
+
+function syncContextPackToRoot() {
+  const indexFolderId = PropertiesService.getScriptProperties().getProperty('INDEX_FOLDER_ID');
+  if (!indexFolderId) return;
+
+  try {
+    const publishedFolders = DriveApp.getFolderById(indexFolderId).getFoldersByName("published");
+    if (!publishedFolders.hasNext()) return;
+    const published = publishedFolders.next();
+
+    const contextFolders = published.getFoldersByName("13_llm_context_packs");
+    if (!contextFolders.hasNext()) return;
+    const contextDir = contextFolders.next();
+
+    const contextFiles = contextDir.getFilesByName("gemini_daily_context.json");
+    if (!contextFiles.hasNext()) return;
+    const contextFile = contextFiles.next();
+
+    const rootFolder = DriveApp.getRootFolder();
+    const existingFiles = rootFolder.getFilesByName("gemini_context.json");
+    while (existingFiles.hasNext()) {
+      existingFiles.next().setTrashed(true);
+    }
+
+    contextFile.makeCopy("gemini_context.json", rootFolder);
+  } catch (e) {
+    console.error("Failed to sync context pack to root:", e);
+  }
+}
+
+function setupContextPackSyncTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'syncContextPackToRoot') {
+      return; // Already exists
+    }
+  }
+  ScriptApp.newTrigger('syncContextPackToRoot')
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "knowledge_tier": "permanent",
+  "last_manually_updated": "YYYY-MM-DD",
+  "identity": {
+    "full_name": "",
+    "preferred_name": "",
+    "date_of_birth": "",
+    "nationality": "",
+    "languages": [],
+    "timezone": "",
+    "city": "",
+    "country": ""
+  },
+  "contact": {
+    "primary_email": "",
+    "secondary_emails": [],
+    "phone": ""
+  }
+}

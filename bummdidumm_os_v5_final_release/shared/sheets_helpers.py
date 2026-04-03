@@ -16,8 +16,7 @@ class SheetManager:
             "Error_Report": ["run_utc", "run_id", "phase", "file_id", "path", "error_type", "error_message"],
             "Run_Log": ["run_utc", "run_id", "phase", "status", "files_processed", "errors"],
             "Folder_Registry": ["folder_key", "folder_name", "folder_id", "parent_folder_id", "full_path"],
-            "Sorting_Suggestions": ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule", "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"],
-            "Knowledge_Exclusions": ["file_id", "path_display", "status", "reason"]
+            "Sorting_Suggestions": ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule", "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"]
         }
 
     def _execute_with_backoff(self, request_op):

@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict
-from shared.oauth_user_credentials import get_user_credentials
+import google.auth
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
 
@@ -11,7 +11,7 @@ from shared.hash_helpers import calculate_sha256_streaming
 from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
 from shared.models import FileRecord
 
-TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID", "")
+TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID")
 ARCHIVE_FOLDER_ID = os.environ.get("ARCHIVE_FOLDER_ID")
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
@@ -19,25 +19,6 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 SKIP_OVER_MB = int(os.environ.get("SKIP_OVER_MB", "500"))
 ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
-
-def sanitize_drive_date(date_str: str) -> str:
-    if not date_str:
-        return date_str
-    try:
-        # Expected format: "2023-01-01T12:00:00.000Z"
-        year = int(date_str[:4])
-        current_year = datetime.now(timezone.utc).year
-        if year > current_year:
-            # If the date is in the future, it's clearly wrong. Fallback to current year but keep format.
-            # A more robust fallback could be to use a valid parsed date, but simple replace works.
-            # We can just return the current timestamp.
-            return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        if year < 1980:
-            # Unix epoch or weird times, fallback to safe date or return original
-            pass
-    except Exception:
-        pass
-    return date_str
 
 def suggest_rename(name: str, created_time: str) -> str:
     if not created_time: return name
@@ -48,10 +29,10 @@ def suggest_rename(name: str, created_time: str) -> str:
 
 def run_pass1():
     print("Starte Pass 1: Delta + Dedupe + Archivierung")
-    if not CONTROL_SHEET_ID:
-        raise ValueError("Missing CONTROL_SHEET_ID")
+    if not all([TARGET_FOLDER_ID, CONTROL_SHEET_ID]):
+        raise ValueError("Missing TARGET_FOLDER_ID or CONTROL_SHEET_ID")
 
-    credentials = get_user_credentials()
+    credentials, _ = google.auth.default()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
@@ -132,31 +113,23 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         name = f.get("name", "UNKNOWN_REMOVED")
 
         change_type = determine_change_type(f, known_file_details, is_initial)
-        c_time = sanitize_drive_date(f.get("createdTime", ""))
-        m_time = sanitize_drive_date(f.get("modifiedTime", ""))
-        suggested_name = suggest_rename(name, c_time)
-
-        lane = "ACTIVE"
-        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents"))
-        if "01_inbox_trash" in path_disp:
-            lane = "INBOX_TRASH"
+        suggested_name = suggest_rename(name, f.get("createdTime", ""))
 
         rec = FileRecord(
             file_id=file_id,
             name=name,
             parent_ids_sorted=",".join(sorted(f.get("parents", []))),
-            path_display=path_disp,
+            path_display=drive_mgr.get_parent_and_name_path(file_id, name, f.get("parents")),
             mime_type=mime,
             size_bytes=size,
             md5=f.get("md5Checksum", ""),
-            updated_at=m_time,
-            created_time=c_time,
+            updated_at=f.get("modifiedTime", ""),
+            created_time=f.get("createdTime", ""),
             web_link=f.get("webViewLink", ""),
             parents=f.get("parents", [])
         )
         rec.change_type = change_type
         rec.suggested_name = suggested_name
-        rec.notes = f"Lane: {lane}"
 
         if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
             rec.status = change_type
