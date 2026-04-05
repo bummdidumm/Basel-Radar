@@ -17,7 +17,8 @@ class PersonalBrainRuntime:
         self.writer = JsonlWriter(out_root)
 
     def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
-        if exclusions is None: exclusions = {}
+        if exclusions is None:
+            exclusions = {}
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}

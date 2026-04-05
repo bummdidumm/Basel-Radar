@@ -21,9 +21,11 @@ ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() ==
 INBOX_TRASH_FOLDER_ID = os.environ.get("INBOX_TRASH_FOLDER_ID", "")
 
 def suggest_rename(name: str, created_time: str) -> str:
-    if not created_time: return name
+    if not created_time:
+        return name
     iso_date = created_time[:10]
-    if name.startswith(f"{iso_date}_"): return name
+    if name.startswith(f"{iso_date}_"):
+        return name
     safe = name.replace(":", "-").strip()
     return f"{iso_date}_{PROJECT_SLUG}_{safe}"
 
@@ -49,7 +51,6 @@ def run_pass1():
 
     processed = 0
     errors = 0
-    all_records = []
 
     try:
         if not start_token:

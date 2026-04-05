@@ -27,7 +27,8 @@ def calculate_sha256_streaming(drive_service, file_id: str, mime_type: str, base
             sha = hashlib.sha256()
             while True:
                 chunk = tmp.read(8 * 1024 * 1024)
-                if not chunk: break
+                if not chunk:
+                    break
                 sha.update(chunk)
             return sha.hexdigest(), export_source
     except Exception as e:

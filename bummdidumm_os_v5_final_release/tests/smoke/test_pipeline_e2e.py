@@ -3,6 +3,7 @@ import tempfile
 import json
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 from shared.models import FileRecord
 from main_pass2 import _build_personal_brain_sources
 from personal_brain.runtime import PersonalBrainRuntime
@@ -27,8 +28,6 @@ def mock_download(drive_service, file_id, size_bytes, enable_shared_drives):
         else:
             tf.write(b'{"title": "dummy", "record_type": "generic_json_export"}')
         return tf.name
-
-from unittest.mock import patch
 
 class TestPipelineE2E(unittest.TestCase):
     @patch("main_pass2._download_drive_file_to_tmp", side_effect=mock_download)
@@ -81,7 +80,7 @@ class TestPipelineE2E(unittest.TestCase):
             runtime.process_sources(sources_v1)
 
             pub = out_root / "20_index" / "published"
-            sources_disk = [json.loads(l) for l in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_disk = [json.loads(line) for line in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources_disk), len(sources_v1))
 
             # V2: Rename file-1
@@ -98,7 +97,7 @@ class TestPipelineE2E(unittest.TestCase):
             sources_v2 = _build_personal_brain_sources([rec1_v2], drive_service, False)
             runtime.process_sources(sources_v2)
 
-            sources_disk_v2 = [json.loads(l) for l in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_disk_v2 = [json.loads(line) for line in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
 
             # The rename shouldn't duplicate file-1
             self.assertEqual(len(sources_disk_v2), len(sources_v1))

@@ -68,7 +68,8 @@ class SheetManager:
             print(f"Error initializing sheets: {e}")
 
     def append_rows(self, tab: str, rows: List[List[Any]]):
-        if not rows: return
+        if not rows:
+            return
         self._execute_with_backoff(self.sheets.spreadsheets().values().append(
             spreadsheetId=self.spreadsheet_id,
             range=f"{tab}!A:Z",

@@ -23,7 +23,7 @@ class TestEndToEndConsistency(unittest.TestCase):
             runtime.process_sources([item_v1])
 
             out = Path(td) / "20_index" / "published"
-            sources = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources), 1)
 
             # Move and rename
@@ -34,7 +34,7 @@ class TestEndToEndConsistency(unittest.TestCase):
 
             runtime.process_sources([item_v2])
 
-            sources2 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources2 = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources2), 1, "Duplicate source created instead of merge.")
 
             master_index = out / "CURRENT_personal_brain_master_index.json"

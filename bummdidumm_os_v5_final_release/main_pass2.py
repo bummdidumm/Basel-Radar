@@ -268,8 +268,10 @@ def run_pass2():
     # Cap Pass 2 RAM load: Chunkweises Auslesen
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
-            if len(row) < 17 or row[0] == "run_utc": continue
-            if row[1] != current_run_id: continue # Nur Dateien des letzten Laufs
+            if len(row) < 17 or row[0] == "run_utc":
+                continue
+            if row[1] != current_run_id:
+                continue # Nur Dateien des letzten Laufs
 
             status = row[10]
             change_type = row[11]
