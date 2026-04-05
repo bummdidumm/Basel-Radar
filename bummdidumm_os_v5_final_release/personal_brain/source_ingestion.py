@@ -5,6 +5,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from .utils import sanitize_path
+
 
 def _detect_bundle(path: str, ext: str) -> tuple[bool, bool]:
     low = path.lower()
@@ -25,18 +27,21 @@ def inspect_source(source_path: str, mime: str, ext: str, fallback_text: str = "
         try:
             if is_archive and ext == ".zip" and zipfile.is_zipfile(path_obj):
                 with zipfile.ZipFile(path_obj, "r") as z:
-                    namelist = z.namelist()
+                    raw_namelist = z.namelist()
+                    # Sanitize filenames in namelist to prevent traversal leaks in metadata
+                    namelist = [sanitize_path(n) for n in raw_namelist]
                     content["archive_files"] = namelist[:100]
+
                     # Try to find an informative file to extract text from
                     target_file = None
-                    for name in namelist:
+                    for name in raw_namelist:
                         low_name = name.lower()
                         if low_name.endswith("index.html") or low_name.endswith("messages.json") or "archive_browser.html" in low_name:
                             target_file = name
                             break
                     if not target_file:
                         # Fallback to the first html or json file
-                        for name in namelist:
+                        for name in raw_namelist:
                             low_name = name.lower()
                             if low_name.endswith(".html") or low_name.endswith(".json"):
                                 target_file = name

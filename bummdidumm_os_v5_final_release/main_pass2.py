@@ -14,6 +14,7 @@ from shared.gemini_helpers import GeminiOCR
 from shared.models import FileRecord
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
+from personal_brain.utils import sanitize_path
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -103,10 +104,12 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
                             sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
-                            import tempfile
                             sub_local_path = None
                             try:
-                                import tempfile
+                                # Sanitize the filename to prevent path traversal issues.
+                                # Use the raw zinfo.filename for extraction, but the sanitized one for records.
+                                clean_filename = sanitize_path(zinfo.filename)
+
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
                                     tf.write(z.read(zinfo))
                                     sub_local_path = tf.name
@@ -119,8 +122,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 )
                                 sub_content = sub_detected.get("content", {})
                                 if sub_content.get("title") == os.path.basename(sub_local_path):
-                                    sub_content["title"] = zinfo.filename
-                                sub_content.setdefault("title", zinfo.filename)
+                                    sub_content["title"] = clean_filename
+                                sub_content.setdefault("title", clean_filename)
                                 sub_event_time = rec.ocr_date or rec.run_utc or ""
                                 sub_content.setdefault("event_time_start", sub_event_time)
                                 sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
@@ -128,17 +131,17 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 import hashlib
                                 from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
-                                canonical_sub_path = f"{rec.path_display or rec.name}/{zinfo.filename}"
+                                canonical_sub_path = f"{rec.path_display or rec.name}/{clean_filename}"
                                 sources.append({
-                                    "file_id": f"{rec.file_id}_{zinfo.filename}",
+                                    "file_id": f"{rec.file_id}_{clean_filename}",
                                     "bundle_id": rec.file_id,
                                     "source_path": canonical_sub_path,
                                     "source_path_rel": canonical_sub_path,
-                                    "original_filename": zinfo.filename,
+                                    "original_filename": clean_filename,
                                     "mime": sub_mime,
                                     "ext": sub_ext,
                                     "checksum_sha256": sub_checksum,
-                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{zinfo.filename}",
+                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{clean_filename}",
                                     "status": rec.status,
                                     "sot_status": "derived",
                                     "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
