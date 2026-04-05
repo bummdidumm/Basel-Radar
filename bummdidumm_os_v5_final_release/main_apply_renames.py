@@ -1,5 +1,4 @@
 import os
-from datetime import datetime, timezone
 from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 
