@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -241,6 +242,32 @@ class PersonalBrainSmokeTest(unittest.TestCase):
         # Content must have the full structure, not just {"raw_text": ...}
         self.assertIn("conversations", detected["content"])
         self.assertIsInstance(detected["content"]["conversations"], list)
+
+    def test_inspect_source_uses_original_path_for_title_and_export(self):
+        """Passing original_path to inspect_source should fix temp path leaks in title and is_export."""
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
+            tf.write(b"content")
+            temp_path = tf.name
+
+        try:
+            # Case 1: No original_path -> leaks temp name
+            detected_leaked = inspect_source(temp_path, mime="text/plain", ext=".txt")
+            self.assertEqual(detected_leaked["content"]["title"], Path(temp_path).name)
+            self.assertFalse(detected_leaked["is_export"])
+
+            # Case 2: With original_path -> uses it for title and export detection
+            orig_name = "my_custom_export.txt"
+            detected_fixed = inspect_source(
+                temp_path,
+                mime="text/plain",
+                ext=".txt",
+                original_path=orig_name
+            )
+            self.assertEqual(detected_fixed["content"]["title"], orig_name)
+            self.assertTrue(detected_fixed["is_export"], "Should detect 'export' in original_path")
+        finally:
+            if Path(temp_path).exists():
+                os.remove(temp_path)
 
     # ------------------------------------------------------------------
     # P2: New LLM parser tests

@@ -68,7 +68,10 @@ class DriveManager:
             if self.enable_shared_drives:
                 params["corpora"] = "allDrives"
 
-            query = f"'{folder_id}' in parents and trashed = false" if folder_id else "trashed = false"
+            # Empty TARGET_FOLDER_ID means "scan from root".
+            # Restricting query to root avoids listing all depths at once and
+            # prevents duplicate traversal when recursion is enabled.
+            query = f"'{folder_id}' in parents and trashed = false" if folder_id else "'root' in parents and trashed = false"
 
             resp = self.drive.files().list(
                 q=query,

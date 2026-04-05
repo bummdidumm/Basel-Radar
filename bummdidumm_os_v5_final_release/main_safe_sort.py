@@ -58,13 +58,6 @@ def run_safe_sort():
             status = row[10]
             current_path = row[2]
 
-            folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({
-                "name": name,
-                "mime_type": mime_type,
-                "status": status,
-                "path": current_path
-            })
-
             current_parent_id = ""
             meta = known.get(file_id, {})
             if meta.get("parent_ids_sorted"):
@@ -74,6 +67,18 @@ def run_safe_sort():
 
             if not current_parent_id:
                 current_parent_id = "N/A"
+
+            notes = str(row[16]) if len(row) > 16 and row[16] is not None else ""
+            lane = "INBOX_TRASH" if "Lane: INBOX_TRASH" in notes else "ACTIVE"
+
+            folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({
+                "name": name,
+                "mime_type": mime_type,
+                "status": status,
+                "path": current_path,
+                "lane": lane,
+                "current_parent_id": current_parent_id,
+            })
 
             if not target_id:
                 errors += 1

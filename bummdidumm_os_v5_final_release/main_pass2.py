@@ -14,6 +14,7 @@ from shared.gemini_helpers import GeminiOCR
 from shared.models import FileRecord
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
+from personal_brain.utils import sanitize_path
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -115,11 +116,10 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     source_path=sub_local_path,
                                     mime=sub_mime,
                                     ext=sub_ext,
-                                    fallback_text=""
+                                fallback_text="",
+                                original_path=sanitize_path(zinfo.filename)
                                 )
                                 sub_content = sub_detected.get("content", {})
-                                if sub_content.get("title") == os.path.basename(sub_local_path):
-                                    sub_content["title"] = zinfo.filename
                                 sub_content.setdefault("title", zinfo.filename)
                                 sub_event_time = rec.ocr_date or rec.run_utc or ""
                                 sub_content.setdefault("event_time_start", sub_event_time)

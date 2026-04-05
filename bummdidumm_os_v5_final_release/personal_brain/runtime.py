@@ -26,7 +26,8 @@ class PersonalBrainRuntime:
 
         for item in sources:
             file_id = item.get("file_id", "")
-            knowledge_status = exclusions.get(file_id, "ACTIVE")
+            parent_file_id = item.get("bundle_id", "")
+            knowledge_status = exclusions.get(file_id, exclusions.get(parent_file_id, "ACTIVE"))
             item["knowledge_status"] = knowledge_status
 
             if knowledge_status in ["EXCLUDED", "PURGED"]:

@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def sanitize_path(path: str) -> str:
+    """Neutralize path traversal (..) and absolute paths."""
+    if not path:
+        return ""
+    # Replace backslashes with forward slashes first to handle potential Windows paths
+    path = path.replace("\\", "/")
+    # Normalize path by resolving .. and removing leading slashes/drives
+    # We prefix with / to ensure it's treated as absolute for normalization,
+    # then strip it back to get a clean relative path.
+    normalized = os.path.normpath("/" + path)
+    return normalized.lstrip("/")
 
 
 def utc_now() -> str:

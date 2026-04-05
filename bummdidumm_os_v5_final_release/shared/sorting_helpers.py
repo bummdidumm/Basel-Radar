@@ -5,6 +5,9 @@ class SortingRules:
 
     def __init__(self, folder_registry: Dict[str, Dict[str, str]]):
         self.folder_registry = folder_registry
+        self.inbox_trash_folder_id = (
+            folder_registry.get("01_inbox_trash", {}).get("folder_id", "")
+        )
 
     def resolve_target(self, folder_key: str) -> Tuple[str, str, str]:
         entry = self.folder_registry.get(folder_key, {})
@@ -20,8 +23,10 @@ class SortingRules:
         mime = file_meta.get("mime_type", "").lower()
         status = file_meta.get("status", "")
         path = file_meta.get("path", "").lower()
+        lane = file_meta.get("lane", "")
+        current_parent_id = file_meta.get("current_parent_id", "")
 
-        if "01_inbox_trash" in path:
+        if lane == "INBOX_TRASH" or (self.inbox_trash_folder_id and current_parent_id == self.inbox_trash_folder_id):
             key = "01_inbox_trash"
             reason = "Prio 0: Inbox Trash Lane"
         elif "DUPLICATE" in status:
