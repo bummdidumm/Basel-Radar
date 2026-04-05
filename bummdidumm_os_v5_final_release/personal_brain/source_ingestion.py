@@ -13,13 +13,23 @@ def _detect_bundle(path: str, ext: str) -> tuple[bool, bool]:
     return is_bundle, is_archive
 
 
-def inspect_source(source_path: str, mime: str, ext: str, fallback_text: str = "") -> dict[str, Any]:
+def inspect_source(
+    source_path: str,
+    mime: str,
+    ext: str,
+    fallback_text: str = "",
+    original_path: str | None = None
+) -> dict[str, Any]:
     path_obj = Path(source_path)
+    # Use original_path for semantic detection (title, is_export) if provided,
+    # otherwise fallback to the actual local source_path.
+    detection_path = original_path or source_path
+
     preview: dict[str, Any] = {}
     text_preview = fallback_text or ""
     content: dict[str, Any] = {"raw_text": fallback_text}
 
-    is_bundle, is_archive = _detect_bundle(source_path, ext)
+    is_bundle, is_archive = _detect_bundle(detection_path, ext)
 
     if path_obj.exists() and path_obj.is_file():
         try:
@@ -46,7 +56,7 @@ def inspect_source(source_path: str, mime: str, ext: str, fallback_text: str = "
                             text = f.read(8000).decode("utf-8", errors="ignore")
                             text_preview = text[:1000]
                             content["raw_text"] = text
-                            content["title"] = path_obj.name
+                            content["title"] = Path(detection_path).name
                             content["summary"] = f"Archive containing {len(namelist)} files."
 
             elif ext == ".json":
@@ -57,7 +67,7 @@ def inspect_source(source_path: str, mime: str, ext: str, fallback_text: str = "
             elif ext in {".html", ".htm", ".txt", ".md", ".ics", ".csv"}:
                 text = path_obj.read_text(encoding="utf-8", errors="ignore")[:8000]
                 text_preview = text[:1000]
-                content = {"raw_text": text, "title": path_obj.name, "summary": text[:200]}
+                content = {"raw_text": text, "title": Path(detection_path).name, "summary": text[:200]}
         except Exception:
             pass
     return {
@@ -66,5 +76,5 @@ def inspect_source(source_path: str, mime: str, ext: str, fallback_text: str = "
         "content": content,
         "is_bundle": is_bundle,
         "is_archive": is_archive,
-        "is_export": ("export" in source_path.lower()) or is_bundle,
+        "is_export": ("export" in detection_path.lower()) or is_bundle,
     }

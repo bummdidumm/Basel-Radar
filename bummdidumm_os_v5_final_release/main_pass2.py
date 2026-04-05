@@ -87,11 +87,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                 mime=mime,
                 ext=ext,
                 fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+                original_path=rec.path_display or rec.name
             )
-
-            # Fix leak of temp path in title
-            if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
-                detected["content"]["title"] = rec.name
 
             # Recursive dispatch: if the detected content found parseable files inside a ZIP
             if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
@@ -115,11 +112,10 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     source_path=sub_local_path,
                                     mime=sub_mime,
                                     ext=sub_ext,
-                                    fallback_text=""
+                                    fallback_text="",
+                                    original_path=zinfo.filename
                                 )
                                 sub_content = sub_detected.get("content", {})
-                                if sub_content.get("title") == os.path.basename(sub_local_path):
-                                    sub_content["title"] = zinfo.filename
                                 sub_content.setdefault("title", zinfo.filename)
                                 sub_event_time = rec.ocr_date or rec.run_utc or ""
                                 sub_content.setdefault("event_time_start", sub_event_time)
