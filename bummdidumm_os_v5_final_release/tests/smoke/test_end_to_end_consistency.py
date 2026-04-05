@@ -45,7 +45,6 @@ class TestEndToEndConsistency(unittest.TestCase):
             self.assertEqual(master_data["sources"][0]["source_path_rel"], "folderB/renamed_chat.json")
 
     def test_e2e_no_temp_paths_leaked(self):
-        import sys
         import os
         from main_pass2 import _build_personal_brain_sources
         from shared.models import FileRecord
@@ -102,6 +101,12 @@ class TestEndToEndConsistency(unittest.TestCase):
             self.assertEqual(inner_source["content"]["title"], "test_sub.json")
             self.assertNotIn("tmp", inner_source["source_path"])
             self.assertNotIn("tmp", inner_source["content"].get("title", ""))
+
+            # Verify no path traversal in inner source paths
+            for s in sources:
+                self.assertNotIn("..", s["source_path"], "Path traversal found in source_path")
+                self.assertNotIn("..", s["source_path_rel"], "Path traversal found in source_path_rel")
+                self.assertNotIn("..", s["file_id"], "Path traversal found in file_id")
 
         finally:
             if os.path.exists(temp_zip_path):

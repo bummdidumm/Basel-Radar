@@ -1,4 +1,3 @@
-import os
 import hashlib
 from typing import Optional, Tuple
 from googleapiclient.http import MediaIoBaseDownload

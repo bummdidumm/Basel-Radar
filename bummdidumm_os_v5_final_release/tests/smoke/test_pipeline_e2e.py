@@ -1,7 +1,6 @@
 import unittest
 import tempfile
 import json
-import os
 import zipfile
 from pathlib import Path
 from shared.models import FileRecord
@@ -17,8 +16,6 @@ class DummyDriveService:
                 pass
         return MockRequest()
 
-from googleapiclient.http import MediaIoBaseDownload
-import io
 
 # We need to mock _download_drive_file_to_tmp because the real one uses googleapiclient.http
 def mock_download(drive_service, file_id, size_bytes, enable_shared_drives):

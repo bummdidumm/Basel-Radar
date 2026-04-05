@@ -1,5 +1,4 @@
 import os
-from typing import List, Dict
 from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone

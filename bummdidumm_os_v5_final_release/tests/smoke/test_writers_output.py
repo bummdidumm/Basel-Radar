@@ -1,4 +1,3 @@
-import os
 import json
 import tempfile
 import unittest
@@ -63,6 +62,28 @@ class TestWritersOutput(unittest.TestCase):
             self.assertIn("missing_important_parser_families", quality_data)
             self.assertIn("instagram", quality_data["missing_important_parser_families"])
             self.assertEqual(quality_data["generic_fallback_sources"], 1)
+
+    def test_no_internal_keys_in_entity_jsonl(self):
+        from personal_brain.runtime import PersonalBrainRuntime
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            # Just create a dummy payload dict directly instead of using a fixture we don't have here.
+            payload = {
+                "file_id": "dummy-1",
+                "original_filename": "dummy.txt",
+                "mime": "text/plain",
+                "content": {"raw_text": "dummy text"},
+                "status": "ORIGINAL",
+                "source_path": "dummy.txt"
+            }
+            runtime.process_sources([payload])
+            out = Path(td) / "20_index" / "published"
+            for line in (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entity = json.loads(line)
+                for key in entity:
+                    self.assertFalse(key.startswith("_"), f"Internal key '{key}' leaked into entity JSONL")
 
 if __name__ == "__main__":
     unittest.main()

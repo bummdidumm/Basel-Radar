@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,12 +11,71 @@ from personal_brain.contracts import (
     RECORD_REQUIRED_FIELDS,
     RELATION_REQUIRED_FIELDS,
     SOURCE_REQUIRED_FIELDS,
+    DAILY_REQUIRED_FIELDS,
+    SEARCH_REQUIRED_FIELDS,
 )
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 
 
 class PersonalBrainSmokeTest(unittest.TestCase):
+    def test_contract_compliance_daily_and_search_views(self):
+        """Daily memory and search views must carry all required contract fields."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            payloads = [
+                self._source_payload("chatgpt_export.json"),
+                self._source_payload("google_timeline.json"),
+            ]
+            runtime.process_sources(payloads)
+            out = Path(td) / "20_index" / "published"
+
+            # Check daily memory files
+            daily_dir = out / "04_daily_memory"
+            for day_file in daily_dir.glob("*.json"):
+                day = json.loads(day_file.read_text(encoding="utf-8"))
+                for field in DAILY_REQUIRED_FIELDS:
+                    self.assertIn(field, day, f"daily_memory missing field: {field} in {day_file.name}")
+
+            # Check search view
+            for line in (out / "CURRENT_personal_brain_search_view.jsonl").read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entry = json.loads(line)
+                for field in SEARCH_REQUIRED_FIELDS:
+                    self.assertIn(field, entry, f"search_view missing field: {field}")
+
+    def test_relation_id_stable_across_partial_reruns(self):
+        """Relation IDs must not change between a full run and a partial re-run."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            payload_a = self._source_payload("chatgpt_export.json")
+            payload_b = self._source_payload("google_my_activity.json")
+
+            # Full run
+            runtime.process_sources([payload_a, payload_b])
+            out = Path(td) / "20_index" / "published"
+
+            def load_relation_ids():
+                return {
+                    json.loads(l)["relation_id"]
+                    for l in (out / "03_relation_index.jsonl").read_text(encoding="utf-8").splitlines()
+                    if l.strip()
+                }
+
+            ids_after_full = load_relation_ids()
+            self.assertGreater(len(ids_after_full), 0)
+
+            # Partial re-run with only one source
+            runtime.process_sources([payload_a])
+            ids_after_partial = load_relation_ids()
+
+            # All original relation IDs must still be present and unchanged
+            self.assertTrue(
+                ids_after_full.issubset(ids_after_partial),
+                "Partial re-run changed or removed existing relation IDs"
+            )
+
     def setUp(self):
         self.fixture_dir = Path(__file__).resolve().parents[1] / "fixtures" / "sources"
 

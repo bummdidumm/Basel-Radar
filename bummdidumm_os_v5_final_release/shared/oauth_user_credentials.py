@@ -1,7 +1,6 @@
 import os
 import google.auth
 from google.oauth2.credentials import Credentials
-from google.auth.exceptions import RefreshError
 
 def get_user_credentials():
     """

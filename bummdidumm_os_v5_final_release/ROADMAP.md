@@ -25,16 +25,16 @@ Implementiert (parse_to_records nicht mehr BaseParser-Default):
 
 Stubs (erben BaseParser.parse_to_records ohne eigene Logik):
 - [ ] `parser_signal_export`
-- [ ] `parser_telegram_export`
+- [x] `parser_telegram_export`
 - [ ] `parser_gmail_export`
-- [ ] `parser_google_contacts`
-- [ ] `parser_google_tasks`
+- [x] `parser_google_contacts`
+- [x] `parser_google_tasks`
 - [ ] `parser_google_keep`
 - [ ] `parser_google_maps_places`
 - [ ] `parser_google_drive_export`
 - [ ] `parser_google_play_*` (subscriptions, purchases, orders, devices, library)
-- [ ] `parser_instagram_export`, `parser_facebook_export`, `parser_messenger_export`, `parser_threads_export`
-- [ ] `parser_perplexity_export`, `parser_notebooklm_artifacts`, `parser_prompt_bundle`, `parser_llm_html_export`, `parser_llm_markdown_bundle`
+- [x] `parser_instagram_export`, `parser_facebook_export`, `parser_messenger_export`, `parser_threads_export`
+- [x] `parser_perplexity_export`, `parser_notebooklm_artifacts`, `parser_prompt_bundle`, `parser_llm_html_export`, `parser_llm_markdown_bundle`
 
 ### P2 – Tests
 - [x] Contract-Compliance-Test gegen alle REQUIRED_FIELDS

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -253,7 +252,7 @@ class PersonalBrainRuntime:
             r["record_id"] for r in records
             if relation.get("evidence_external_id") and
                relation["evidence_external_id"] == r.get("external_id", "")
-        ] or [r["record_id"] for r in records[:1]]
+        ]
 
         rid = relation_id(subject_eid, relation.get("predicate", "relates_to"), object_eid, evidence)
         return {

@@ -154,7 +154,8 @@ class JsonlWriter:
         tmp_entity_path = entity_path.with_suffix(".tmp")
         with tmp_entity_path.open("w", encoding="utf-8") as f:
             for k in sorted(merged_entities):
-                f.write(json.dumps(merged_entities[k], ensure_ascii=False) + "\n")
+                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_")}
+                f.write(json.dumps(clean, ensure_ascii=False) + "\n")
         tmp_entity_path.replace(entity_path)
 
         self._write_jsonl(self.published / "03_relation_index.jsonl", relations, "relation_id")
