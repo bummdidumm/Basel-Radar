@@ -49,7 +49,7 @@ def run_safe_sort():
 
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
-            if len(row) < 11 or row[0] == "run_utc" or row[1] != current_run_id:
+            if len(row) < 17 or row[0] == "run_utc" or row[1] != current_run_id:
                 continue
 
             file_id = row[4]
@@ -68,7 +68,7 @@ def run_safe_sort():
             if not current_parent_id:
                 current_parent_id = "N/A"
 
-            notes = str(row[16]) if len(row) > 16 and row[16] is not None else ""
+            notes = str(row[16]) if row[16] is not None else ""
             lane = "INBOX_TRASH" if "Lane: INBOX_TRASH" in notes else "ACTIVE"
 
             folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({

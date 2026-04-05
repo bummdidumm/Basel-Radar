@@ -70,10 +70,15 @@ class TestPipelineE2E(unittest.TestCase):
                 self.assertNotIn("/tmp/", s["source_path"])
                 self.assertNotIn("/tmp/", s["source_path_rel"])
 
+            import hashlib
+            from personal_brain.utils import sanitize_path
+
             # Find the inner zip source correctly
-            inner_src = next(s for s in sources_v1 if s["file_id"] == "zip-123_instagram/messages.json")
-            self.assertEqual(inner_src["source_path"], "dir/takeout.zip/instagram/messages.json")
-            self.assertEqual(inner_src["source_path_rel"], "dir/takeout.zip/instagram/messages.json")
+            sanitized = sanitize_path("instagram/messages.json")
+            expected_id = f"zip-123_{hashlib.sha256(sanitized.encode('utf-8')).hexdigest()}"
+            inner_src = next(s for s in sources_v1 if s["file_id"] == expected_id)
+            self.assertEqual(inner_src["source_path"], f"dir/takeout.zip/{sanitized}")
+            self.assertEqual(inner_src["source_path_rel"], f"dir/takeout.zip/{sanitized}")
 
             runtime = PersonalBrainRuntime(project_id="test-project", out_root=out_root)
             runtime.process_sources(sources_v1)

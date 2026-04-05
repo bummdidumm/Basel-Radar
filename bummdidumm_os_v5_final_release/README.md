@@ -81,6 +81,7 @@ Pass 2 erweitert den klassischen Delta-Export um export-aware Parsing nach `20_i
 - Search Views für Gemini/NotebookLM-nahe Nutzung
 
 Der Einstiegspunkt ist `personal_brain/runtime.py` und wird in `main_pass2.py` nach Delta-Erzeugung ausgeführt.
+*(Hinweis: Dies generiert aktuell JSON/JSONL-basierte Index-Dateien; ein vollständiger Obsidian Vault Export ist ein zukünftiges Roadmap-Feature und noch nicht Teil dieses Release-Standes. Ebenso ist Governance noch manuell über GitHub Settings abzubilden, siehe REPO_GOVERNANCE_SETUP.md).*
 
 ### Knowledge Lifecycle / Exclusions
 - Tab `Knowledge_Exclusions` steuert `ACTIVE`, `EXCLUDED`, `PURGED` pro `file_id`.
