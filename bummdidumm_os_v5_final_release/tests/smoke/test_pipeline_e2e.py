@@ -1,9 +1,9 @@
 import unittest
 import tempfile
 import json
-import os
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 from shared.models import FileRecord
 from main_pass2 import _build_personal_brain_sources
 from personal_brain.runtime import PersonalBrainRuntime
@@ -17,8 +17,6 @@ class DummyDriveService:
                 pass
         return MockRequest()
 
-from googleapiclient.http import MediaIoBaseDownload
-import io
 
 # We need to mock _download_drive_file_to_tmp because the real one uses googleapiclient.http
 def mock_download(drive_service, file_id, size_bytes, enable_shared_drives):
@@ -30,8 +28,6 @@ def mock_download(drive_service, file_id, size_bytes, enable_shared_drives):
         else:
             tf.write(b'{"title": "dummy", "record_type": "generic_json_export"}')
         return tf.name
-
-from unittest.mock import patch
 
 class TestPipelineE2E(unittest.TestCase):
     @patch("main_pass2._download_drive_file_to_tmp", side_effect=mock_download)
@@ -70,16 +66,21 @@ class TestPipelineE2E(unittest.TestCase):
                 self.assertNotIn("/tmp/", s["source_path"])
                 self.assertNotIn("/tmp/", s["source_path_rel"])
 
+            import hashlib
+            from personal_brain.utils import sanitize_path
+
             # Find the inner zip source correctly
-            inner_src = next(s for s in sources_v1 if s["file_id"] == "zip-123_instagram/messages.json")
-            self.assertEqual(inner_src["source_path"], "dir/takeout.zip/instagram/messages.json")
-            self.assertEqual(inner_src["source_path_rel"], "dir/takeout.zip/instagram/messages.json")
+            sanitized = sanitize_path("instagram/messages.json")
+            expected_id = f"zip-123_{hashlib.sha256(sanitized.encode('utf-8')).hexdigest()}"
+            inner_src = next(s for s in sources_v1 if s["file_id"] == expected_id)
+            self.assertEqual(inner_src["source_path"], f"dir/takeout.zip/{sanitized}")
+            self.assertEqual(inner_src["source_path_rel"], f"dir/takeout.zip/{sanitized}")
 
             runtime = PersonalBrainRuntime(project_id="test-project", out_root=out_root)
             runtime.process_sources(sources_v1)
 
             pub = out_root / "20_index" / "published"
-            sources_disk = [json.loads(l) for l in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_disk = [json.loads(line) for line in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources_disk), len(sources_v1))
 
             # V2: Rename file-1
@@ -96,7 +97,7 @@ class TestPipelineE2E(unittest.TestCase):
             sources_v2 = _build_personal_brain_sources([rec1_v2], drive_service, False)
             runtime.process_sources(sources_v2)
 
-            sources_disk_v2 = [json.loads(l) for l in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_disk_v2 = [json.loads(line) for line in (pub / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
 
             # The rename shouldn't duplicate file-1
             self.assertEqual(len(sources_disk_v2), len(sources_v1))

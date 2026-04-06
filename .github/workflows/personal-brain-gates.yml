@@ -26,6 +26,7 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip pytest
       - run: pip install -r bummdidumm_os_v5_final_release/requirements.txt
+      - run: python3 bummdidumm_os_v5_final_release/release_audit.py
       - run: PYTHONPATH=bummdidumm_os_v5_final_release pytest bummdidumm_os_v5_final_release/tests/ -q
 
   finalization-protocol-check:

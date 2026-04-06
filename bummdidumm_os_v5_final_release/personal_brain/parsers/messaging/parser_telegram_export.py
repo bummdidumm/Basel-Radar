@@ -14,10 +14,14 @@ class TelegramExportParser(BaseParser):
     match_tokens = ("telegram", "result.json")
 
     def can_handle(self, source_meta: dict, preview: dict) -> bool:
-        if "telegram" in source_meta.get("original_filename", "").lower() or "result.json" in source_meta.get("original_filename", "").lower():
-            content_preview = getattr(preview, "content_preview", preview)
-            if isinstance(content_preview, dict) and ("chats" in content_preview or "about" in content_preview):
-                return True
+        filename = source_meta.get("original_filename", "").lower()
+        path = source_meta.get("source_path", "").lower()
+        # Only match if "telegram" appears in filename or path
+        if "telegram" not in filename and "telegram" not in path:
+            return False
+        content_preview = getattr(preview, "content_preview", preview)
+        if isinstance(content_preview, dict) and ("chats" in content_preview or "about" in content_preview):
+            return True
         return False
 
     def parse_to_records(self, source_meta: dict, content: dict) -> list[dict]:

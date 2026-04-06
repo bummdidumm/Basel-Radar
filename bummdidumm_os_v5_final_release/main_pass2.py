@@ -104,23 +104,22 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
                             sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
-                            import tempfile
                             sub_local_path = None
                             try:
-                                import tempfile
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
                                     tf.write(z.read(zinfo))
                                     sub_local_path = tf.name
 
+                                sanitized_name = sanitize_path(zinfo.filename)
                                 sub_detected = inspect_source(
                                     source_path=sub_local_path,
                                     mime=sub_mime,
                                     ext=sub_ext,
                                 fallback_text="",
-                                original_path=sanitize_path(zinfo.filename)
+                                original_path=sanitized_name
                                 )
                                 sub_content = sub_detected.get("content", {})
-                                sub_content.setdefault("title", zinfo.filename)
+                                sub_content.setdefault("title", sanitized_name)
                                 sub_event_time = rec.ocr_date or rec.run_utc or ""
                                 sub_content.setdefault("event_time_start", sub_event_time)
                                 sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
@@ -128,17 +127,18 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 import hashlib
                                 from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
-                                canonical_sub_path = f"{rec.path_display or rec.name}/{zinfo.filename}"
+                                canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
+                                sub_file_id = f"{rec.file_id}_{hashlib.sha256(sanitized_name.encode('utf-8')).hexdigest()}"
                                 sources.append({
-                                    "file_id": f"{rec.file_id}_{zinfo.filename}",
+                                    "file_id": sub_file_id,
                                     "bundle_id": rec.file_id,
                                     "source_path": canonical_sub_path,
                                     "source_path_rel": canonical_sub_path,
-                                    "original_filename": zinfo.filename,
+                                    "original_filename": sanitized_name,
                                     "mime": sub_mime,
                                     "ext": sub_ext,
                                     "checksum_sha256": sub_checksum,
-                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{zinfo.filename}",
+                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{sanitized_name}",
                                     "status": rec.status,
                                     "sot_status": "derived",
                                     "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
@@ -153,8 +153,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     "is_bundle": sub_detected.get("is_bundle", False),
                                     "is_archive": False,
                                     "contains_pii": False,
-                                    "contains_messages": "message" in zinfo.filename.lower() or "chat" in zinfo.filename.lower(),
-                                    "contains_geo": "map" in zinfo.filename.lower() or "location" in zinfo.filename.lower(),
+                                    "contains_messages": "message" in sanitized_name.lower() or "chat" in sanitized_name.lower(),
+                                    "contains_geo": "map" in sanitized_name.lower() or "location" in sanitized_name.lower(),
                                     "contains_financial": False,
                                     "contains_media_refs": False,
                                 })
@@ -266,8 +266,10 @@ def run_pass2():
     # Cap Pass 2 RAM load: Chunkweises Auslesen
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
-            if len(row) < 17 or row[0] == "run_utc": continue
-            if row[1] != current_run_id: continue # Nur Dateien des letzten Laufs
+            if len(row) < 17 or row[0] == "run_utc":
+                continue
+            if row[1] != current_run_id:
+                continue # Nur Dateien des letzten Laufs
 
             status = row[10]
             change_type = row[11]
@@ -316,18 +318,22 @@ def run_pass2():
             # ZWEI-PFADE ORCHESTRIERUNG FÜR PASS 2
             # Pfad A: OCR-pflichtige Originale
             if ENABLE_OCR and status in ["ORIGINAL", "ORIGINAL_RESUMED"] and change_type in ["NEW", "UPDATED"]:
-                ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
-                if ocr_data:
-                    rec.ocr_doc_type = ocr_data.get("doc_type", "")
-                    rec.ocr_amount = str(ocr_data.get("amount", ""))
-                    rec.ocr_date = ocr_data.get("date", "")
-                    rec.ocr_vendor = ocr_data.get("vendor", "")
-                    rec.ocr_summary = ocr_data.get("summary", "")
-                    rec.ocr_full_text = ocr_data.get("full_text", "")
-                    rec.effective_mime_type = effective_mime
-                else:
+                try:
+                    ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
+                    if ocr_data:
+                        rec.ocr_doc_type = ocr_data.get("doc_type", "")
+                        rec.ocr_amount = str(ocr_data.get("amount", ""))
+                        rec.ocr_date = ocr_data.get("date", "")
+                        rec.ocr_vendor = ocr_data.get("vendor", "")
+                        rec.ocr_summary = ocr_data.get("summary", "")
+                        rec.ocr_full_text = ocr_data.get("full_text", "")
+                        rec.effective_mime_type = effective_mime
+                    else:
+                        errors += 1
+                        state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")
+                except Exception as e:
                     errors += 1
-                    state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion")
+                    state.log_error("PASS_2", file_id, rec.name, "OCRError", f"Fehler bei der OCR-Extraktion: {str(e)}")
 
             # Pfad B: Statusereignisse ohne OCR
             elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] or status == "UNCHANGED_CONTENT":

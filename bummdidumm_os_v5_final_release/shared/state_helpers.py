@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from .sheets_helpers import SheetManager
@@ -137,7 +136,8 @@ class StateTracker:
         Nimmt das lokale Dict {sha: {"original": id, "duplicates": set(ids)}}
         und batched das Sheet Update, um O(n) API Read/Writes pro Duplikat zu vermeiden.
         """
-        if not groups_accumulator: return
+        if not groups_accumulator:
+            return
 
         try:
             # 1. Read existing rows once

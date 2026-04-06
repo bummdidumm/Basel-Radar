@@ -23,7 +23,7 @@ class TestEndToEndConsistency(unittest.TestCase):
             runtime.process_sources([item_v1])
 
             out = Path(td) / "20_index" / "published"
-            sources = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources), 1)
 
             # Move and rename
@@ -34,7 +34,7 @@ class TestEndToEndConsistency(unittest.TestCase):
 
             runtime.process_sources([item_v2])
 
-            sources2 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources2 = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources2), 1, "Duplicate source created instead of merge.")
 
             master_index = out / "CURRENT_personal_brain_master_index.json"
@@ -45,7 +45,6 @@ class TestEndToEndConsistency(unittest.TestCase):
             self.assertEqual(master_data["sources"][0]["source_path_rel"], "folderB/renamed_chat.json")
 
     def test_e2e_no_temp_paths_leaked(self):
-        import sys
         import os
         from main_pass2 import _build_personal_brain_sources
         from shared.models import FileRecord
@@ -102,6 +101,39 @@ class TestEndToEndConsistency(unittest.TestCase):
             self.assertEqual(inner_source["content"]["title"], "test_sub.json")
             self.assertNotIn("tmp", inner_source["source_path"])
             self.assertNotIn("tmp", inner_source["content"].get("title", ""))
+
+            # Verify no path traversal in inner source paths
+            for s in sources:
+                self.assertNotIn("..", s["source_path"], "Path traversal found in source_path")
+                self.assertNotIn("..", s["source_path_rel"], "Path traversal found in source_path_rel")
+                self.assertNotIn("..", s["file_id"], "Path traversal found in file_id")
+
+            # Regression: path traversal in ZIP entry names must not reach source_path
+            import zipfile as _zf
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as traversal_zf:
+                with _zf.ZipFile(traversal_zf.name, "w") as z:
+                    z.writestr("../../evil.json", '{"evil": true}')
+                traversal_zip_path = traversal_zf.name
+
+            try:
+                main_pass2._download_drive_file_to_tmp = lambda *args: traversal_zip_path
+                try:
+                    traversal_rec = FileRecord(
+                        file_id="zip-traversal", name="traversal.zip",
+                        path_display="/drive/traversal.zip", mime_type="application/zip",
+                        size_bytes=500, status="ORIGINAL", run_utc="2025-03-15T12:00:00Z"
+                    )
+                    t_sources = _build_personal_brain_sources([traversal_rec], DummyDrive(), False)
+                finally:
+                    main_pass2._download_drive_file_to_tmp = original_download
+
+                for s in t_sources:
+                    self.assertNotIn("..", s["source_path"],   f"Path traversal in source_path: {s['source_path']}")
+                    self.assertNotIn("..", s["source_path_rel"], f"Path traversal in source_path_rel: {s['source_path_rel']}")
+                    self.assertNotIn("..", s["file_id"],         f"Path traversal in file_id: {s['file_id']}")
+            finally:
+                if os.path.exists(traversal_zip_path):
+                    os.remove(traversal_zip_path)
 
         finally:
             if os.path.exists(temp_zip_path):

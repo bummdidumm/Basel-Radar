@@ -75,9 +75,12 @@ class JsonlWriter:
         merged = self._read_existing(path, key)
         for row in rows:
             merged[row[key]] = row
-        with path.open("w", encoding="utf-8") as f:
+
+        tmp_path = path.with_suffix(".tmp")
+        with tmp_path.open("w", encoding="utf-8") as f:
             for k in sorted(merged):
                 f.write(json.dumps(merged[k], ensure_ascii=False) + "\n")
+        tmp_path.replace(path)
 
     def _merge_entities(self, merged: dict, new_entity: dict) -> None:
         # Min/max bounds for dates
@@ -148,9 +151,12 @@ class JsonlWriter:
             else:
                 merged_entities[eid] = new_ent
 
-        with entity_path.open("w", encoding="utf-8") as f:
+        tmp_entity_path = entity_path.with_suffix(".tmp")
+        with tmp_entity_path.open("w", encoding="utf-8") as f:
             for k in sorted(merged_entities):
-                f.write(json.dumps(merged_entities[k], ensure_ascii=False) + "\n")
+                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_")}
+                f.write(json.dumps(clean, ensure_ascii=False) + "\n")
+        tmp_entity_path.replace(entity_path)
 
         self._write_jsonl(self.published / "03_relation_index.jsonl", relations, "relation_id")
 
@@ -164,8 +170,11 @@ class JsonlWriter:
         all_records = self._load_full_records()
         daily = build_daily_memory(all_records)
         for day, payload in daily.items():
-            with (self.daily_dir / f"{day}.json").open("w", encoding="utf-8") as f:
+            target_path = self.daily_dir / f"{day}.json"
+            tmp_path = target_path.with_suffix(".tmp")
+            with tmp_path.open("w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
+            tmp_path.replace(target_path)
         return daily
 
     def write_search_views(self, _records: list[dict]) -> dict[str, list[dict]]:
@@ -224,29 +233,37 @@ class JsonlWriter:
             )),
             "shallow_archive_count": sum(1 for s in sources if s.get("is_archive") and not s.get("record_count", 0)),
         }
-        (self.published / "CURRENT_personal_brain_stats.json").write_text(
-            json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
+
+        def atomic_write_text(path: Path, content: str) -> None:
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(content, encoding="utf-8")
+            tmp.replace(path)
+
+        atomic_write_text(
+            self.published / "CURRENT_personal_brain_stats.json",
+            json.dumps(stats, ensure_ascii=False, indent=2)
         )
-        (self.published / "CURRENT_personal_brain_quality_report.json").write_text(
+        atomic_write_text(
+            self.published / "CURRENT_personal_brain_quality_report.json",
             json.dumps({
                 "dedicated_parsers_used": stats["dedicated_parsers"],
                 "generic_fallback_sources": stats["generic_sources"],
                 "ocr_or_placeholder_only": stats["ocr_only_sources"],
                 "shallow_archives": stats["shallow_archive_count"],
                 "missing_important_parser_families": stats["missing_parser_families"]
-            }, ensure_ascii=False, indent=2), encoding="utf-8"
+            }, ensure_ascii=False, indent=2)
         )
-        (self.published / "CURRENT_personal_brain_summary.md").write_text(
+        atomic_write_text(
+            self.published / "CURRENT_personal_brain_summary.md",
             f"# Personal Brain Summary\n\n"
             f"Sources: {stats['total_sources']}\n"
             f"Records: {stats['total_records']}\n"
             f"Entities: {stats['total_entities']}\n"
-            f"Relations: {stats['total_relations']}\n",
-            encoding="utf-8",
+            f"Relations: {stats['total_relations']}\n"
         )
-        (self.published / "CURRENT_personal_brain_index.jsonl").write_text(
-            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
-            encoding="utf-8",
+        atomic_write_text(
+            self.published / "CURRENT_personal_brain_index.jsonl",
+            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
         )
 
         # Build Master Output combining all data
@@ -280,7 +297,7 @@ class JsonlWriter:
                             master_output["search_views"][view_name].append(json.loads(line))
 
         # Write master output
-        (self.published / "CURRENT_personal_brain_master_index.json").write_text(
-            json.dumps(master_output, ensure_ascii=False, indent=2),
-            encoding="utf-8"
+        atomic_write_text(
+            self.published / "CURRENT_personal_brain_master_index.json",
+            json.dumps(master_output, ensure_ascii=False, indent=2)
         )

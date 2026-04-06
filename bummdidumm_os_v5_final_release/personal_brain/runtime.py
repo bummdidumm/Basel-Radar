@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +17,8 @@ class PersonalBrainRuntime:
         self.writer = JsonlWriter(out_root)
 
     def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
-        if exclusions is None: exclusions = {}
+        if exclusions is None:
+            exclusions = {}
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}
@@ -95,7 +95,8 @@ class PersonalBrainRuntime:
 
     def _build_source(self, item: dict, parser, md: dict) -> dict:
         # Prioritize file_id or checksum over path to ensure renames/moves maintain identity.
-        stable_id = item.get("file_id") or item.get("checksum_sha256") or item["source_path_rel"]
+        # Fallback to hashing only immutable content (not mutable paths) if both are missing.
+        stable_id = item.get("file_id") or item.get("checksum_sha256") or stable_hash(item.get("content", {}))
         source_key = f"{self.project_id}:{stable_id}:{parser.parser_name}:{parser.parser_version}"
         source_id_value = source_id(self.project_id, source_key)
 
@@ -103,7 +104,7 @@ class PersonalBrainRuntime:
         s_path = item.get("source_path", "")
         s_path_rel = item.get("source_path_rel", s_path)
         raw_ref = item.get("raw_ref", item.get("web_link", s_path_rel))
-        chk_sum = item.get("checksum_sha256") or stable_hash(item)
+        chk_sum = item.get("checksum_sha256") or stable_hash(item.get("content", {}))
 
         return {
             "project_id": self.project_id,
@@ -252,7 +253,7 @@ class PersonalBrainRuntime:
             r["record_id"] for r in records
             if relation.get("evidence_external_id") and
                relation["evidence_external_id"] == r.get("external_id", "")
-        ] or [r["record_id"] for r in records[:1]]
+        ]
 
         rid = relation_id(subject_eid, relation.get("predicate", "relates_to"), object_eid, evidence)
         return {

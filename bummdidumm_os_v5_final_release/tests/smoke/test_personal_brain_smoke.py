@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,12 +11,88 @@ from personal_brain.contracts import (
     RECORD_REQUIRED_FIELDS,
     RELATION_REQUIRED_FIELDS,
     SOURCE_REQUIRED_FIELDS,
+    DAILY_REQUIRED_FIELDS,
+    SEARCH_REQUIRED_FIELDS,
 )
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 
 
 class PersonalBrainSmokeTest(unittest.TestCase):
+    def test_contract_compliance_daily_and_search_views(self):
+        """Daily memory and search views must carry all required contract fields."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            payloads = [
+                self._source_payload("chatgpt_export.json"),
+                self._source_payload("google_timeline.json"),
+            ]
+            runtime.process_sources(payloads)
+            out = Path(td) / "20_index" / "published"
+
+            # Check daily memory files
+            daily_dir = out / "04_daily_memory"
+            for day_file in daily_dir.glob("*.json"):
+                day = json.loads(day_file.read_text(encoding="utf-8"))
+                for field in DAILY_REQUIRED_FIELDS:
+                    self.assertIn(field, day, f"daily_memory missing field: {field} in {day_file.name}")
+
+            # Check search view
+            for line in (out / "CURRENT_personal_brain_search_view.jsonl").read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entry = json.loads(line)
+                for field in SEARCH_REQUIRED_FIELDS:
+                    self.assertIn(field, entry, f"search_view missing field: {field}")
+
+    def test_no_internal_keys_in_entity_jsonl(self):
+        """Internal _ keys must not leak into 02_entity_index.jsonl.
+
+        Regression for: _counts_by_source was persisted to entity JSONL.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            runtime.process_sources([self._source_payload("chatgpt_export.json")])
+            runtime.process_sources([self._source_payload("google_my_activity.json")])  # triggers merge
+            out = Path(td) / "20_index" / "published"
+            for line in (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entity = json.loads(line)
+                leaked = [k for k in entity if k.startswith("_")]
+                self.assertEqual(leaked, [], f"Internal key(s) {leaked} in entity: {entity.get('entity_id')}")
+
+    def test_relation_id_stable_across_partial_reruns(self):
+        """Relation IDs must not change between a full run and a partial re-run."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            payload_a = self._source_payload("chatgpt_export.json")
+            payload_b = self._source_payload("google_my_activity.json")
+
+            # Full run
+            runtime.process_sources([payload_a, payload_b])
+            out = Path(td) / "20_index" / "published"
+
+            def load_relation_ids():
+                return {
+                    json.loads(line)["relation_id"]
+                    for line in (out / "03_relation_index.jsonl").read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                }
+
+            ids_after_full = load_relation_ids()
+            self.assertGreater(len(ids_after_full), 0)
+
+            # Partial re-run with only one source
+            runtime.process_sources([payload_a])
+            ids_after_partial = load_relation_ids()
+
+            # All original relation IDs must still be present and unchanged
+            self.assertTrue(
+                ids_after_full.issubset(ids_after_partial),
+                f"Partial re-run changed/lost relation IDs. Lost: {ids_after_full - ids_after_partial}"
+            )
+
     def setUp(self):
         self.fixture_dir = Path(__file__).resolve().parents[1] / "fixtures" / "sources"
 
@@ -170,7 +245,7 @@ class PersonalBrainSmokeTest(unittest.TestCase):
 
             # Read registry to get the source ID
             out = Path(td) / "20_index" / "published"
-            sources_v1 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_v1 = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources_v1), 1)
             original_source_id = sources_v1[0]["source_id"]
 
@@ -186,10 +261,10 @@ class PersonalBrainSmokeTest(unittest.TestCase):
                 "content": {"title": "renamed_photo.jpg"}
             }
 
-            stats2 = runtime.process_sources([item_v2])
+            runtime.process_sources([item_v2])
 
             # The registry should still contain exactly 1 source, mapped to the same ID.
-            sources_v2 = [json.loads(l) for l in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            sources_v2 = [json.loads(line) for line in (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(sources_v2), 1, "A moved/renamed file created a duplicate source instead of updating.")
             self.assertEqual(sources_v2[0]["source_id"], original_source_id, "The source_id changed after rename/move.")
             # The new path should be reflected
@@ -211,9 +286,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
 
             def _load_ids(filename: str, key: str) -> set[str]:
                 return {
-                    json.loads(l)[key]
-                    for l in (out / filename).read_text(encoding="utf-8").splitlines()
-                    if l.strip()
+                    json.loads(line)[key]
+                    for line in (out / filename).read_text(encoding="utf-8").splitlines()
+                    if line.strip()
                 }
 
             ids_after_ab = _load_ids("01_record_index.jsonl", "record_id")
@@ -283,9 +358,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
 
             out = Path(td) / "20_index" / "published"
             records = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             record_types = {r["record_type"] for r in records}
             self.assertIn("llm_conversation", record_types, "Expected at least one llm_conversation record")
@@ -293,9 +368,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             self.assertNotIn("generic_record", record_types)
 
             sources = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "00_source_registry.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             self.assertEqual(sources[0]["source_system"], "llm")
             self.assertEqual(sources[0]["source_service"], "claude")
@@ -308,9 +383,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             self.assertGreaterEqual(stats["total_records"], 2)
             out = Path(td) / "20_index" / "published"
             records = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             self.assertIn("llm_conversation", {r["record_type"] for r in records})
 
@@ -322,9 +397,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             self.assertGreaterEqual(stats["total_records"], 2)
             out = Path(td) / "20_index" / "published"
             records = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             types = {r["record_type"] for r in records}
             self.assertTrue(
@@ -348,16 +423,16 @@ class PersonalBrainSmokeTest(unittest.TestCase):
 
             out = Path(td) / "20_index" / "published"
             records = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             self.assertIn("message_event", {r["record_type"] for r in records})
             # Senders should appear as people entities
             entities = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             entity_types = {e["entity_type"] for e in entities}
             self.assertIn("person", entity_types)
@@ -378,9 +453,9 @@ class PersonalBrainSmokeTest(unittest.TestCase):
 
             out = Path(td) / "20_index" / "published"
             records = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             self.assertIn("calendar_event", {r["record_type"] for r in records})
             # Events must have dates
@@ -403,14 +478,14 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             out = Path(td) / "20_index" / "published"
 
             entity_ids = {
-                json.loads(l)["entity_id"]
-                for l in (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                json.loads(line)["entity_id"]
+                for line in (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
             }
             relations = [
-                json.loads(l) for l in
+                json.loads(line) for line in
                 (out / "03_relation_index.jsonl").read_text(encoding="utf-8").splitlines()
-                if l.strip()
+                if line.strip()
             ]
             for rel in relations:
                 self.assertIn(

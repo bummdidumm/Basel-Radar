@@ -1,6 +1,4 @@
-import os
 from typing import List, Dict, Tuple, Optional
-from googleapiclient.discovery import build
 
 class DriveManager:
     """Encapsulates Google Drive API interactions, caching, and filtering."""
@@ -21,13 +19,17 @@ class DriveManager:
         return params
 
     def is_in_target_folder(self, file_id: str, parents: List[str]) -> bool:
-        if not self.target_folder_id: return True
-        if not parents: return False
-        if self.target_folder_id in parents: return True
+        if not self.target_folder_id:
+            return True
+        if not parents:
+            return False
+        if self.target_folder_id in parents:
+            return True
 
         for p in parents:
             if p in self.ancestor_cache:
-                if self.ancestor_cache[p]: return True
+                if self.ancestor_cache[p]:
+                    return True
                 continue
 
             try:
@@ -37,7 +39,8 @@ class DriveManager:
                 grandparents = folder_meta.get("parents", [])
                 result = self.is_in_target_folder(p, grandparents)
                 self.ancestor_cache[p] = result
-                if result: return True
+                if result:
+                    return True
             except Exception:
                 self.ancestor_cache[p] = False
 
@@ -45,7 +48,8 @@ class DriveManager:
 
     def get_initial_token(self) -> str:
         params = self._base_params()
-        if self.enable_shared_drives: params["driveId"] = None
+        if self.enable_shared_drives:
+            params["driveId"] = None
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
@@ -137,7 +141,8 @@ class DriveManager:
         return changes, res.get("nextPageToken"), res.get("newStartPageToken")
 
     def archive_duplicate(self, file_id: str, parents: List[str], archive_folder_id: str) -> str:
-        if not archive_folder_id: return "DRY_RUN: NO_ARCHIVE_ID"
+        if not archive_folder_id:
+            return "DRY_RUN: NO_ARCHIVE_ID"
         try:
             params = self._base_params()
             self.drive.files().update(

@@ -26,6 +26,7 @@ PROJECT_ID=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CO
 - **Erster Lauf (Pass 1):** Initialer Full-Walk + Hash/Dedupe.
 - **Zweiter Lauf (Pass 2):** OCR + JSONL Delta-Export in `20_index`.
 - **Full Run:** Apps Script startet Pass 1 und pollt automatisch bis Pass 2 Trigger.
+- **Pass 3:** Embedding prep for external vector DBs like Qdrant — *not yet implemented*.
 - **Resume:** `in_progress_page_token` erlaubt Delta-Fortsetzung nach Abbruch.
 - **Shared Drives:** über `ENABLE_SHARED_DRIVES=true` unterstützt.
 
@@ -81,6 +82,7 @@ Pass 2 erweitert den klassischen Delta-Export um export-aware Parsing nach `20_i
 - Search Views für Gemini/NotebookLM-nahe Nutzung
 
 Der Einstiegspunkt ist `personal_brain/runtime.py` und wird in `main_pass2.py` nach Delta-Erzeugung ausgeführt.
+*(Hinweis: Dies generiert aktuell JSON/JSONL-basierte Index-Dateien; ein vollständiger Obsidian Vault Export ist ein zukünftiges Roadmap-Feature und noch nicht Teil dieses Release-Standes. Ebenso ist Governance noch manuell über GitHub Settings abzubilden, siehe REPO_GOVERNANCE_SETUP.md).*
 
 ### Knowledge Lifecycle / Exclusions
 - Tab `Knowledge_Exclusions` steuert `ACTIVE`, `EXCLUDED`, `PURGED` pro `file_id`.
