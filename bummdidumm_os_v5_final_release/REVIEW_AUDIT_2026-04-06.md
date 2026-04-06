@@ -10,7 +10,8 @@ This audit confirms the successful implementation of the "Konsistenz- und Robust
 
 - **FIX 1:** `main_apply_renames.py` memory risk fixed via `read_rows_chunked`.
 - **FIX 2:** `runtime.py` relation ID generation is now stable during partial reruns.
-- **FIX 3:** Path traversal and un-sanitized internal zip paths in `main_pass2.py` are properly mitigated with `sanitize_path` and `sha256` hashing.
+- **FIX 3:** Path traversal and un-sanitized internal zip paths in `main_pass2.py` are properly mitigated with `sanitize_path` and `sha256` hashing. `mimetypes.guess_type` is now used for more robust MIME mapping of ZIP contents. Exception handling for ZIP extraction was also improved by moving imports out of the `except` block.
+- **Exclusion Logic:** `runtime.py` file exclusion mapping logic has been hardened to check against both exact file IDs, parent bundle IDs, and fallback stable IDs.
 - **FIX 4:** Pass-3 reference accurately removed from `README.md`.
 - **FIX 5:** Internal dictionary state (`_counts_by_source`) is correctly filtered before being serialized to `02_entity_index.jsonl` in `writers.py`.
 - **FIX 6:** Search and Daily Memory contract compliance successfully verified through `test_contract_compliance_daily_and_search_views`.
