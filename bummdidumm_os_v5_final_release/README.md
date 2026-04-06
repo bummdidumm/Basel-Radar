@@ -26,6 +26,7 @@ PROJECT_ID=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CO
 - **Erster Lauf (Pass 1):** Initialer Full-Walk + Hash/Dedupe.
 - **Zweiter Lauf (Pass 2):** OCR + JSONL Delta-Export in `20_index`.
 - **Full Run:** Apps Script startet Pass 1 und pollt automatisch bis Pass 2 Trigger.
+- **Pass 3:** Embedding prep for external vector DBs like Qdrant — *not yet implemented*.
 - **Resume:** `in_progress_page_token` erlaubt Delta-Fortsetzung nach Abbruch.
 - **Shared Drives:** über `ENABLE_SHARED_DRIVES=true` unterstützt.
 

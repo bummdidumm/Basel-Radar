@@ -104,10 +104,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
                             sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
-                            import tempfile
                             sub_local_path = None
                             try:
-                                import tempfile
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
                                     tf.write(z.read(zinfo))
                                     sub_local_path = tf.name

@@ -43,6 +43,36 @@ class TestNewParsers(unittest.TestCase):
         self.assertEqual(records[0]["event_time_start"], "")
         self.assertEqual(records[0]["event_date"], "")
 
+    def test_telegram_can_handle_does_not_match_generic_result_json(self):
+        """TelegramParser must not match a generic result.json without 'telegram' in path.
+
+        Regression for: 'result.json' match was too broad.
+        """
+        from personal_brain.parsers.messaging.parser_telegram_export import TelegramExportParser
+        from personal_brain.parsers.base import SourcePreview
+
+        parser = TelegramExportParser()
+
+        # Generic result.json — must NOT match
+        meta_generic = {"original_filename": "result.json", "source_path": "exports/result.json"}
+        preview_generic = SourcePreview(
+            path="exports/result.json", name="result.json",
+            mime="application/json", ext=".json",
+            content_preview={"chats": {"list": []}, "about": "Telegram Desktop"},
+            text_preview=""
+        )
+        self.assertFalse(parser.can_handle(meta_generic, preview_generic))
+
+        # telegram_export.json — must match
+        meta_tg = {"original_filename": "telegram_export.json", "source_path": "exports/telegram_export.json"}
+        preview_tg = SourcePreview(
+            path="exports/telegram_export.json", name="telegram_export.json",
+            mime="application/json", ext=".json",
+            content_preview={"chats": {"list": []}},
+            text_preview=""
+        )
+        self.assertTrue(parser.can_handle(meta_tg, preview_tg))
+
     def test_telegram(self):
         parser = TelegramExportParser()
         content = {"chats": {"list": [{"name": "Group", "id": "C1", "messages": [{"type": "message", "from": "Bob", "text": "Hi"}]}]}}

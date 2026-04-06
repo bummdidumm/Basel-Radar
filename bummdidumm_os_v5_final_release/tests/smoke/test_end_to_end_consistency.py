@@ -108,6 +108,33 @@ class TestEndToEndConsistency(unittest.TestCase):
                 self.assertNotIn("..", s["source_path_rel"], "Path traversal found in source_path_rel")
                 self.assertNotIn("..", s["file_id"], "Path traversal found in file_id")
 
+            # Regression: path traversal in ZIP entry names must not reach source_path
+            import zipfile as _zf
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as traversal_zf:
+                with _zf.ZipFile(traversal_zf.name, "w") as z:
+                    z.writestr("../../evil.json", '{"evil": true}')
+                traversal_zip_path = traversal_zf.name
+
+            try:
+                main_pass2._download_drive_file_to_tmp = lambda *args: traversal_zip_path
+                try:
+                    traversal_rec = FileRecord(
+                        file_id="zip-traversal", name="traversal.zip",
+                        path_display="/drive/traversal.zip", mime_type="application/zip",
+                        size_bytes=500, status="ORIGINAL", run_utc="2025-03-15T12:00:00Z"
+                    )
+                    t_sources = _build_personal_brain_sources([traversal_rec], DummyDrive(), False)
+                finally:
+                    main_pass2._download_drive_file_to_tmp = original_download
+
+                for s in t_sources:
+                    self.assertNotIn("..", s["source_path"],   f"Path traversal in source_path: {s['source_path']}")
+                    self.assertNotIn("..", s["source_path_rel"], f"Path traversal in source_path_rel: {s['source_path_rel']}")
+                    self.assertNotIn("..", s["file_id"],         f"Path traversal in file_id: {s['file_id']}")
+            finally:
+                if os.path.exists(traversal_zip_path):
+                    os.remove(traversal_zip_path)
+
         finally:
             if os.path.exists(temp_zip_path):
                 os.remove(temp_zip_path)

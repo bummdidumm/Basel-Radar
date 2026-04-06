@@ -22,19 +22,21 @@ Implementiert (parse_to_records nicht mehr BaseParser-Default):
 - [x] `parser_google_timeline` – placeVisit-Objekte mit Geo-Koordinaten
 - [x] `parser_google_play_installs` – installed_apps[], App-Entities mit package_name
 - [x] `parser_generic_json_export` – items[]-Pattern
+- [x] `parser_google_contacts` (contacts_export, null-name-safe)
+- [x] `parser_google_tasks` (task, null-timestamp-safe)
+- [x] `parser_telegram_export` (chats.list, person-Entities)
+- [x] `parser_instagram_export` (messages[], timestamp_ms)
+- [x] `parser_perplexity_export` (llm_conversation+llm_turn)
 
 Stubs (erben BaseParser.parse_to_records ohne eigene Logik):
 - [ ] `parser_signal_export`
-- [x] `parser_telegram_export`
 - [ ] `parser_gmail_export`
-- [x] `parser_google_contacts`
-- [x] `parser_google_tasks`
 - [ ] `parser_google_keep`
 - [ ] `parser_google_maps_places`
 - [ ] `parser_google_drive_export`
 - [ ] `parser_google_play_*` (subscriptions, purchases, orders, devices, library)
-- [x] `parser_instagram_export`, `parser_facebook_export`, `parser_messenger_export`, `parser_threads_export`
-- [x] `parser_perplexity_export`, `parser_notebooklm_artifacts`, `parser_prompt_bundle`, `parser_llm_html_export`, `parser_llm_markdown_bundle`
+- [ ] `parser_facebook_export`, `parser_messenger_export`, `parser_threads_export`
+- [ ] `parser_notebooklm_artifacts`, `parser_prompt_bundle`, `parser_llm_html_export`, `parser_llm_markdown_bundle`
 
 ### P2 – Tests
 - [x] Contract-Compliance-Test gegen alle REQUIRED_FIELDS

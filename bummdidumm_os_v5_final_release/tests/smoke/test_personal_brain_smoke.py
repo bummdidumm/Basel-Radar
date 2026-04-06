@@ -45,6 +45,23 @@ class PersonalBrainSmokeTest(unittest.TestCase):
                 for field in SEARCH_REQUIRED_FIELDS:
                     self.assertIn(field, entry, f"search_view missing field: {field}")
 
+    def test_no_internal_keys_in_entity_jsonl(self):
+        """Internal _ keys must not leak into 02_entity_index.jsonl.
+
+        Regression for: _counts_by_source was persisted to entity JSONL.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+            runtime.process_sources([self._source_payload("chatgpt_export.json")])
+            runtime.process_sources([self._source_payload("google_my_activity.json")])  # triggers merge
+            out = Path(td) / "20_index" / "published"
+            for line in (out / "02_entity_index.jsonl").read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entity = json.loads(line)
+                leaked = [k for k in entity if k.startswith("_")]
+                self.assertEqual(leaked, [], f"Internal key(s) {leaked} in entity: {entity.get('entity_id')}")
+
     def test_relation_id_stable_across_partial_reruns(self):
         """Relation IDs must not change between a full run and a partial re-run."""
         with tempfile.TemporaryDirectory() as td:
@@ -73,7 +90,7 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             # All original relation IDs must still be present and unchanged
             self.assertTrue(
                 ids_after_full.issubset(ids_after_partial),
-                "Partial re-run changed or removed existing relation IDs"
+                f"Partial re-run changed/lost relation IDs. Lost: {ids_after_full - ids_after_partial}"
             )
 
     def setUp(self):
