@@ -128,9 +128,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                                 canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
-                                sub_file_id = f"{rec.file_id}_{hashlib.sha256(sanitized_name.encode('utf-8')).hexdigest()}"
                                 sources.append({
-                                    "file_id": sub_file_id,
+                                    "file_id": f"{rec.file_id}_{sanitized_name}",
                                     "bundle_id": rec.file_id,
                                     "source_path": canonical_sub_path,
                                     "source_path_rel": canonical_sub_path,

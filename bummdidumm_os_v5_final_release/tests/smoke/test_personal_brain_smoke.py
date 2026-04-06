@@ -19,8 +19,13 @@ from personal_brain.source_ingestion import inspect_source
 
 
 class PersonalBrainSmokeTest(unittest.TestCase):
-    def test_contract_compliance_daily_and_search_views(self):
-        """Daily memory and search views must carry all required contract fields."""
+    def test_contract_compliance_daily_memory_and_search_views(self):
+        """Daily memory shards and search view entries must carry all required contract fields.
+
+        Regression coverage for DAILY_REQUIRED_FIELDS and SEARCH_REQUIRED_FIELDS in contracts.py.
+        """
+        from personal_brain.contracts import DAILY_REQUIRED_FIELDS, SEARCH_REQUIRED_FIELDS
+
         with tempfile.TemporaryDirectory() as td:
             runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
             payloads = [
@@ -30,20 +35,33 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             runtime.process_sources(payloads)
             out = Path(td) / "20_index" / "published"
 
-            # Check daily memory files
+            # --- Daily Memory ---
             daily_dir = out / "04_daily_memory"
-            for day_file in daily_dir.glob("*.json"):
+            self.assertTrue(daily_dir.exists(), "daily_memory directory missing")
+            day_files = list(daily_dir.glob("*.json"))
+            self.assertGreater(len(day_files), 0, "No daily memory shards generated")
+
+            for day_file in day_files:
                 day = json.loads(day_file.read_text(encoding="utf-8"))
                 for field in DAILY_REQUIRED_FIELDS:
-                    self.assertIn(field, day, f"daily_memory missing field: {field} in {day_file.name}")
+                    self.assertIn(
+                        field, day,
+                        f"daily_memory {day_file.name} missing required field: '{field}'"
+                    )
 
-            # Check search view
-            for line in (out / "CURRENT_personal_brain_search_view.jsonl").read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
+            # --- Search View ---
+            sv_path = out / "CURRENT_personal_brain_search_view.jsonl"
+            self.assertTrue(sv_path.exists(), "Search view JSONL missing")
+            sv_lines = [line for line in sv_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertGreater(len(sv_lines), 0, "Search view is empty")
+
+            for line in sv_lines:
                 entry = json.loads(line)
                 for field in SEARCH_REQUIRED_FIELDS:
-                    self.assertIn(field, entry, f"search_view missing field: {field}")
+                    self.assertIn(
+                        field, entry,
+                        f"search_view entry missing required field: '{field}'"
+                    )
 
     def test_no_internal_keys_in_entity_jsonl(self):
         """Internal _ keys must not leak into 02_entity_index.jsonl.
@@ -59,8 +77,11 @@ class PersonalBrainSmokeTest(unittest.TestCase):
                 if not line.strip():
                     continue
                 entity = json.loads(line)
-                leaked = [k for k in entity if k.startswith("_")]
-                self.assertEqual(leaked, [], f"Internal key(s) {leaked} in entity: {entity.get('entity_id')}")
+                internal_keys = [k for k in entity if k.startswith("_")]
+                self.assertEqual(
+                    internal_keys, [],
+                    f"Internal key(s) {internal_keys} leaked into entity JSONL: {entity.get('entity_id')}"
+                )
 
     def test_relation_id_stable_across_partial_reruns(self):
         """Relation IDs must not change between a full run and a partial re-run."""
