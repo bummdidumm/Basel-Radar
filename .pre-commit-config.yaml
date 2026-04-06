@@ -10,4 +10,4 @@ repos:
     rev: v0.4.1
     hooks:
     -   id: ruff
-        args: [--select=E,W,F, --ignore=E501]
+        args: ["--select=E,W,F", "--ignore=E501"]
