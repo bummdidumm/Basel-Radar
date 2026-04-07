@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -73,8 +74,8 @@ def inspect_source(
                 text = path_obj.read_text(encoding="utf-8", errors="ignore")[:8000]
                 text_preview = text[:1000]
                 content = {"raw_text": text, "title": Path(detection_path).name, "summary": text[:200]}
-        except Exception:
-            pass
+        except Exception as e:
+            logging.debug(f"Failed to inspect source {detection_path}: {e}")
     return {
         "preview": preview,
         "text_preview": text_preview[:1000],
