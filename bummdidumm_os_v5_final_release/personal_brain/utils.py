@@ -42,7 +42,3 @@ def slugify(value: str) -> str:
 def norm_filename(name: str) -> str:
     p = Path(name)
     return f"{slugify(p.stem)}{p.suffix.lower()}"
-
-def get_parseable_mime_type(ext: str) -> str:
-    mapping = {".json": "application/json", ".txt": "text/plain", ".html": "text/html", ".htm": "text/html", ".csv": "text/csv", ".md": "text/markdown", ".ics": "text/calendar"}
-    return mapping.get(ext.lower(), "")

@@ -23,20 +23,12 @@ PROJECT_ID=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CO
 ```
 
 ## Laufmodi
-
-### Implemented Now (Current Release)
-- **Erster Lauf (Pass 1):** Initialer Full-Walk + Hash/Dedupe. Generiert deduplizierte Datei-Baselines und protokolliert Hash-Basierten Index.
-- **Zweiter Lauf (Pass 2):** Semantic OCR + Indexing in `20_index`. Parsed Formate (Archive, Code, Texte) und generiert den `Personal Brain` Output als JSONL/JSON.
-- **Safe Sort:** Generierung sicherer Sortiervorschläge nach Prioritätsregeln (inklusive OCR-Semantik).
-- **Apply Sort:** Destruktive Umsetzung (Verschieben/Löschen) in Drive via Sheets-Batching.
+- **Erster Lauf (Pass 1):** Initialer Full-Walk + Hash/Dedupe.
+- **Zweiter Lauf (Pass 2):** OCR + JSONL Delta-Export in `20_index`.
 - **Full Run:** Apps Script startet Pass 1 und pollt automatisch bis Pass 2 Trigger.
+- **Pass 3:** Embedding prep for external vector DBs like Qdrant — *not yet implemented*.
 - **Resume:** `in_progress_page_token` erlaubt Delta-Fortsetzung nach Abbruch.
 - **Shared Drives:** über `ENABLE_SHARED_DRIVES=true` unterstützt.
-
-### Planned / Not Yet Wired
-- **Pass 3 (Vector DBs):** Embedding prep for external vector DBs like Qdrant is currently aspirational and not wired into the codebase.
-- **Obsidian Export:** While the `Personal Brain` index exists as flat JSON/JSONL, a full Obsidian Vault Markdown export is not yet fully implemented.
-- **Automated Dashboards:** Dashboard visualisierungen in externen Frontends sind nicht Teil dieses Codes.
 
 ## Folder-Initializer und Folder Registry
 `initializeFolderStructure()` arbeitet autonom:

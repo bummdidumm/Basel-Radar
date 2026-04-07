@@ -25,7 +25,6 @@ class SortingRules:
         path = file_meta.get("path", "").lower()
         lane = file_meta.get("lane", "")
         current_parent_id = file_meta.get("current_parent_id", "")
-        ocr_doc = file_meta.get("ocr_doc_type", "").lower()
 
         if lane == "INBOX_TRASH" or (self.inbox_trash_folder_id and current_parent_id == self.inbox_trash_folder_id):
             key = "01_inbox_trash"
@@ -36,9 +35,6 @@ class SortingRules:
         elif status in ["ERROR", "FATAL", "UNREADABLE"]:
             key = "99_quarantine"
             reason = "Prio 1: Fehlerfall/Quarantäne"
-        elif ocr_doc in ["invoice", "receipt", "contract", "bank_statement"]:
-            key = "40b_referenzen"
-            reason = "Prio 1.5: OCR Dokument-Typ"
         elif mime.startswith("image/"):
             key = "50a_fotos"
             reason = "Prio 2: Bilddatei (Mime-Type)"

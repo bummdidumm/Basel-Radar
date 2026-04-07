@@ -43,30 +43,6 @@ def run_safe_sort():
         return
 
     known = state.load_known_hashes()
-
-    # Load semantic hints (ocr_doc_type) from personal_brain index if available
-    from pathlib import Path
-    import json
-    semantic_hints = {}
-    brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
-    registry_path = brain_index_root / "20_index" / "published" / "00_source_registry.jsonl"
-    if registry_path.exists():
-        try:
-            for line in registry_path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                try:
-                    s_data = json.loads(line)
-                    f_id = s_data.get("file_id")
-                    if f_id:
-                        topics = s_data.get("content", {}).get("topics", [])
-                        if topics:
-                            semantic_hints[f_id] = topics[0]
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
     suggestions = []
     processed = 0
     errors = 0
@@ -94,7 +70,6 @@ def run_safe_sort():
 
             notes = str(row[16]) if row[16] is not None else ""
             lane = "INBOX_TRASH" if "Lane: INBOX_TRASH" in notes else "ACTIVE"
-            ocr_doc_type = semantic_hints.get(file_id, "")
 
             folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({
                 "name": name,
@@ -103,7 +78,6 @@ def run_safe_sort():
                 "path": current_path,
                 "lane": lane,
                 "current_parent_id": current_parent_id,
-                "ocr_doc_type": ocr_doc_type,
             })
 
             if not target_id:
