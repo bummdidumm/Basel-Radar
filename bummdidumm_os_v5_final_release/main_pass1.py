@@ -233,7 +233,8 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             known_file_details[rec.file_id] = {
                 "sha": rec.sha256,
                 "name": rec.name,
-                "path": ",".join(rec.parents) if rec.parents else "",
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
                 "updated_at": rec.updated_at,
                 "size_bytes": rec.size_bytes,
                 "md5": rec.md5,

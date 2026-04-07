@@ -45,6 +45,8 @@ class TestPass1Incremental(unittest.TestCase):
         main_pass1._process_file_batch(drive_service, drive_mgr, state, [f1_moved], known_file_details, False, "")
         self.assertEqual(known_file_details["1"]["name"], "b.txt")
         self.assertEqual(known_file_details["1"]["path_display"], "sub/b.txt")
+        self.assertEqual(known_file_details["1"]["parent_ids_sorted"], "sub", "ORIGINAL -> MOVED should update parents")
+        self.assertIn("effective_mime_type", known_file_details["1"], "ORIGINAL metadata dict must be fully standard")
 
         # Skipped size
         f_large = {"id": "2", "name": "big.bin", "parents": [], "size": 2000000, "mimeType": "application/octet-stream"}
