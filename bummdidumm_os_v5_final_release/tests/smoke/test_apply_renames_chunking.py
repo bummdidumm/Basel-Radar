@@ -4,7 +4,9 @@ from pathlib import Path
 
 
 def test_apply_renames_uses_chunked_read():
-    source = Path("bummdidumm_os_v5_final_release/main_apply_renames.py").read_text(encoding="utf-8")
+    p1 = Path("bummdidumm_os_v5_final_release/main_apply_renames.py")
+    p2 = Path("main_apply_renames.py")
+    source = (p1 if p1.exists() else p2).read_text(encoding="utf-8")
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):

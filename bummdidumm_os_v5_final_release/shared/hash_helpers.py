@@ -1,33 +1,10 @@
 import hashlib
 from typing import Optional, Tuple
 from googleapiclient.http import MediaIoBaseDownload
-
-class HashingSink:
-    """Mock file object to hash data directly from stream without writing to disk."""
-    def __init__(self):
-        self.sha = hashlib.sha256()
-        self._pos = 0
-
-    def write(self, data: bytes) -> int:
-        self.sha.update(data)
-        self._pos += len(data)
-        return len(data)
-
-    def tell(self) -> int:
-        return self._pos
-
-    def seek(self, pos: int, whence: int = 0):
-        if pos == 0 and whence == 0:
-            self.sha = hashlib.sha256()
-            self._pos = 0
-        else:
-            raise NotImplementedError("HashingSink only supports seek(0, 0) for retries")
-
-    def flush(self):
-        pass
+import tempfile
 
 def calculate_sha256_streaming(drive_service, file_id: str, mime_type: str, base_params: dict) -> Tuple[Optional[str], str]:
-    """Returns (SHA256, ExportSource) using true streaming downloads directly into memory."""
+    """Returns (SHA256, ExportSource) using true streaming downloads."""
     is_native = mime_type.startswith("application/vnd.google-apps")
     export_source = "Native Drive" if is_native else "Binary File"
 
@@ -39,13 +16,21 @@ def calculate_sha256_streaming(drive_service, file_id: str, mime_type: str, base
         else:
             request = drive_service.files().get_media(fileId=file_id, **base_params)
 
-        sink = HashingSink()
-        downloader = MediaIoBaseDownload(sink, request, chunksize=8 * 1024 * 1024)
-        done = False
-        while not done:
-            _, done = downloader.next_chunk()
+        with tempfile.NamedTemporaryFile() as tmp:
+            downloader = MediaIoBaseDownload(tmp, request, chunksize=8 * 1024 * 1024)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            tmp.flush()
+            tmp.seek(0)
 
-        return sink.sha.hexdigest(), export_source
+            sha = hashlib.sha256()
+            while True:
+                chunk = tmp.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                sha.update(chunk)
+            return sha.hexdigest(), export_source
     except Exception as e:
         print(f"Hash error for {file_id}: {e}")
         return None, "Error"
