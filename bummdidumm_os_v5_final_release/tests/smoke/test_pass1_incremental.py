@@ -1,19 +1,24 @@
 import unittest
-from shared.models import FileRecord
 import main_pass1
 
 class DummyDriveMgr:
     def get_parent_and_name_path(self, f_id, name, parents):
         return "/".join(parents) + "/" + name if parents else name
-    def _base_params(self): return {}
+    def _base_params(self):
+        return {}
 
 class DummyStateTracker:
-    def log_error(self, *args): pass
-    def append_new_hashes(self, *args): pass
-    def append_dedupe_reports(self, *args): pass
-    def flush_duplicate_groups(self, *args): pass
+    def log_error(self, *args):
+        pass
+    def append_new_hashes(self, *args):
+        pass
+    def append_dedupe_reports(self, *args):
+        pass
+    def flush_duplicate_groups(self, *args):
+        pass
 
-class DummyDriveService: pass
+class DummyDriveService:
+    pass
 
 class TestPass1Incremental(unittest.TestCase):
     def test_incremental_metadata_and_skip(self):
@@ -24,7 +29,8 @@ class TestPass1Incremental(unittest.TestCase):
         main_pass1.SKIP_OVER_MB = 1
 
         # Mock calculate_sha256_streaming
-        def mock_calc(*args): return "dummy_hash", False
+        def mock_calc(*args):
+            return "dummy_hash", False
         main_pass1.calculate_sha256_streaming = mock_calc
 
         # Original insertion

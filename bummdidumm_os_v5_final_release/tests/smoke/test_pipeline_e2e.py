@@ -73,7 +73,11 @@ class TestPipelineE2E(unittest.TestCase):
             sanitized = sanitize_path("instagram/messages.json")
             # In pass 2, sub_file_id includes parent sha256
             expected_id = f"zip-123_{hashlib.sha256(('hash2' + sanitized).encode('utf-8')).hexdigest()}"
-            inner_src = next(s for s in sources_v1 if s["file_id"] == expected_id)
+            try:
+                inner_src = next(s for s in sources_v1 if s["file_id"] == expected_id)
+            except StopIteration:
+                print("Available sources:", [s["file_id"] for s in sources_v1])
+                raise
             self.assertEqual(inner_src["source_path"], f"dir/takeout.zip/{sanitized}")
             self.assertEqual(inner_src["source_path_rel"], f"dir/takeout.zip/{sanitized}")
 
