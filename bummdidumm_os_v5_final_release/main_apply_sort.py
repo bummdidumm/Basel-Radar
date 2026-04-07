@@ -30,6 +30,8 @@ def run_apply_sort():
     processed = 0
     errors = 0
 
+    update_requests = []
+
     for row_idx, row in sheet_mgr.read_rows_chunked_with_row_numbers("Sorting_Suggestions", chunk_size=1000):
         if len(row) < 13 or row[0] == "run_id" or row[0] != current_run_id:
             continue
@@ -70,14 +72,18 @@ def run_apply_sort():
                 state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
                 result_val = f"FAILED: {str(e)[:80]}"
 
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().update(
-                    spreadsheetId=CONTROL_SHEET_ID,
-                    range=f"Sorting_Suggestions!M{row_idx}",
-                    valueInputOption="RAW",
-                    body={"values": [[result_val]]}
-                )
+            update_requests.append({
+                "range": f"Sorting_Suggestions!M{row_idx}",
+                "values": [[result_val]]
+            })
+
+    if update_requests:
+        sheet_mgr._execute_with_backoff(
+            sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=CONTROL_SHEET_ID,
+                body={"valueInputOption": "RAW", "data": update_requests}
             )
+        )
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")

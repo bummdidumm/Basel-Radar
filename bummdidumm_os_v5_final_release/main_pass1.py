@@ -49,6 +49,9 @@ def run_pass1():
     known_file_details = state.load_known_hashes()
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
+    registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:C")
+    folder_registry = {row[2]: row[1] for row in registry_rows if len(row) >= 3 and row[0] != "folder_key"}
+
     processed = 0
     errors = 0
 
@@ -61,7 +64,7 @@ def run_pass1():
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
             new_start_page_token = drive_mgr.get_initial_token()
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id)
+            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id, folder_registry)
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -79,7 +82,7 @@ def run_pass1():
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id)
+                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id, folder_registry)
                 processed += len(files)
 
                 if next_token:
@@ -114,14 +117,19 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
             if len(row) >= 3 and row[0] == "01_inbox_trash":
                 return row[2]
     except Exception:
-        return ""
+        pass
 
+    print("WARN: 01_inbox_trash lane is conceptually expected but cannot be resolved from env or Folder_Registry.")
     return ""
 
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str):
+def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str, folder_registry: dict = None):
+    if folder_registry is None:
+        folder_registry = {}
     records_to_process = []
     duplicate_groups_accumulator = {}
+
+    sha_to_primary_file_id = {meta.get("sha"): fid for fid, meta in known_file_details.items() if meta.get("sha")}
 
     for f in files:
         file_id = f.get("id", "")
@@ -134,7 +142,12 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
 
         lane = "ACTIVE"
         parents = f.get("parents", [])
-        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+
+        if parents and folder_registry and all(p in folder_registry for p in parents):
+            path_disp = "/".join([folder_registry[p] for p in parents]) + f"/{name}"
+        else:
+            path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+
         if inbox_trash_folder_id and inbox_trash_folder_id in parents:
             lane = "INBOX_TRASH"
 
@@ -204,12 +217,8 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "Fehler bei SHA256 Berechnung")
             continue
 
-        # Dedupe Logik über Value Iteration (da dict jetzt nach File-ID organisiert ist)
-        duplicate_of_id = None
-        for fid, meta in known_file_details.items():
-            if meta.get("sha") == rec.sha256:
-                duplicate_of_id = fid
-                break
+        # Dedupe Logik über Hash Map (O(1))
+        duplicate_of_id = sha_to_primary_file_id.get(rec.sha256)
 
         if duplicate_of_id:
             if duplicate_of_id == rec.file_id:
@@ -219,11 +228,13 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
                 rec.duplicate_of = duplicate_of_id
         else:
             rec.status = "ORIGINAL"
+            sha_to_primary_file_id[rec.sha256] = rec.file_id
             # Update cache sofort für denselben Batch
             known_file_details[rec.file_id] = {
                 "sha": rec.sha256,
                 "name": rec.name,
-                "path": ",".join(rec.parents) if rec.parents else "",
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
                 "updated_at": rec.updated_at,
                 "size_bytes": rec.size_bytes,
                 "md5": rec.md5,

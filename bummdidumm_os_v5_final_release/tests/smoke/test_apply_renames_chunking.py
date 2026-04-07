@@ -4,9 +4,11 @@ from pathlib import Path
 
 
 def test_apply_renames_uses_chunked_read():
+    # Attempt both paths to work regardless of whether pytest is run from root or bummdidumm_os_v5_final_release
     p1 = Path("bummdidumm_os_v5_final_release/main_apply_renames.py")
     p2 = Path("main_apply_renames.py")
-    source = (p1 if p1.exists() else p2).read_text(encoding="utf-8")
+    target = p1 if p1.exists() else p2
+    source = target.read_text(encoding="utf-8")
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
