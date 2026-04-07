@@ -63,5 +63,21 @@ class TestWritersOutput(unittest.TestCase):
             self.assertIn("instagram", quality_data["missing_important_parser_families"])
             self.assertEqual(quality_data["generic_fallback_sources"], 1)
 
+    def test_exclusion_inheritance(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            from personal_brain.runtime import PersonalBrainRuntime
+            runtime = PersonalBrainRuntime("proj", root)
+            sources = [
+                {"file_id": "p1", "checksum_sha256": "h1", "original_filename": "parent.zip", "mime": "application/zip", "content": {}},
+                {"file_id": "c1", "bundle_id": "p1", "checksum_sha256": "h2", "original_filename": "child.txt", "mime": "text/plain", "content": {}}
+            ]
+            exclusions = {"p1": "EXCLUDED"}
+            runtime.process_sources(sources, exclusions)
+
+            master_file = root / "20_index" / "published" / "CURRENT_personal_brain_master_index.json"
+            data = json.loads(master_file.read_text(encoding="utf-8"))
+            self.assertEqual(len(data["sources"]), 0, "Child should be excluded because parent is excluded")
+
 if __name__ == "__main__":
     unittest.main()
