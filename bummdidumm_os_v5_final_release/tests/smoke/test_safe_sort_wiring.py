@@ -8,7 +8,7 @@ import main_safe_sort
 
 class TestSafeSortWiring(unittest.TestCase):
     def test_safe_sort_wires_semantic_hints(self):
-        # We mock sheet_mgr and test if `determine_target` receives the `ocr_doc_type`
+        # We mock sheet_mgr and test if `determine_target` receives the `semantic_topic_hint`
         class MockSheetMgr:
             def __init__(self):
                 self.appended = []
@@ -57,7 +57,7 @@ class TestSafeSortWiring(unittest.TestCase):
 
                 mock_det.assert_called_once()
                 call_arg = mock_det.call_args[0][0]
-                self.assertEqual(call_arg["ocr_doc_type"], "invoice", "Semantic hint not wired to determine_target")
+                self.assertEqual(call_arg["semantic_topic_hint"], "invoice", "Semantic hint not wired to determine_target")
 
 if __name__ == "__main__":
     unittest.main()

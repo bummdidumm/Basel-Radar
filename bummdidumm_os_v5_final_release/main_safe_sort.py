@@ -44,8 +44,8 @@ def run_safe_sort():
 
     known = state.load_known_hashes()
 
-    # Load semantic hints (ocr_doc_type) from personal_brain index if available
-    # Runtime _build_source strips content from source registry, but it persists in record index.
+    # Load semantic hints from personal_brain index if available.
+    # We map 'topics' (which is populated from ocr_doc_type) back to semantic_topic_hint.
     from pathlib import Path
     import json
     import logging
@@ -96,7 +96,7 @@ def run_safe_sort():
 
             notes = str(row[16]) if row[16] is not None else ""
             lane = "INBOX_TRASH" if "Lane: INBOX_TRASH" in notes else "ACTIVE"
-            ocr_doc_type = semantic_hints.get(file_id, "")
+            semantic_topic_hint = semantic_hints.get(file_id, "")
 
             folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({
                 "name": name,
@@ -105,7 +105,7 @@ def run_safe_sort():
                 "path": current_path,
                 "lane": lane,
                 "current_parent_id": current_parent_id,
-                "ocr_doc_type": ocr_doc_type,
+                "semantic_topic_hint": semantic_topic_hint,
             })
 
             if not target_id:
