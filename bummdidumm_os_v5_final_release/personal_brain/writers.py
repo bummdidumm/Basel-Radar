@@ -154,7 +154,11 @@ class JsonlWriter:
         tmp_entity_path = entity_path.with_suffix(".tmp")
         with tmp_entity_path.open("w", encoding="utf-8") as f:
             for k in sorted(merged_entities):
-                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_")}
+                clean = {
+                    ek: ev
+                    for ek, ev in merged_entities[k].items()
+                    if not ek.startswith("_") or ek == "_counts_by_source"
+                }
                 f.write(json.dumps(clean, ensure_ascii=False) + "\n")
         tmp_entity_path.replace(entity_path)
 

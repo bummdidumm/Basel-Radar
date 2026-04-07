@@ -103,7 +103,15 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                             continue
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
-                            sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
+                            sub_mime = (
+                                "application/json" if sub_ext == ".json" else
+                                "text/plain" if sub_ext == ".txt" else
+                                "text/html" if sub_ext in [".html", ".htm"] else
+                                "text/csv" if sub_ext == ".csv" else
+                                "text/markdown" if sub_ext == ".md" else
+                                "text/calendar" if sub_ext == ".ics" else
+                                ""
+                            )
                             sub_local_path = None
                             try:
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
