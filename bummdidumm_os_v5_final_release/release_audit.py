@@ -87,8 +87,8 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
-    (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + "\n" + "\n".join(f"- {e}" for e in errors), encoding="utf-8")
+    (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
 
     if errors:
         print("RESULT: FAIL")
