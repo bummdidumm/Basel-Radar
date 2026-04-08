@@ -68,7 +68,7 @@ class DriveManager:
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
-    def get_parent_and_name_path(self, file_id: str, name: str, parents: List[str] = None) -> str:
+    def get_parent_and_name_path(self, file_id: str, name: str, parents: Optional[List[str]] = None) -> str:
         """
         Returns a descriptive pseudo-path consisting of the first parent ID and the file name.
         Allows for basic visual distinction in logs without executing costly tree-walks.

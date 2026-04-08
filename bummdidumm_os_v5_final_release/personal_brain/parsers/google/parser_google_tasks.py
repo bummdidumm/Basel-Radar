@@ -13,7 +13,8 @@ class GoogleTasksParser(BaseParser):
     default_record_type = "task"
     match_tokens = ("tasks", "google")
 
-    def can_handle(self, source_meta: dict, preview: dict) -> bool:
+    from personal_brain.parsers.base import SourcePreview
+    def can_handle(self, source_meta: dict, preview: SourcePreview) -> bool:
         if "tasks" in source_meta.get("original_filename", "").lower():
             return True
         return False

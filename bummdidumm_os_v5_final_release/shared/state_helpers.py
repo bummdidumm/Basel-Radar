@@ -1,16 +1,18 @@
 from datetime import datetime, timezone
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from .sheets_helpers import SheetManager
 from .models import FileRecord
+import logging
+_log = logging.getLogger("bummdidumm.state")
 
 class StateTracker:
     def __init__(self, sheets_manager: SheetManager):
         self.sheets = sheets_manager
         self.run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
-        self._state_cache = {}
-        self._known_hashes = None
+        self._state_cache: dict[str, str] = {}
+        self._known_hashes: Optional[Dict[str, dict[str, Any]]] = None
         self._dirty = False
 
         self.sheets.initialize_headers()

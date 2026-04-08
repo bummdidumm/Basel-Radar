@@ -13,7 +13,8 @@ class InstagramExportParser(BaseParser):
     default_record_type = "message_event"
     match_tokens = ("instagram", "messages")
 
-    def can_handle(self, source_meta: dict, preview: dict) -> bool:
+    from personal_brain.parsers.base import SourcePreview
+    def can_handle(self, source_meta: dict, preview: SourcePreview) -> bool:
         filename = source_meta.get("original_filename", "").lower()
         if "instagram" in filename or "messages" in filename:
             content_preview = getattr(preview, "content_preview", preview)
@@ -55,7 +56,7 @@ class InstagramExportParser(BaseParser):
         dedup = {(e["entity_type"], e["canonical_name"]): e for e in entities}
 
         if ("app", "instagram") not in dedup:
-            ent = {"entity_type": "app", "canonical_name": "instagram", "display_name": "Instagram"}
+            ent: dict = {"entity_type": "app", "canonical_name": "instagram", "display_name": "Instagram"}
             dedup[("app", "instagram")] = ent
             entities.append(ent)
 
@@ -63,12 +64,12 @@ class InstagramExportParser(BaseParser):
             for person in record.get("people", []):
                 canon = person.lower()
                 if ("person", canon) not in dedup:
-                    ent = {
+                    person_ent: dict = {
                         "entity_type": "person",
                         "canonical_name": canon,
                         "display_name": person,
                         "importance_score": 0.8
                     }
-                    dedup[("person", canon)] = ent
-                    entities.append(ent)
+                    dedup[("person", canon)] = person_ent
+                    entities.append(person_ent)
         return list(dedup.values())

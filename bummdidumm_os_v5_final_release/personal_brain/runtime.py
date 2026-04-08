@@ -16,7 +16,7 @@ class PersonalBrainRuntime:
         self.registry = ParserRegistry()
         self.writer = JsonlWriter(out_root)
 
-    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
+    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict | None = None) -> dict[str, int]:
         if exclusions is None:
             exclusions = {}
         source_rows: dict[str, dict] = {}

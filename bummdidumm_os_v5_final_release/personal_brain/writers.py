@@ -155,7 +155,7 @@ class JsonlWriter:
         # Custom merge logic for entities
         entity_path = self.published / "02_entity_index.jsonl"
         entity_path.parent.mkdir(parents=True, exist_ok=True)
-        merged_entities = self._read_existing(entity_path, "entity_id")
+        merged_entities: dict = self._read_existing(entity_path, "entity_id")
 
         for new_ent in entities:
             eid = new_ent["entity_id"]
@@ -289,7 +289,7 @@ class JsonlWriter:
         )
 
         # Build Master Output combining all data
-        master_output = {
+        master_output: dict = {
             "sources": sources,
             "records": records,
             "entities": entities,

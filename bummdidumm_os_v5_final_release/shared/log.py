@@ -1,6 +1,9 @@
 """Structured JSON logging for Cloud Run. stdout is auto-parsed as structured entries."""
 from __future__ import annotations
-import json, logging, os, sys
+import json
+import logging
+import os
+import sys
 from typing import Any
 
 _SKIP = frozenset({
@@ -23,7 +26,7 @@ class _GCPHandler(logging.Handler):
             if k not in _SKIP:
                 entry[k] = v
         if record.exc_info:
-            entry["exception"] = self.formatException(record.exc_info)
+            entry["exception"] = self.formatter.formatException(record.exc_info) if self.formatter else str(record.exc_info)
         sys.stdout.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
         sys.stdout.flush()
 
