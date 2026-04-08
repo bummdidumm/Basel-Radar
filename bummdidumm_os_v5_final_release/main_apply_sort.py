@@ -18,6 +18,9 @@ def run_apply_sort():
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
+    from shared.drive_helpers import DriveManager
+    drive_mgr = DriveManager(drive_service, "")
+
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
 
@@ -30,15 +33,17 @@ def run_apply_sort():
     processed = 0
     errors = 0
 
+    update_requests = []
+
     for row_idx, row in sheet_mgr.read_rows_chunked_with_row_numbers("Sorting_Suggestions", chunk_size=1000):
-        if len(row) < 13 or row[0] == "run_id" or row[0] != current_run_id:
+        if len(row) < len(sheet_mgr.headers["Sorting_Suggestions"]) or row[0] == "run_id" or row[0] != current_run_id:
             continue
 
-        file_id = row[1]
-        current_name = row[2]
-        target_folder_id = row[9]
-        action_mode = row[11]
-        move_result = row[12]
+        file_id = row[sheet_mgr.SORT_COL["file_id"]]
+        current_name = row[sheet_mgr.SORT_COL["name"]]
+        target_folder_id = row[sheet_mgr.SORT_COL["suggested_target_folder_id"]]
+        action_mode = row[sheet_mgr.SORT_COL["action_mode"]]
+        move_result = row[sheet_mgr.SORT_COL["move_result"]]
 
         if action_mode in ["SAFE", "SWEEP_TRASH"] and (target_folder_id or action_mode == "SWEEP_TRASH") and move_result == "PENDING":
             try:
@@ -46,22 +51,28 @@ def run_apply_sort():
 
                 if action_mode == "SWEEP_TRASH":
                     # Mark explicitly as trashed
-                    drive_service.files().update(
-                        fileId=file_id,
-                        body={"trashed": True},
-                        **params
-                    ).execute()
+                    def _trash():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            body={"trashed": True},
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_trash)
                     result_val = "SUCCESS_TRASHED"
                 else:
-                    file_meta = drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
+                    def _get_parents():
+                        return drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
+                    file_meta = drive_mgr.execute_with_backoff(_get_parents)
                     previous_parents = ",".join(file_meta.get("parents", []))
 
-                    drive_service.files().update(
-                        fileId=file_id,
-                        addParents=target_folder_id,
-                        removeParents=previous_parents,
-                        **params
-                    ).execute()
+                    def _update_parents():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            addParents=target_folder_id,
+                            removeParents=previous_parents,
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_update_parents)
                     result_val = "SUCCESS"
 
                 processed += 1
@@ -70,14 +81,29 @@ def run_apply_sort():
                 state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
                 result_val = f"FAILED: {str(e)[:80]}"
 
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().update(
-                    spreadsheetId=CONTROL_SHEET_ID,
-                    range=f"Sorting_Suggestions!M{row_idx}",
-                    valueInputOption="RAW",
-                    body={"values": [[result_val]]}
+            update_requests.append({
+                "range": f"Sorting_Suggestions!M{row_idx}",
+                "values": [[result_val]]
+            })
+
+            # Flush periodically to not build up a massive array in memory,
+            # but still benefit from batched update performance.
+            if len(update_requests) >= 50:
+                sheet_mgr._execute_with_backoff(
+                    sheets_service.spreadsheets().values().batchUpdate(
+                        spreadsheetId=CONTROL_SHEET_ID,
+                        body={"valueInputOption": "RAW", "data": update_requests}
+                    )
                 )
+                update_requests = []
+
+    if update_requests:
+        sheet_mgr._execute_with_backoff(
+            sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=CONTROL_SHEET_ID,
+                body={"valueInputOption": "RAW", "data": update_requests}
             )
+        )
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")

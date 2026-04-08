@@ -8,6 +8,21 @@ class DriveManager:
         self.enable_shared_drives = enable_shared_drives
         self.ancestor_cache = {target_folder_id: True}
 
+    def execute_with_backoff(self, request_callable):
+        import time
+        from googleapiclient.errors import HttpError
+        for attempt in range(5):
+            try:
+                return request_callable()
+            except HttpError as e:
+                if e.resp.status in (429, 500, 503):
+                    sleep_time = (2 ** attempt) + 1
+                    print(f"Drive API {e.resp.status}. Backoff {sleep_time}s ({attempt+1}/5)")
+                    time.sleep(sleep_time)
+                else:
+                    raise
+        raise Exception("Drive API max retries reached.")
+
     def _base_params(self) -> dict:
         return {"supportsAllDrives": True} if self.enable_shared_drives else {}
 
@@ -65,35 +80,39 @@ class DriveManager:
     def walk_recursive(self, folder_id: str) -> List[Dict]:
         """Performs initial recursive scan."""
         records = []
-        page_token = None
+        queue = [folder_id]
 
-        while True:
-            params = self._list_params()
-            if self.enable_shared_drives:
-                params["corpora"] = "allDrives"
+        while queue:
+            current = queue.pop(0)
+            page_token = None
 
-            # Empty TARGET_FOLDER_ID means "scan from root".
-            # Restricting query to root avoids listing all depths at once and
-            # prevents duplicate traversal when recursion is enabled.
-            query = f"'{folder_id}' in parents and trashed = false" if folder_id else "'root' in parents and trashed = false"
+            while True:
+                params = self._list_params()
+                if self.enable_shared_drives:
+                    params["corpora"] = "allDrives"
 
-            resp = self.drive.files().list(
-                q=query,
-                pageSize=1000,
-                pageToken=page_token,
-                fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed)",
-                **params
-            ).execute()
+                # Empty TARGET_FOLDER_ID means "scan from root".
+                # Restricting query to root avoids listing all depths at once and
+                # prevents duplicate traversal when recursion is enabled.
+                query = f"'{current}' in parents and trashed = false" if current else "'root' in parents and trashed = false"
 
-            children = resp.get("files", [])
-            for item in children:
-                records.append(item)
-                if item["mimeType"] == "application/vnd.google-apps.folder":
-                    records.extend(self.walk_recursive(item["id"]))
+                resp = self.drive.files().list(
+                    q=query,
+                    pageSize=1000,
+                    pageToken=page_token,
+                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink)",
+                    **params
+                ).execute()
 
-            page_token = resp.get("nextPageToken")
-            if not page_token:
-                break
+                children = resp.get("files", [])
+                for item in children:
+                    records.append(item)
+                    if item["mimeType"] == "application/vnd.google-apps.folder":
+                        queue.append(item["id"])
+
+                page_token = resp.get("nextPageToken")
+                if not page_token:
+                    break
 
         return records
 
@@ -101,7 +120,7 @@ class DriveManager:
         params = self._list_params()
         params["pageToken"] = page_token
         params["spaces"] = "drive"
-        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed))"
+        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink))"
 
         res = self.drive.changes().list(**params).execute()
 

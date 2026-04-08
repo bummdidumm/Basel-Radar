@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 from typing import Dict, List, Optional
 from .sheets_helpers import SheetManager
 from .models import FileRecord
@@ -10,6 +11,7 @@ class StateTracker:
 
         self._state_cache = {}
         self._known_hashes = None
+        self._dirty = False
 
         self.sheets.initialize_headers()
         self._load_state()
@@ -24,6 +26,7 @@ class StateTracker:
         else:
             # Speichere die neue run_id
             self.set_val("run_id", self.run_id)
+            self.flush_state()
 
     def _load_state(self):
         rows = self.sheets.read_all_rows("State", "A:B")
@@ -36,6 +39,11 @@ class StateTracker:
 
     def set_val(self, key: str, value: str):
         self._state_cache[key] = str(value) if value is not None else ""
+        self._dirty = True
+
+    def flush_state(self):
+        if not self._dirty:
+            return
 
         # Flush State Sheet
         rows = [["key", "value"]]
@@ -49,8 +57,28 @@ class StateTracker:
                 valueInputOption="RAW",
                 body={"values": rows}
             ).execute()
+            self._dirty = False
         except Exception as e:
             print(f"Failed to save state to sheet: {e}")
+
+    def compact_hash_index(self):
+        COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
+        known = self.load_known_hashes()
+        if len(known) < COMPACT_THRESHOLD:
+            return
+        print(f"Kompaktiere Hash_Index ({len(known)} Einträge)...")
+        rows = [["sha256","file_id","name","parent_ids_sorted","path_display","updated_at","size_bytes","md5","effective_mime_type"]]
+        for fid, meta in known.items():
+            rows.append([meta.get("sha",""), fid, meta.get("name",""), meta.get("parent_ids_sorted",""),
+                         meta.get("path_display",""), meta.get("updated_at",""), meta.get("size_bytes",""),
+                         meta.get("md5",""), meta.get("effective_mime_type","")])
+        self.sheets._execute_with_backoff(
+            self.sheets.sheets.spreadsheets().values().update(
+                spreadsheetId=self.sheets.spreadsheet_id,
+                range="Hash_Index!A1", valueInputOption="RAW", body={"values": rows}
+            )
+        )
+        print(f"Hash_Index kompaktiert auf {len(known)} Einträge.")
 
     def load_known_hashes(self) -> Dict[str, dict]:
         """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""

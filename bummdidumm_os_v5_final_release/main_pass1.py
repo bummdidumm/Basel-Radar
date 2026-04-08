@@ -20,14 +20,14 @@ ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 INBOX_TRASH_FOLDER_ID = os.environ.get("INBOX_TRASH_FOLDER_ID", "")
 
-def suggest_rename(name: str, created_time: str) -> str:
+def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLUG) -> str:
     if not created_time:
         return name
     iso_date = created_time[:10]
     if name.startswith(f"{iso_date}_"):
         return name
     safe = name.replace(":", "-").strip()
-    return f"{iso_date}_{PROJECT_SLUG}_{safe}"
+    return f"{iso_date}_{project_slug}_{safe}"
 
 def run_pass1():
     print("Starte Pass 1: Delta + Dedupe + Archivierung")
@@ -49,11 +49,12 @@ def run_pass1():
     known_file_details = state.load_known_hashes()
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
-    # ⚡ Bolt: Pre-compute O(1) reverse lookup map to avoid O(N^2) looping in batch processing
-    sha_to_primary_file_id = {}
-    for fid, meta in known_file_details.items():
-        if "sha" in meta and meta["sha"]:
-            sha_to_primary_file_id[meta["sha"]] = fid
+    registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
+    # Store full_path if available (index 4), else folder_name (index 1)
+    folder_registry = {row[2]: row[4] if len(row) >= 5 else row[1] for row in registry_rows if len(row) >= 3 and row[0] != "folder_key"}
+
+    # ⚡ Bolt: Pre-compute O(1) reverse lookup map outside the chunk loop
+    sha_to_primary_file_id = {meta.get("sha"): fid for fid, meta in known_file_details.items() if meta.get("sha")}
 
     processed = 0
     errors = 0
@@ -63,20 +64,22 @@ def run_pass1():
             print("Initialer Run: Führe kompletten Walk über TARGET_FOLDER durch.")
             state.set_val("current_phase", "INITIAL_SCAN")
 
+            new_start_page_token = drive_mgr.get_initial_token()
             all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
-            new_start_page_token = drive_mgr.get_initial_token()
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, True, inbox_trash_folder_id)
+            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, True, inbox_trash_folder_id, folder_registry)
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
+            state.flush_state()
 
         else:
             active_token = in_progress_token if in_progress_token else start_token
             if active_token != in_progress_token:
                 state.set_val("in_progress_page_token", active_token)
                 state.set_val("current_phase", "DELTA_FETCH")
+                state.flush_state()
 
             new_start_page_token = None
 
@@ -85,7 +88,7 @@ def run_pass1():
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, False, inbox_trash_folder_id)
+                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, False, inbox_trash_folder_id, folder_registry)
                 processed += len(files)
 
                 if next_token:
@@ -120,12 +123,15 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
             if len(row) >= 3 and row[0] == "01_inbox_trash":
                 return row[2]
     except Exception:
-        return ""
+        pass
 
+    print("WARN: 01_inbox_trash lane is conceptually expected but cannot be resolved from env or Folder_Registry.")
     return ""
 
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, is_initial, inbox_trash_folder_id: str):
+def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, is_initial, inbox_trash_folder_id: str, folder_registry: dict = None):
+    if folder_registry is None:
+        folder_registry = {}
     records_to_process = []
     duplicate_groups_accumulator = {}
 
@@ -136,11 +142,19 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         name = f.get("name", "UNKNOWN_REMOVED")
 
         change_type = determine_change_type(f, known_file_details, is_initial)
-        suggested_name = suggest_rename(name, f.get("createdTime", ""))
+        suggested_name = suggest_rename(name, f.get("createdTime", "")) if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"] else ""
 
         lane = "ACTIVE"
         parents = f.get("parents", [])
-        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+
+        if parents and folder_registry and all(p in folder_registry for p in parents):
+            # full_path is typically absolute like "/00_inbox/...", we don't need to join them all,
+            # we just take the first parent's full path since files usually reside in one primary folder.
+            base_path = folder_registry[parents[0]].rstrip("/")
+            path_disp = f"{base_path}/{name}"
+        else:
+            path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+
         if inbox_trash_folder_id and inbox_trash_folder_id in parents:
             lane = "INBOX_TRASH"
 
@@ -207,10 +221,12 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         rec.export_source = export_source
 
         if not rec.sha256:
-            state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "Fehler bei SHA256 Berechnung")
+            state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "SHA256 fehlgeschlagen")
+            rec.status = "HASH_ERROR"
+            records_to_process.append(rec)
             continue
 
-        # ⚡ Bolt: Replace O(N) loop with O(1) dictionary lookup
+        # Dedupe Logik über Hash Map (O(1))
         duplicate_of_id = sha_to_primary_file_id.get(rec.sha256)
 
         if duplicate_of_id:
@@ -221,18 +237,18 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
                 rec.duplicate_of = duplicate_of_id
         else:
             rec.status = "ORIGINAL"
+            sha_to_primary_file_id[rec.sha256] = rec.file_id
             # Update cache sofort für denselben Batch
             known_file_details[rec.file_id] = {
                 "sha": rec.sha256,
                 "name": rec.name,
-                "path": ",".join(rec.parents) if rec.parents else "",
+                "parent_ids_sorted": rec.parent_ids_sorted,
+                "path_display": rec.path_display,
                 "updated_at": rec.updated_at,
                 "size_bytes": rec.size_bytes,
                 "md5": rec.md5,
                 "effective_mime_type": rec.effective_mime_type
             }
-            # Add to O(1) lookup map so subsequent files in this run detect it as original
-            sha_to_primary_file_id[rec.sha256] = rec.file_id
 
         if rec.status == "DUPLICATE" and ENABLE_ARCHIVE:
             rec.archive_result = drive_mgr.archive_duplicate(rec.file_id, rec.parents, ARCHIVE_FOLDER_ID)

@@ -42,3 +42,13 @@ def slugify(value: str) -> str:
 def norm_filename(name: str) -> str:
     p = Path(name)
     return f"{slugify(p.stem)}{p.suffix.lower()}"
+
+PARSEABLE_MIME_MAP: dict[str, str] = {
+    ".json": "application/json", ".html": "text/html", ".htm": "text/html",
+    ".txt": "text/plain", ".md": "text/markdown", ".csv": "text/csv", ".ics": "text/calendar"
+}
+PARSEABLE_EXTS: frozenset[str] = frozenset(PARSEABLE_MIME_MAP.keys())
+PARSEABLE_MIMES: frozenset[str] = frozenset(PARSEABLE_MIME_MAP.values())
+
+def get_parseable_mime_type(ext: str) -> str:
+    return PARSEABLE_MIME_MAP.get(ext.lower(), "")

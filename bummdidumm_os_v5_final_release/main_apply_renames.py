@@ -17,6 +17,9 @@ def run_apply_renames():
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
+    from shared.drive_helpers import DriveManager
+    drive_mgr = DriveManager(drive_service, "")
+
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
 
@@ -33,23 +36,25 @@ def run_apply_renames():
 
     for chunk in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk:
-            if len(row) < 17 or row[0] == "run_utc":
+            if len(row) < len(sheet_mgr.headers["Dedupe_Report"]) or row[0] == "run_utc":
                 continue
-            if row[1] != current_run_id:
+            if row[sheet_mgr.DEDUPE_COL["run_id"]] != current_run_id:
                 continue
 
-            file_id = row[4]
-            current_name = row[3]
-            suggested_name = row[14]
+            file_id = row[sheet_mgr.DEDUPE_COL["file_id"]]
+            current_name = row[sheet_mgr.DEDUPE_COL["name"]]
+            suggested_name = row[sheet_mgr.DEDUPE_COL["suggested_name"]]
 
             if suggested_name and suggested_name != current_name:
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
-                    drive_service.files().update(
-                        fileId=file_id,
-                        body={"name": suggested_name},
-                        **params
-                    ).execute()
+                    def _update_name():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            body={"name": suggested_name},
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_update_name)
                     processed += 1
                 except Exception as e:
                     errors += 1
