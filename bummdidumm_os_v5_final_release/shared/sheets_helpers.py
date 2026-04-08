@@ -20,6 +20,9 @@ class SheetManager:
             "Knowledge_Exclusions": ["file_id", "path_display", "status", "reason"]
         }
 
+        self.DEDUPE_COL = {col: i for i, col in enumerate(self.headers["Dedupe_Report"])}
+        self.SORT_COL = {col: i for i, col in enumerate(self.headers["Sorting_Suggestions"])}
+
     def _execute_with_backoff(self, request_op):
         """Führt eine Request-Methode der Sheets-API aus und wendet Exponential Backoff bei 429 Fehlern an."""
         max_retries = 5

@@ -33,14 +33,14 @@ def run_apply_renames():
 
     for chunk in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk:
-            if len(row) < 17 or row[0] == "run_utc":
+            if len(row) < len(sheet_mgr.headers["Dedupe_Report"]) or row[0] == "run_utc":
                 continue
-            if row[1] != current_run_id:
+            if row[sheet_mgr.DEDUPE_COL["run_id"]] != current_run_id:
                 continue
 
-            file_id = row[4]
-            current_name = row[3]
-            suggested_name = row[14]
+            file_id = row[sheet_mgr.DEDUPE_COL["file_id"]]
+            current_name = row[sheet_mgr.DEDUPE_COL["name"]]
+            suggested_name = row[sheet_mgr.DEDUPE_COL["suggested_name"]]
 
             if suggested_name and suggested_name != current_name:
                 try:

@@ -33,14 +33,14 @@ def run_apply_sort():
     update_requests = []
 
     for row_idx, row in sheet_mgr.read_rows_chunked_with_row_numbers("Sorting_Suggestions", chunk_size=1000):
-        if len(row) < 13 or row[0] == "run_id" or row[0] != current_run_id:
+        if len(row) < len(sheet_mgr.headers["Sorting_Suggestions"]) or row[0] == "run_id" or row[0] != current_run_id:
             continue
 
-        file_id = row[1]
-        current_name = row[2]
-        target_folder_id = row[9]
-        action_mode = row[11]
-        move_result = row[12]
+        file_id = row[sheet_mgr.SORT_COL["file_id"]]
+        current_name = row[sheet_mgr.SORT_COL["name"]]
+        target_folder_id = row[sheet_mgr.SORT_COL["suggested_target_folder_id"]]
+        action_mode = row[sheet_mgr.SORT_COL["action_mode"]]
+        move_result = row[sheet_mgr.SORT_COL["move_result"]]
 
         if action_mode in ["SAFE", "SWEEP_TRASH"] and (target_folder_id or action_mode == "SWEEP_TRASH") and move_result == "PENDING":
             try:

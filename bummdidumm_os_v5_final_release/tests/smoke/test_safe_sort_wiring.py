@@ -12,6 +12,8 @@ class TestSafeSortWiring(unittest.TestCase):
         class MockSheetMgr:
             def __init__(self):
                 self.appended = []
+                self.headers = {"Dedupe_Report": ["run_utc", "run_id", "path", "name", "file_id", "mime_type", "effective_mime_type", "size_bytes", "md5", "sha256", "status", "change_type", "duplicate_of", "archive_result", "suggested_name", "web_link", "notes"]}
+                self.DEDUPE_COL = {c: i for i, c in enumerate(self.headers["Dedupe_Report"])}
             def read_all_rows(self, tab, *args):
                 if tab == "Folder_Registry":
                     return [["1", "1", "1", "1", "1"]] # dummy
