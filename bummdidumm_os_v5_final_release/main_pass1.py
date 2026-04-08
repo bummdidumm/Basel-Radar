@@ -49,8 +49,9 @@ def run_pass1():
     known_file_details = state.load_known_hashes()
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
-    registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:C")
-    folder_registry = {row[2]: row[1] for row in registry_rows if len(row) >= 3 and row[0] != "folder_key"}
+    registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
+    # Store full_path if available (index 4), else folder_name (index 1)
+    folder_registry = {row[2]: row[4] if len(row) >= 5 else row[1] for row in registry_rows if len(row) >= 3 and row[0] != "folder_key"}
 
     processed = 0
     errors = 0
@@ -144,7 +145,10 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         parents = f.get("parents", [])
 
         if parents and folder_registry and all(p in folder_registry for p in parents):
-            path_disp = "/".join([folder_registry[p] for p in parents]) + f"/{name}"
+            # full_path is typically absolute like "/00_inbox/...", we don't need to join them all,
+            # we just take the first parent's full path since files usually reside in one primary folder.
+            base_path = folder_registry[parents[0]].rstrip("/")
+            path_disp = f"{base_path}/{name}"
         else:
             path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
 
