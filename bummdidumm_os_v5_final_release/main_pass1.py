@@ -49,6 +49,12 @@ def run_pass1():
     known_file_details = state.load_known_hashes()
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
+    # ⚡ Bolt: Pre-compute O(1) reverse lookup map to avoid O(N^2) looping in batch processing
+    sha_to_primary_file_id = {}
+    for fid, meta in known_file_details.items():
+        if "sha" in meta and meta["sha"]:
+            sha_to_primary_file_id[meta["sha"]] = fid
+
     processed = 0
     errors = 0
 
@@ -61,7 +67,7 @@ def run_pass1():
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
             new_start_page_token = drive_mgr.get_initial_token()
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id)
+            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, True, inbox_trash_folder_id)
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -79,7 +85,7 @@ def run_pass1():
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id)
+                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, False, inbox_trash_folder_id)
                 processed += len(files)
 
                 if next_token:
@@ -119,7 +125,7 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     return ""
 
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str):
+def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, sha_to_primary_file_id, is_initial, inbox_trash_folder_id: str):
     records_to_process = []
     duplicate_groups_accumulator = {}
 
@@ -204,12 +210,8 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "Fehler bei SHA256 Berechnung")
             continue
 
-        # Dedupe Logik über Value Iteration (da dict jetzt nach File-ID organisiert ist)
-        duplicate_of_id = None
-        for fid, meta in known_file_details.items():
-            if meta.get("sha") == rec.sha256:
-                duplicate_of_id = fid
-                break
+        # ⚡ Bolt: Replace O(N) loop with O(1) dictionary lookup
+        duplicate_of_id = sha_to_primary_file_id.get(rec.sha256)
 
         if duplicate_of_id:
             if duplicate_of_id == rec.file_id:
@@ -229,6 +231,8 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
                 "md5": rec.md5,
                 "effective_mime_type": rec.effective_mime_type
             }
+            # Add to O(1) lookup map so subsequent files in this run detect it as original
+            sha_to_primary_file_id[rec.sha256] = rec.file_id
 
         if rec.status == "DUPLICATE" and ENABLE_ARCHIVE:
             rec.archive_result = drive_mgr.archive_duplicate(rec.file_id, rec.parents, ARCHIVE_FOLDER_ID)
