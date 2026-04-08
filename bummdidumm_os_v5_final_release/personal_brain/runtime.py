@@ -59,6 +59,13 @@ class PersonalBrainRuntime:
                 (ent["entity_type"], ent["canonical_name"]): ent["entity_id"]
                 for ent in normalized_entities
             }
+
+            # Bidirektionales Entity-Record-Linking
+            # Alle Entity-IDs dieser Source den zugehörigen Records zuweisen
+            source_entity_ids = [ent["entity_id"] for ent in normalized_entities]
+            for rec in normalized_records:
+                rec["related_entity_ids"] = source_entity_ids
+
             for ent in normalized_entities:
                 entity_rows[ent["entity_id"]] = ent
 

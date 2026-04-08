@@ -9,7 +9,6 @@ CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
 def run_apply_renames():
-    print("Starte Rename Job: Wende vorgeschlagene Namen an")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -22,6 +21,9 @@ def run_apply_renames():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("apply_renames", phase="APPLY_RENAMES")
+    log.info("Rename Job gestartet")
 
     state.set_val("current_phase", "APPLY_RENAMES")
 

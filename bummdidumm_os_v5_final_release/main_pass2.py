@@ -27,6 +27,7 @@ BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).pa
 
 
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
+OCR_BUDGET_PER_RUN = int(os.environ.get("OCR_BUDGET_PER_RUN", "500"))
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
 # Extensions and MIME types for which we attempt a real Drive download so the
@@ -209,7 +210,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
 
 
 def run_pass2():
-    print("Starte Pass 2: OCR + Indexing")
     if not all([CONTROL_SHEET_ID, INDEX_FOLDER_ID]):
         raise ValueError("Missing CONTROL_SHEET_ID or INDEX_FOLDER_ID")
 
@@ -219,7 +219,11 @@ def run_pass2():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("pass2", run_id=state.run_id, phase="PASS_2")
+    log.info("Pass 2 gestartet")
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
+    ocr_calls_this_run = 0
 
     state.set_val("current_phase", "PASS2_OCR_INDEXING")
 
@@ -311,17 +315,25 @@ def run_pass2():
 
             # ZWEI-PFADE ORCHESTRIERUNG FÜR PASS 2
             # Pfad A: OCR-pflichtige Originale
-            if ENABLE_OCR and status in ["ORIGINAL", "ORIGINAL_RESUMED"] and change_type in ["NEW", "UPDATED"]:
+            if ENABLE_OCR and ocr.is_ocr_worthy(mime_type) and status == "ORIGINAL" and change_type in ["NEW", "UPDATED"] and ocr_calls_this_run < OCR_BUDGET_PER_RUN:
                 try:
                     ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
+                    ocr_calls_this_run += 1
                     if ocr_data:
                         rec.ocr_doc_type = ocr_data.get("doc_type", "")
-                        rec.ocr_amount = str(ocr_data.get("amount", ""))
+                        rec.ocr_amount = str(ocr_data.get("amount", "") or "")
                         rec.ocr_date = ocr_data.get("date", "")
                         rec.ocr_vendor = ocr_data.get("vendor", "")
                         rec.ocr_summary = ocr_data.get("summary", "")
                         rec.ocr_full_text = ocr_data.get("full_text", "")
                         rec.effective_mime_type = effective_mime
+                        rec.ocr_people = ocr_data.get("people_mentioned", [])
+                        rec.ocr_organizations = ocr_data.get("organizations_mentioned", [])
+                        rec.ocr_sensitivity = ocr_data.get("sensitivity", "low")
+                        rec.ocr_is_readable = ocr_data.get("is_readable", True)
+                        rec.ocr_language = ocr_data.get("language", "")
+                        rec.ocr_currency = ocr_data.get("currency", "")
+                        rec.ocr_reference_number = ocr_data.get("reference_number", "")
                     else:
                         errors += 1
                         state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")

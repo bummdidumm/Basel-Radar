@@ -30,7 +30,6 @@ def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLU
     return f"{iso_date}_{project_slug}_{safe}"
 
 def run_pass1():
-    print("Starte Pass 1: Delta + Dedupe + Archivierung")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -40,6 +39,9 @@ def run_pass1():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("pass1", run_id=state.run_id, phase="PASS_1")
+    log.info("Pass 1 gestartet")
     drive_mgr = DriveManager(drive_service, TARGET_FOLDER_ID, ENABLE_SHARED_DRIVES)
 
     start_token = state.get_val("drive_start_page_token")
@@ -58,7 +60,7 @@ def run_pass1():
 
     try:
         if not start_token:
-            print("Initialer Run: Führe kompletten Walk über TARGET_FOLDER durch.")
+            log.info("Initialer Run: Walk über TARGET_FOLDER", extra={"folder_id": TARGET_FOLDER_ID})
             state.set_val("current_phase", "INITIAL_SCAN")
 
             new_start_page_token = drive_mgr.get_initial_token()
@@ -81,7 +83,7 @@ def run_pass1():
             new_start_page_token = None
 
             while active_token:
-                print(f"Hole Delta Chunk: {active_token}")
+                log.debug("Delta Chunk", extra={"token": active_token})
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
@@ -122,7 +124,9 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     except Exception:
         pass
 
-    print("WARN: 01_inbox_trash lane is conceptually expected but cannot be resolved from env or Folder_Registry.")
+    from shared.log import get_logger
+    log = get_logger("pass1", phase="PASS_1")
+    log.warning("01_inbox_trash nicht auflösbar")
     return ""
 
 
@@ -168,7 +172,12 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             updated_at=f.get("modifiedTime", ""),
             created_time=f.get("createdTime", ""),
             web_link=f.get("webViewLink", ""),
-            parents=f.get("parents", [])
+            parents=f.get("parents", []),
+            description=f.get("description", ""),
+            starred=f.get("starred", False),
+            owner_email=(f.get("owners") or [{}])[0].get("emailAddress", ""),
+            owner_name=(f.get("owners") or [{}])[0].get("displayName", ""),
+            last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", "")
         )
         rec.change_type = change_type
         rec.suggested_name = suggested_name

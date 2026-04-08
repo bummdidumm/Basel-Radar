@@ -208,6 +208,11 @@ class JsonlWriter:
             views["llm_conversations.jsonl"],
             "search_id",
         )
+        self._write_jsonl(
+            self.published / "12_search_views" / "fulltext_index.jsonl",
+            views["fulltext_index.jsonl"],
+            "search_id",
+        )
         return views
 
     def write_reports(self) -> None:

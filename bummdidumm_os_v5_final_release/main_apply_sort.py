@@ -10,7 +10,6 @@ ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() ==
 
 
 def run_apply_sort():
-    print("Starte Apply Mode: Führe sichere Sortiervorschläge aus")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -23,6 +22,9 @@ def run_apply_sort():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("apply_sort", phase="APPLY_SORT")
+    log.info("Apply Sort gestartet")
 
     state.set_val("current_phase", "APPLY_SORT")
     current_run_id = state.get_val("last_successful_run_id")
@@ -107,7 +109,7 @@ def run_apply_sort():
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")
-    print(f"Apply Sort beendet. {processed} Dateien verschoben.")
+    log.info("Apply Sort beendet", extra={"processed": processed, "errors": errors})
 
 
 if __name__ == "__main__":

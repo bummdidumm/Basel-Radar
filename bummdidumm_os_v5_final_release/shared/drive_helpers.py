@@ -100,7 +100,7 @@ class DriveManager:
                     q=query,
                     pageSize=1000,
                     pageToken=page_token,
-                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink)",
+                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName))",
                     **params
                 ).execute()
 
@@ -120,7 +120,7 @@ class DriveManager:
         params = self._list_params()
         params["pageToken"] = page_token
         params["spaces"] = "drive"
-        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink))"
+        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName)))"
 
         res = self.drive.changes().list(**params).execute()
 

@@ -99,25 +99,64 @@ class BaseParser:
             dedup[(ent["entity_type"], ent["canonical_name"])] = ent
         return list(dedup.values())
 
+    def _make_rel(
+        self,
+        subject: str, subject_type: str,
+        predicate: str,
+        obj: str, object_type: str,
+        record: dict,
+        confidence: float = 0.75,
+    ) -> dict:
+        return {
+            "subject": subject.lower().strip(),
+            "subject_type": subject_type,
+            "predicate": predicate,
+            "object": obj.lower().strip(),
+            "object_type": object_type,
+            "time_start": record.get("event_time_start", ""),
+            "time_end": record.get("event_time_end", ""),
+            "confidence": confidence,
+            "status": "active",
+            "evidence_external_id": record.get("external_id", ""),
+        }
+
     def build_relations(self, records: list[dict], entities: list[dict], source_meta: dict) -> list[dict]:
         rels: list[dict] = []
         entity_names = {e["canonical_name"]: e for e in entities}
+
         for record in records:
+            # Topic → Record (bestehend, beibehalten)
             for topic in record.get("topics", []):
                 if topic.lower() in entity_names:
-                    rels.append({
-                        "subject": topic.lower(),
-                        "subject_type": "topic",
-                        "predicate": "mentions",
-                        "object": record.get("title", ""),
-                        "object_type": "topic",
-                        "time_start": record.get("event_time_start", ""),
-                        "time_end": record.get("event_time_end", ""),
-                        "confidence": record.get("confidence", 0.8),
-                        "status": "active",
-                        "evidence_external_id": record.get("external_id", ""),
-                    })
-        return rels
+                    rels.append(self._make_rel(topic, "topic", "mentions",
+                        record.get("title", "")[:80], "topic", record, confidence=0.8))
+
+            # Person → Place
+            place = record.get("place_name", "")
+            if place:
+                for person in record.get("people", []):
+                    rels.append(self._make_rel(person, "person", "visited", place, "place", record))
+
+            # Person → App
+            for person in record.get("people", []):
+                for app in record.get("apps", []):
+                    rels.append(self._make_rel(person, "person", "used_app", app, "app", record))
+
+            # Person ↔ Person (kommuniziert mit — wenn mehrere Personen)
+            people = record.get("people", [])
+            for i, p1 in enumerate(people):
+                for p2 in people[i + 1:]:
+                    rels.append(self._make_rel(p1, "person", "communicated_with", p2, "person", record, confidence=0.7))
+
+        # Duplikate entfernen
+        seen: set[tuple[str, str, str]] = set()
+        unique: list[dict] = []
+        for r in rels:
+            key = (r["subject"], r["predicate"], r["object"])
+            if key not in seen and r["subject"] and r["object"]:
+                seen.add(key)
+                unique.append(r)
+        return unique
 
     def build_profile_fragments(self, records: list[dict], entities: list[dict], source_meta: dict) -> dict:
         return {

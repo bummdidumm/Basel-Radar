@@ -26,8 +26,26 @@ def build_search_views(records: list[dict]) -> dict[str, list[dict]]:
             "source_path": rec.get("raw_ref", ""),
         })
 
+    # Volltext-Suchindex (erste 2000 Zeichen, lowercase — für lokales grep/jq)
+    fulltext_entries = []
+    for rec in records:
+        raw = (rec.get("normalized_text") or rec.get("raw_text", ""))[:2000]
+        if len(raw) < 20:
+            continue
+        fulltext_entries.append({
+            "search_id": f"ft::{rec['record_id']}",
+            "record_id": rec["record_id"],
+            "source_id": rec.get("source_id", ""),
+            "primary_date": rec.get("event_date", ""),
+            "record_type": rec.get("record_type", ""),
+            "searchable_text": raw.lower(),
+            "title": rec.get("title", ""),
+            "source_app": rec.get("source_app", ""),
+        })
+
     return {
         "CURRENT_personal_brain_search_view.jsonl": entries,
+        "fulltext_index.jsonl": fulltext_entries,
         "by_date.jsonl": sorted(entries, key=lambda x: (x["primary_date"], x["search_id"])),
         # Sorted by first related_entity_id so entries are grouped by entity.
         # Records with no entity assignments sort to the end.

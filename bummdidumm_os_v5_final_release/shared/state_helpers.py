@@ -66,7 +66,7 @@ class StateTracker:
         known = self.load_known_hashes()
         if len(known) < COMPACT_THRESHOLD:
             return
-        print(f"Kompaktiere Hash_Index ({len(known)} Einträge)...")
+        _log.info("Hash_Index Kompaktierung gestartet", extra={"entries": len(known)})
         rows = [["sha256","file_id","name","parent_ids_sorted","path_display","updated_at","size_bytes","md5","effective_mime_type"]]
         for fid, meta in known.items():
             rows.append([meta.get("sha",""), fid, meta.get("name",""), meta.get("parent_ids_sorted",""),
@@ -78,7 +78,7 @@ class StateTracker:
                 range="Hash_Index!A1", valueInputOption="RAW", body={"values": rows}
             )
         )
-        print(f"Hash_Index kompaktiert auf {len(known)} Einträge.")
+        _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
     def load_known_hashes(self) -> Dict[str, dict]:
         """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""
