@@ -96,6 +96,19 @@ class JsonlWriter:
         merged["source_ids"] = sorted(list(set(merged.get("source_ids", []) + new_entity.get("source_ids", []))))
         merged["aliases"] = sorted(list(set(merged.get("aliases", []) + new_entity.get("aliases", []))))
 
+        # Accumulate mentions
+        merged["mentions"] = merged.get("mentions", 0) + new_entity.get("mentions", 0)
+
+        # Merge sources array containing mentions
+        existing_sources = {s["source_id"]: s for s in merged.get("sources", [])}
+        for s in new_entity.get("sources", []):
+            sid = s["source_id"]
+            if sid in existing_sources:
+                existing_sources[sid]["mentions"] = existing_sources[sid].get("mentions", 0) + s.get("mentions", 0)
+            else:
+                existing_sources[sid] = s
+        merged["sources"] = list(existing_sources.values())
+
         # For counts, we avoid blind accumulation to prevent inflation on re-runs.
         # Instead of adding, we keep track of counts mapped by source_id.
         # Initialize dictionary if missing, or backfill from existing flat counts if necessary.
@@ -154,7 +167,7 @@ class JsonlWriter:
         tmp_entity_path = entity_path.with_suffix(".tmp")
         with tmp_entity_path.open("w", encoding="utf-8") as f:
             for k in sorted(merged_entities):
-                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_")}
+                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_") or ek == "_counts_by_source"}
                 f.write(json.dumps(clean, ensure_ascii=False) + "\n")
         tmp_entity_path.replace(entity_path)
 
@@ -226,13 +239,17 @@ class JsonlWriter:
             "dedicated_parsers": sum(1 for s in sources if not s.get("parser_name", "").startswith("parser_generic")),
             "generic_sources": sum(1 for s in sources if s.get("parser_name", "").startswith("parser_generic")),
             "ocr_only_sources": sum(1 for s in sources if "event_only_no_content_processing" in str(s.get("notes", ""))),
-            "missing_parser_families": list(set(
-                system for system in ["instagram", "facebook", "telegram", "whatsapp", "messenger", "perplexity"]
-                if any(system in s.get("source_path", "").lower() for s in sources) and
-                not any(system in s.get("parser_name", "").lower() for s in sources)
-            )),
             "shallow_archive_count": sum(1 for s in sources if s.get("is_archive") and not s.get("record_count", 0)),
         }
+
+        unmatched = set()
+        for s in sources:
+            path = s.get("source_path", "").lower()
+            parser = s.get("parser_name", "").lower()
+            for system in ["instagram", "facebook", "telegram", "whatsapp", "messenger", "perplexity"]:
+                if system in path and system not in parser:
+                    unmatched.add(system)
+        stats["missing_parser_families"] = sorted(list(unmatched))
 
         def atomic_write_text(path: Path, content: str) -> None:
             tmp = path.with_suffix(".tmp")

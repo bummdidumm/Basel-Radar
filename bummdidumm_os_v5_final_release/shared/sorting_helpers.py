@@ -25,6 +25,13 @@ class SortingRules:
         path = file_meta.get("path", "").lower()
         lane = file_meta.get("lane", "")
         current_parent_id = file_meta.get("current_parent_id", "")
+        semantic_topic_hint = file_meta.get("semantic_topic_hint", "").lower()
+
+        _FINANCIAL_HINTS = frozenset({
+            "invoice", "rechnung", "receipt", "quittung", "beleg",
+            "contract", "vertrag", "bank_statement", "kontoauszug",
+            "mahnung", "lieferschein", "delivery_note"
+        })
 
         if lane == "INBOX_TRASH" or (self.inbox_trash_folder_id and current_parent_id == self.inbox_trash_folder_id):
             key = "01_inbox_trash"
@@ -35,6 +42,9 @@ class SortingRules:
         elif status in ["ERROR", "FATAL", "UNREADABLE"]:
             key = "99_quarantine"
             reason = "Prio 1: Fehlerfall/Quarantäne"
+        elif semantic_topic_hint in _FINANCIAL_HINTS:
+            key = "40b_referenzen"
+            reason = "Prio 1.5: Semantic Topic Hint (OCR)"
         elif mime.startswith("image/"):
             key = "50a_fotos"
             reason = "Prio 2: Bilddatei (Mime-Type)"

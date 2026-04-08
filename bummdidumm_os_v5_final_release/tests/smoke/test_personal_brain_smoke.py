@@ -145,6 +145,7 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             self.assertTrue((out / "CURRENT_personal_brain_search_view.jsonl").exists())
 
             examples = Path(__file__).resolve().parents[1] / "fixtures" / "expected_outputs"
+            import os
             if examples.exists():
                 for file_name in [
                     "00_source_registry.jsonl",
@@ -157,6 +158,13 @@ class PersonalBrainSmokeTest(unittest.TestCase):
                         expected = (examples / file_name).read_text(encoding="utf-8")
                         actual = (out / file_name).read_text(encoding="utf-8")
                         self.assertTrue(len(actual) > 0)
+
+                        if os.environ.get("UPDATE_FIXTURES") == "1":
+                            import shutil
+                            print(f"Updating fixture: {examples / file_name}")
+                            shutil.copy((out / file_name), (examples / file_name))
+                            continue
+
                         # We do a loose check that IDs are generated, or similar.
                         # Exact string matching may fail due to UUIDs or timestamps,
                         # so we check that the file is not empty and has the same number of lines as a proxy.

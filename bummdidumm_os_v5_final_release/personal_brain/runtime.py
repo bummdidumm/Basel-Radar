@@ -106,13 +106,22 @@ class PersonalBrainRuntime:
         raw_ref = item.get("raw_ref", item.get("web_link", s_path_rel))
         chk_sum = item.get("checksum_sha256") or stable_hash(item.get("content", {}))
 
+        export_t = md.get("export_time") or item.get("created_at", "")
+        coverage_s = md.get("coverage_start") or item.get("created_at", "")
+        coverage_e = md.get("coverage_end") or item.get("modified_at", "")
+
+        md_overrides = dict(md)
+        md_overrides["export_time"] = export_t
+        md_overrides["coverage_start"] = coverage_s
+        md_overrides["coverage_end"] = coverage_e
+
         return {
             "project_id": self.project_id,
             "source_id": source_id_value,
             "source_key": source_key,
             "bundle_id": item.get("bundle_id", ""),
             "parent_bundle_id": item.get("parent_bundle_id", ""),
-            **md,
+            **md_overrides,
             "source_path": s_path,
             "source_path_rel": s_path_rel,
             "original_filename": item["original_filename"],

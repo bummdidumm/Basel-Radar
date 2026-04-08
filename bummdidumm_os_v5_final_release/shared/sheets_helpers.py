@@ -20,6 +20,9 @@ class SheetManager:
             "Knowledge_Exclusions": ["file_id", "path_display", "status", "reason"]
         }
 
+        self.DEDUPE_COL = {col: i for i, col in enumerate(self.headers["Dedupe_Report"])}
+        self.SORT_COL = {col: i for i, col in enumerate(self.headers["Sorting_Suggestions"])}
+
     def _execute_with_backoff(self, request_op):
         """Führt eine Request-Methode der Sheets-API aus und wendet Exponential Backoff bei 429 Fehlern an."""
         max_retries = 5
@@ -57,7 +60,9 @@ class SheetManager:
                 header_check = self._execute_with_backoff(self.sheets.spreadsheets().values().get(
                     spreadsheetId=self.spreadsheet_id, range=f"{tab_name}!A1"
                 ))
-                if not header_check.get("values"):
+                existing_values = header_check.get("values", [[]])
+                existing_first = existing_values[0][0] if existing_values and existing_values[0] else ""
+                if existing_first != header_row[0]:
                     self._execute_with_backoff(self.sheets.spreadsheets().values().update(
                         spreadsheetId=self.spreadsheet_id,
                         range=f"{tab_name}!A1",
@@ -85,7 +90,8 @@ class SheetManager:
                 spreadsheetId=self.spreadsheet_id, range=f"{tab}!{columns}"
             ))
             return res.get("values", [])
-        except Exception:
+        except Exception as e:
+            print(f"WARN: read_all_rows({tab}) failed: {e}")
             return []
 
     def read_rows_chunked(self, tab: str, chunk_size: int = 1000):

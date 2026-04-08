@@ -43,20 +43,46 @@ def run_safe_sort():
         return
 
     known = state.load_known_hashes()
+
+    # Load semantic hints from personal_brain index if available.
+    # We map 'topics' (which is populated from ocr_doc_type) back to semantic_topic_hint.
+    from pathlib import Path
+    import json
+    import logging
+    semantic_hints = {}
+    brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
+    registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"
+    if registry_path.exists():
+        try:
+            for line in registry_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    s_data = json.loads(line)
+                    f_id = s_data.get("file_id")
+                    if f_id:
+                        topics = s_data.get("topics", [])
+                        if topics:
+                            semantic_hints[f_id] = topics[0]
+                except Exception as e:
+                    logging.debug(f"Failed to parse line in record index: {e}")
+        except Exception as e:
+            logging.debug(f"Failed to read record index for semantic hints: {e}")
+
     suggestions = []
     processed = 0
     errors = 0
 
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
-            if len(row) < 17 or row[0] == "run_utc" or row[1] != current_run_id:
+            if len(row) < len(sheet_mgr.headers["Dedupe_Report"]) or row[0] == "run_utc" or row[1] != current_run_id:
                 continue
 
-            file_id = row[4]
-            name = row[3]
-            mime_type = row[5]
-            status = row[10]
-            current_path = row[2]
+            file_id = row[sheet_mgr.DEDUPE_COL["file_id"]]
+            name = row[sheet_mgr.DEDUPE_COL["name"]]
+            mime_type = row[sheet_mgr.DEDUPE_COL["mime_type"]]
+            status = row[sheet_mgr.DEDUPE_COL["status"]]
+            current_path = row[sheet_mgr.DEDUPE_COL["path"]]
 
             current_parent_id = ""
             meta = known.get(file_id, {})
@@ -68,8 +94,9 @@ def run_safe_sort():
             if not current_parent_id:
                 current_parent_id = "N/A"
 
-            notes = str(row[16]) if row[16] is not None else ""
+            notes = str(row[sheet_mgr.DEDUPE_COL["notes"]]) if row[sheet_mgr.DEDUPE_COL["notes"]] is not None else ""
             lane = "INBOX_TRASH" if "Lane: INBOX_TRASH" in notes else "ACTIVE"
+            semantic_topic_hint = semantic_hints.get(file_id, "")
 
             folder_rule, folder_rule_reason, target_name, target_id, target_path = sorter.determine_target({
                 "name": name,
@@ -78,6 +105,7 @@ def run_safe_sort():
                 "path": current_path,
                 "lane": lane,
                 "current_parent_id": current_parent_id,
+                "semantic_topic_hint": semantic_topic_hint,
             })
 
             if not target_id:

@@ -15,6 +15,7 @@ from shared.models import FileRecord
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 from personal_brain.utils import sanitize_path
+from personal_brain.utils import PARSEABLE_EXTS as _PARSEABLE_EXTS, PARSEABLE_MIMES as _PARSEABLE_MIMES
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -24,20 +25,12 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 # a directory synced back to Drive). Defaults to a subdirectory next to this file.
 BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
 
+
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
 # Extensions and MIME types for which we attempt a real Drive download so the
 # parser can open the actual file content rather than falling back to OCR text.
-_PARSEABLE_EXTS = {".json", ".html", ".htm", ".txt", ".md", ".csv", ".ics"}
-_PARSEABLE_MIMES = {
-    "application/json",
-    "text/html",
-    "text/plain",
-    "text/csv",
-    "text/calendar",
-    "text/markdown",
-}
 _MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024  # 20 MB cap per file
 
 
@@ -103,7 +96,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                             continue
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
-                            sub_mime = "application/json" if sub_ext == ".json" else "text/plain" if sub_ext == ".txt" else "text/html" if sub_ext in [".html", ".htm"] else "text/csv" if sub_ext == ".csv" else ""
+                            from personal_brain.utils import get_parseable_mime_type
+                            sub_mime = get_parseable_mime_type(sub_ext)
                             sub_local_path = None
                             try:
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
@@ -128,7 +122,7 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                                 canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
-                                sub_file_id = f"{rec.file_id}_{hashlib.sha256(sanitized_name.encode('utf-8')).hexdigest()}"
+                                sub_file_id = f"{rec.file_id}_{hashlib.sha256((rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
                                 sources.append({
                                     "file_id": sub_file_id,
                                     "bundle_id": rec.file_id,
@@ -237,7 +231,7 @@ def run_pass2():
 
     # Load Knowledge Exclusions
     exclusions = {}
-    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:C"):
+    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:D"):
         if len(row) >= 3 and row[0] != "file_id":
             exclusions[row[0]] = row[2]  # file_id -> status (EXCLUDED/PURGED)
 
