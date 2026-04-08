@@ -17,6 +17,9 @@ def run_apply_renames():
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
+    from shared.drive_helpers import DriveManager
+    drive_mgr = DriveManager(drive_service, "")
+
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
 
@@ -45,11 +48,13 @@ def run_apply_renames():
             if suggested_name and suggested_name != current_name:
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
-                    drive_service.files().update(
-                        fileId=file_id,
-                        body={"name": suggested_name},
-                        **params
-                    ).execute()
+                    def _update_name():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            body={"name": suggested_name},
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_update_name)
                     processed += 1
                 except Exception as e:
                     errors += 1

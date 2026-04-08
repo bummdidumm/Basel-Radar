@@ -53,7 +53,7 @@ class GeminiOCR:
     def _is_retryable(api_err: APIError) -> bool:
         code = getattr(api_err, "code", None)
         msg = str(api_err).lower()
-        return code == 429 or "resourceexhausted" in msg or "quota" in msg
+        return code in (429, 503) or "resourceexhausted" in msg or "quota" in msg or "overloaded" in msg
 
     def extract_structured_data(self, file_id: str, mime_type: str) -> Tuple[Optional[dict], str]:
         if not self.client:

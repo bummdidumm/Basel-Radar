@@ -15,6 +15,7 @@ from shared.models import FileRecord
 from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 from personal_brain.utils import sanitize_path
+from personal_brain.utils import PARSEABLE_EXTS as _PARSEABLE_EXTS, PARSEABLE_MIMES as _PARSEABLE_MIMES
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -24,20 +25,12 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 # a directory synced back to Drive). Defaults to a subdirectory next to this file.
 BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
 
+
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
 # Extensions and MIME types for which we attempt a real Drive download so the
 # parser can open the actual file content rather than falling back to OCR text.
-_PARSEABLE_EXTS = {".json", ".html", ".htm", ".txt", ".md", ".csv", ".ics"}
-_PARSEABLE_MIMES = {
-    "application/json",
-    "text/html",
-    "text/plain",
-    "text/csv",
-    "text/calendar",
-    "text/markdown",
-}
 _MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024  # 20 MB cap per file
 
 

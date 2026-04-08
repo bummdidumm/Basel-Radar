@@ -18,6 +18,9 @@ def run_apply_sort():
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     sheets_service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
+    from shared.drive_helpers import DriveManager
+    drive_mgr = DriveManager(drive_service, "")
+
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
 
@@ -48,22 +51,28 @@ def run_apply_sort():
 
                 if action_mode == "SWEEP_TRASH":
                     # Mark explicitly as trashed
-                    drive_service.files().update(
-                        fileId=file_id,
-                        body={"trashed": True},
-                        **params
-                    ).execute()
+                    def _trash():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            body={"trashed": True},
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_trash)
                     result_val = "SUCCESS_TRASHED"
                 else:
-                    file_meta = drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
+                    def _get_parents():
+                        return drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
+                    file_meta = drive_mgr.execute_with_backoff(_get_parents)
                     previous_parents = ",".join(file_meta.get("parents", []))
 
-                    drive_service.files().update(
-                        fileId=file_id,
-                        addParents=target_folder_id,
-                        removeParents=previous_parents,
-                        **params
-                    ).execute()
+                    def _update_parents():
+                        return drive_service.files().update(
+                            fileId=file_id,
+                            addParents=target_folder_id,
+                            removeParents=previous_parents,
+                            **params
+                        ).execute()
+                    drive_mgr.execute_with_backoff(_update_parents)
                     result_val = "SUCCESS"
 
                 processed += 1

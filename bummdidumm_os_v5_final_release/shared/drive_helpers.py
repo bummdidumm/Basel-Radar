@@ -8,6 +8,21 @@ class DriveManager:
         self.enable_shared_drives = enable_shared_drives
         self.ancestor_cache = {target_folder_id: True}
 
+    def execute_with_backoff(self, request_callable):
+        import time
+        from googleapiclient.errors import HttpError
+        for attempt in range(5):
+            try:
+                return request_callable()
+            except HttpError as e:
+                if e.resp.status in (429, 500, 503):
+                    sleep_time = (2 ** attempt) + 1
+                    print(f"Drive API {e.resp.status}. Backoff {sleep_time}s ({attempt+1}/5)")
+                    time.sleep(sleep_time)
+                else:
+                    raise
+        raise Exception("Drive API max retries reached.")
+
     def _base_params(self) -> dict:
         return {"supportsAllDrives": True} if self.enable_shared_drives else {}
 

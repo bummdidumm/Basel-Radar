@@ -23,8 +23,10 @@ class ClaudeExportParser(BaseParser):
     match_tokens = ("claude",)
 
     def can_handle(self, source_meta: dict, preview) -> bool:
-        haystack = f"{preview.path} {preview.name}".lower()
-        if "claude" in haystack:
+        # Only match on filename/name — NOT full path — to avoid false positives
+        # when the path contains "claude" for unrelated reasons (e.g. /home/claude/).
+        name_haystack = preview.name.lower()
+        if "claude" in name_haystack:
             return True
         cp = preview.content_preview
         # List of convs

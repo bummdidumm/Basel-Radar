@@ -20,14 +20,14 @@ ENABLE_ARCHIVE = os.environ.get("ENABLE_ARCHIVE", "true").lower() == "true"
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 INBOX_TRASH_FOLDER_ID = os.environ.get("INBOX_TRASH_FOLDER_ID", "")
 
-def suggest_rename(name: str, created_time: str) -> str:
+def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLUG) -> str:
     if not created_time:
         return name
     iso_date = created_time[:10]
     if name.startswith(f"{iso_date}_"):
         return name
     safe = name.replace(":", "-").strip()
-    return f"{iso_date}_{PROJECT_SLUG}_{safe}"
+    return f"{iso_date}_{project_slug}_{safe}"
 
 def run_pass1():
     print("Starte Pass 1: Delta + Dedupe + Archivierung")
@@ -220,7 +220,9 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         rec.export_source = export_source
 
         if not rec.sha256:
-            state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "Fehler bei SHA256 Berechnung")
+            state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "SHA256 fehlgeschlagen")
+            rec.status = "HASH_ERROR"
+            records_to_process.append(rec)
             continue
 
         # Dedupe Logik über Hash Map (O(1))

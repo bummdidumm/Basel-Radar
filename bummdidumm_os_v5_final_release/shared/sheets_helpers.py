@@ -60,7 +60,9 @@ class SheetManager:
                 header_check = self._execute_with_backoff(self.sheets.spreadsheets().values().get(
                     spreadsheetId=self.spreadsheet_id, range=f"{tab_name}!A1"
                 ))
-                if not header_check.get("values"):
+                existing_values = header_check.get("values", [[]])
+                existing_first = existing_values[0][0] if existing_values and existing_values[0] else ""
+                if existing_first != header_row[0]:
                     self._execute_with_backoff(self.sheets.spreadsheets().values().update(
                         spreadsheetId=self.spreadsheet_id,
                         range=f"{tab_name}!A1",
@@ -88,7 +90,8 @@ class SheetManager:
                 spreadsheetId=self.spreadsheet_id, range=f"{tab}!{columns}"
             ))
             return res.get("values", [])
-        except Exception:
+        except Exception as e:
+            print(f"WARN: read_all_rows({tab}) failed: {e}")
             return []
 
     def read_rows_chunked(self, tab: str, chunk_size: int = 1000):
