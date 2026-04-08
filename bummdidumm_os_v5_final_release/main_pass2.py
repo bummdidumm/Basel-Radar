@@ -238,7 +238,7 @@ def run_pass2():
 
     # Load Knowledge Exclusions
     exclusions = {}
-    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:C"):
+    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:D"):
         if len(row) >= 3 and row[0] != "file_id":
             exclusions[row[0]] = row[2]  # file_id -> status (EXCLUDED/PURGED)
 

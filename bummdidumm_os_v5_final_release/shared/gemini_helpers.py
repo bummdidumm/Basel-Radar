@@ -22,6 +22,7 @@ class GeminiOCR:
         is_native = mime_type.startswith("application/vnd.google-apps")
         effective_mime = "application/pdf" if is_native and "document" in mime_type else mime_type
 
+        tmp_name = None
         try:
             if is_native:
                 if "document" in mime_type:
@@ -32,14 +33,20 @@ class GeminiOCR:
                 request = self.drive.files().get_media(fileId=file_id, **self._base_params())
 
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_name = tmp.name
                 downloader = MediaIoBaseDownload(tmp, request, chunksize=8 * 1024 * 1024)
                 done = False
                 while not done:
                     _, done = downloader.next_chunk()
                 tmp.flush()
-                return tmp.name, effective_mime
+            return tmp_name, effective_mime
         except Exception as e:
             print(f"Download for OCR failed: {e}")
+            if tmp_name:
+                try:
+                    os.remove(tmp_name)
+                except FileNotFoundError:
+                    pass
             return None, mime_type
 
     @staticmethod

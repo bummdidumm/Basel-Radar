@@ -30,9 +30,9 @@ def run_apply_sort():
     processed = 0
     errors = 0
 
+    update_requests = []
+
     for row_idx, row in sheet_mgr.read_rows_chunked_with_row_numbers("Sorting_Suggestions", chunk_size=1000):
-        # We accumulate per-chunk to preserve safety bounds
-        update_requests = []
         if len(row) < 13 or row[0] == "run_id" or row[0] != current_run_id:
             continue
 
@@ -77,13 +77,24 @@ def run_apply_sort():
                 "values": [[result_val]]
             })
 
-        if update_requests:
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
-                    spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": update_requests}
+            # Flush periodically to not build up a massive array in memory,
+            # but still benefit from batched update performance.
+            if len(update_requests) >= 50:
+                sheet_mgr._execute_with_backoff(
+                    sheets_service.spreadsheets().values().batchUpdate(
+                        spreadsheetId=CONTROL_SHEET_ID,
+                        body={"valueInputOption": "RAW", "data": update_requests}
+                    )
                 )
+                update_requests = []
+
+    if update_requests:
+        sheet_mgr._execute_with_backoff(
+            sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=CONTROL_SHEET_ID,
+                body={"valueInputOption": "RAW", "data": update_requests}
             )
+        )
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")

@@ -61,20 +61,22 @@ def run_pass1():
             print("Initialer Run: Führe kompletten Walk über TARGET_FOLDER durch.")
             state.set_val("current_phase", "INITIAL_SCAN")
 
+            new_start_page_token = drive_mgr.get_initial_token()
             all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
-            new_start_page_token = drive_mgr.get_initial_token()
 
             _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id, folder_registry)
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
+            state.flush_state()
 
         else:
             active_token = in_progress_token if in_progress_token else start_token
             if active_token != in_progress_token:
                 state.set_val("in_progress_page_token", active_token)
                 state.set_val("current_phase", "DELTA_FETCH")
+                state.flush_state()
 
             new_start_page_token = None
 
@@ -139,7 +141,7 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         name = f.get("name", "UNKNOWN_REMOVED")
 
         change_type = determine_change_type(f, known_file_details, is_initial)
-        suggested_name = suggest_rename(name, f.get("createdTime", ""))
+        suggested_name = suggest_rename(name, f.get("createdTime", "")) if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"] else ""
 
         lane = "ACTIVE"
         parents = f.get("parents", [])

@@ -10,6 +10,7 @@ class StateTracker:
 
         self._state_cache = {}
         self._known_hashes = None
+        self._dirty = False
 
         self.sheets.initialize_headers()
         self._load_state()
@@ -24,6 +25,7 @@ class StateTracker:
         else:
             # Speichere die neue run_id
             self.set_val("run_id", self.run_id)
+            self.flush_state()
 
     def _load_state(self):
         rows = self.sheets.read_all_rows("State", "A:B")
@@ -36,6 +38,11 @@ class StateTracker:
 
     def set_val(self, key: str, value: str):
         self._state_cache[key] = str(value) if value is not None else ""
+        self._dirty = True
+
+    def flush_state(self):
+        if not self._dirty:
+            return
 
         # Flush State Sheet
         rows = [["key", "value"]]
@@ -49,6 +56,7 @@ class StateTracker:
                 valueInputOption="RAW",
                 body={"values": rows}
             ).execute()
+            self._dirty = False
         except Exception as e:
             print(f"Failed to save state to sheet: {e}")
 
