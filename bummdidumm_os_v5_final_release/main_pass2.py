@@ -45,16 +45,25 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     if size_bytes > _MAX_DOWNLOAD_BYTES:
         return None
     params = {"supportsAllDrives": True} if enable_shared_drives else {}
+    tmp_path = None
     try:
         request = drive_service.files().get_media(fileId=file_id, **params)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+            tmp_path = tmp.name
             downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
             done = False
             while not done:
                 _, done = downloader.next_chunk()
             tmp.flush()
-            return tmp.name
-    except Exception:
+            return tmp_path
+    except Exception as e:
+        import logging
+        logging.debug(f"Failed to download drive file {file_id}: {e}")
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
         return None
 
 
@@ -268,7 +277,8 @@ def run_pass2():
     sorting_data = {}
     for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
         for s_row in sort_chunk:
-            if len(s_row) >= 12 and s_row[0] == current_run_id:
+            # FIX: Off-by-one-Grenze bei Sorting-Zeilen -> Zugriff auf Index 12 nur noch ab 13 Spalten.
+            if len(s_row) >= 13 and s_row[0] == current_run_id:
                 sorting_data[s_row[1]] = {
                     "current_parent_id": s_row[5],
                     "folder_rule": s_row[6],
