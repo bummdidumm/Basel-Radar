@@ -75,3 +75,6 @@ class FileRecord(BaseModel):
     owner_email: str = ""
     owner_name: str = ""
     last_modified_by_email: str = ""
+    can_edit: bool = True
+    can_share: bool = True
+    can_download: bool = True

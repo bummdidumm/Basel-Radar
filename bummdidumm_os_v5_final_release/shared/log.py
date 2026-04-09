@@ -37,4 +37,11 @@ def get_logger(name: str, run_id: str = "", phase: str = "") -> logging.Logger:
         logger.addHandler(_GCPHandler(run_id=run_id, phase=phase))
         logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
         logger.propagate = False
+    else:
+        # Update context on existing handler if new run_id provided
+        for h in logger.handlers:
+            if isinstance(h, _GCPHandler) and run_id:
+                h._ctx["run_id"] = run_id
+            if isinstance(h, _GCPHandler) and phase:
+                h._ctx["phase"] = phase
     return logger

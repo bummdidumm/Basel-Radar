@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 
 ROOT = Path("bummdidumm_os_v5_final_release")
+# NOTE: Must be run from the repo root, not from inside bummdidumm_os_v5_final_release/.
+# Correct: python3 bummdidumm_os_v5_final_release/release_audit.py
+# Wrong:   cd bummdidumm_os_v5_final_release && python3 release_audit.py
 
 _PLACEHOLDER_TOKENS = [
     "DEIN_PROJEKT_ID",

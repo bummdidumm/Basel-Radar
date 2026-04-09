@@ -89,6 +89,7 @@ class PersonalBrainRuntime:
 
         self.writer.write_source_record_entity_relation(source_list, record_list, entity_list, relation_list)
         self.writer.write_daily_memory(record_list)
+        self.writer.write_weekly_memory(record_list)
         views = self.writer.write_search_views(record_list)
         self.writer.write_reports()
 

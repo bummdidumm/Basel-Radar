@@ -1,4 +1,6 @@
 from typing import List, Dict, Tuple, Optional
+from shared.log import get_logger as _get_logger
+_log = _get_logger("drive", phase="SHARED")
 
 class DriveManager:
     """Encapsulates Google Drive API interactions, caching, and filtering."""
@@ -17,7 +19,7 @@ class DriveManager:
             except HttpError as e:
                 if e.resp.status in (429, 500, 503):
                     sleep_time = (2 ** attempt) + 1
-                    print(f"Drive API {e.resp.status}. Backoff {sleep_time}s ({attempt+1}/5)")
+                    _log.warning("Drive API rate limit", extra={"status": e.resp.status, "sleep_sec": sleep_time, "attempt": attempt + 1})
                     time.sleep(sleep_time)
                 else:
                     raise
@@ -120,7 +122,7 @@ class DriveManager:
         params = self._list_params()
         params["pageToken"] = page_token
         params["spaces"] = "drive"
-        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName)))"
+        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload)))"
 
         res = self.drive.changes().list(**params).execute()
 

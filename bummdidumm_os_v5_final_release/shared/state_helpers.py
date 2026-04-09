@@ -3,8 +3,8 @@ import os
 from typing import Dict, List, Optional, Any
 from .sheets_helpers import SheetManager
 from .models import FileRecord
-import logging
-_log = logging.getLogger("bummdidumm.state")
+from shared.log import get_logger as _get_logger
+_log = _get_logger("state", phase="SHARED")
 
 class StateTracker:
     def __init__(self, sheets_manager: SheetManager):
@@ -61,7 +61,7 @@ class StateTracker:
             ).execute()
             self._dirty = False
         except Exception as e:
-            print(f"Failed to save state to sheet: {e}")
+            _log.error("State flush fehlgeschlagen", extra={"error": str(e)})
 
     def compact_hash_index(self):
         COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
@@ -219,4 +219,4 @@ class StateTracker:
                 self.sheets.append_rows("Duplicate_Groups", appends)
 
         except Exception as e:
-            print(f"Error flushing Duplicate_Groups: {e}")
+            _log.error("Duplicate_Groups flush fehlgeschlagen", extra={"error": str(e)})

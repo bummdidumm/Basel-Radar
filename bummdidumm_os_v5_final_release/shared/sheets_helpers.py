@@ -1,8 +1,8 @@
 import time
 from typing import List, Any
 from googleapiclient.errors import HttpError
-import logging
-_log = logging.getLogger("bummdidumm.sheets")
+from shared.log import get_logger as _get_logger
+_log = _get_logger("sheets", phase="SHARED")
 
 class SheetManager:
     """Provides base interactions with the Google Sheets API."""

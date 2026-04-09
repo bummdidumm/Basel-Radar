@@ -190,6 +190,31 @@ class JsonlWriter:
             tmp_path.replace(target_path)
         return daily
 
+    def write_weekly_memory(self, _records: list[dict]) -> dict[str, dict]:
+        """Rebuild weekly memory from the full daily memory index."""
+        from .weekly_memory_builder import build_weekly_memory
+        daily_dir = self.daily_dir
+        daily_memories: dict[str, dict] = {}
+        if daily_dir.exists():
+            import json as _json
+            for f in daily_dir.glob("*.json"):
+                if f.is_file():
+                    try:
+                        daily_memories[f.stem] = _json.loads(f.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+        weekly = build_weekly_memory(daily_memories)
+        weekly_dir = self.published / "04_weekly_memory"
+        weekly_dir.mkdir(parents=True, exist_ok=True)
+        import json as _json
+        for week_key, payload in weekly.items():
+            target = weekly_dir / f"{week_key}.json"
+            tmp = target.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as wf:
+                _json.dump(payload, wf, ensure_ascii=False, indent=2)
+            tmp.replace(target)
+        return weekly
+
     def write_search_views(self, _records: list[dict]) -> dict[str, list[dict]]:
         """Rebuild all search views from the full merged record index."""
         all_records = self._load_full_records()

@@ -7,8 +7,8 @@ from googleapiclient.http import MediaIoBaseDownload
 from google import genai
 from google.genai.errors import APIError
 from .models import ExtractedDocument
-import logging
-_log = logging.getLogger("bummdidumm.gemini")
+from shared.log import get_logger as _get_logger
+_log = _get_logger("gemini", phase="SHARED")
 
 _OCR_WORTHY_MIMES = frozenset({
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/tiff",

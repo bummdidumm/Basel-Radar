@@ -2,6 +2,8 @@ import os
 from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
+import logging as _logging
+_module_log = _logging.getLogger("bummdidumm.pass1")
 
 from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
@@ -124,9 +126,7 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     except Exception:
         pass
 
-    from shared.log import get_logger
-    log = get_logger("pass1", phase="PASS_1")
-    log.warning("01_inbox_trash nicht auflösbar")
+    _module_log.warning("01_inbox_trash nicht auflösbar")
     return ""
 
 
@@ -177,7 +177,10 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             starred=f.get("starred", False),
             owner_email=(f.get("owners") or [{}])[0].get("emailAddress", ""),
             owner_name=(f.get("owners") or [{}])[0].get("displayName", ""),
-            last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", "")
+            last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", ""),
+            can_edit=(f.get("capabilities") or {}).get("canEdit", True),
+            can_share=(f.get("capabilities") or {}).get("canShare", True),
+            can_download=(f.get("capabilities") or {}).get("canDownload", True)
         )
         rec.change_type = change_type
         rec.suggested_name = suggested_name

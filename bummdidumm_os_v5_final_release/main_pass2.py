@@ -71,18 +71,32 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         mime = rec.effective_mime_type or rec.mime_type or ""
 
         local_path: str | None = None
-        if rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
+        # Skip download if Drive reports file is not downloadable
+        if not rec.can_download:
+            detected = inspect_source(
+                source_path=rec.path_display or rec.name,
+                mime=mime, ext=ext,
+                fallback_text=rec.ocr_summary or rec.notes or "",
+            )
+        elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
             local_path = _download_drive_file_to_tmp(
                 drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
             )
-
-        try:
             detected = inspect_source(
                 source_path=local_path or rec.path_display or rec.name,
                 mime=mime,
                 ext=ext,
                 fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
             )
+        else:
+            detected = inspect_source(
+                source_path=rec.path_display or rec.name,
+                mime=mime,
+                ext=ext,
+                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+            )
+
+        try:
 
             # Fix leak of temp path in title
             if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
@@ -175,6 +189,14 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         # (which is an internal delta status, not a meaningful topic).
         ocr_topic = rec.ocr_doc_type.strip() if rec.ocr_doc_type else ""
         content.setdefault("topics", [ocr_topic] if ocr_topic else [])
+        # OCR-extracted people/orgs → inject into content for Brain Index entity extraction
+        if rec.ocr_people:
+            content["people"] = list(dict.fromkeys(content.get("people", []) + rec.ocr_people))
+        if rec.ocr_organizations:
+            content["apps"] = list(dict.fromkeys(content.get("apps", []) + rec.ocr_organizations))
+        # Starred files → higher importance_score
+        if rec.starred:
+            content["importance_score"] = min(1.0, content.get("importance_score", 0.5) + 0.25)
         content.setdefault("url", rec.web_link or "")
 
         canonical_path = rec.path_display or rec.name
@@ -200,7 +222,7 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
             "is_export": detected.get("is_export", True),
             "is_bundle": detected.get("is_bundle", False),
             "is_archive": detected.get("is_archive", False),
-            "contains_pii": bool(rec.ocr_full_text),
+            "contains_pii": rec.ocr_sensitivity in ("medium", "high"),
             "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
             "contains_geo": "map" in (rec.path_display or "").lower(),
             "contains_financial": bool(rec.ocr_amount),
