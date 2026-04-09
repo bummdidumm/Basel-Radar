@@ -3,7 +3,6 @@ from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
 import logging as _logging
-_module_log = _logging.getLogger("bummdidumm.pass1")
 
 from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
@@ -11,6 +10,8 @@ from shared.drive_helpers import DriveManager
 from shared.hash_helpers import calculate_sha256_streaming
 from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
 from shared.models import FileRecord
+
+_module_log = _logging.getLogger("bummdidumm.pass1")
 
 TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID", "")
 ARCHIVE_FOLDER_ID = os.environ.get("ARCHIVE_FOLDER_ID")

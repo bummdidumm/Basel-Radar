@@ -174,7 +174,7 @@ class StateTracker:
             rows = self.sheets.read_all_rows("Duplicate_Groups", "A:D")
 
             # 2. Build index of existing shas to row_index (1-based)
-            existing_index = {}
+            existing_index: dict[str, dict[str, Any]] = {}
             for i, row in enumerate(rows):
                 if len(row) >= 3:
                     existing_index[row[0]] = {
