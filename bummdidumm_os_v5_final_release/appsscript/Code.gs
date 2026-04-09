@@ -1,5 +1,9 @@
 // Control Plane für bummdidumm-OS V5
-const REGION = "us-central1";
+
+function getRegion() {
+  const props = PropertiesService.getScriptProperties();
+  return props.getProperty("REGION") || "europe-west6";
+}
 
 function getProjectId() {
   const props = PropertiesService.getScriptProperties();
@@ -10,7 +14,8 @@ function getProjectId() {
 
 function triggerJob(jobName) {
   const projectId = getProjectId();
-  const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${REGION}/jobs/${jobName}:run`;
+  const region = getRegion();
+  const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/jobs/${jobName}:run`;
   const res = UrlFetchApp.fetch(url, {
     method: "post",
     contentType: "application/json",

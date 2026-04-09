@@ -1,3 +1,0 @@
-## 2024-04-09 - Replace blocking alerts with non-blocking toasts in Apps Script
-**Learning:** In Google Sheets Apps Script interfaces, using `SpreadsheetApp.getUi().alert()` for background job triggers causes unnecessary blocking and forces the user to click to dismiss.
-**Action:** Implemented a pattern using `SpreadsheetApp.getActiveSpreadsheet().toast()` for success notifications to provide a smoother, non-blocking experience while retaining `alert()` for errors.
