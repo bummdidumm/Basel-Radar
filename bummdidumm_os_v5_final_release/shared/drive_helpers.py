@@ -102,7 +102,7 @@ class DriveManager:
                     q=query,
                     pageSize=1000,
                     pageToken=page_token,
-                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName))",
+                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload))",
                     **params
                 ).execute()
 
