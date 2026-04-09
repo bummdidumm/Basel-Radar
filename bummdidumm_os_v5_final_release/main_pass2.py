@@ -242,7 +242,8 @@ def run_pass2():
     sorting_data = {}
     for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
         for s_row in sort_chunk:
-            if len(s_row) >= 12 and s_row[0] == current_run_id:
+            # We access index 12 (move_result) below, so we need at least 13 columns to avoid an IndexError.
+            if len(s_row) >= 13 and s_row[0] == current_run_id:
                 sorting_data[s_row[1]] = {
                     "current_parent_id": s_row[5],
                     "folder_rule": s_row[6],
