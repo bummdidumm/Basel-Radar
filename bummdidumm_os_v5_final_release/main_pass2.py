@@ -80,32 +80,32 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         mime = rec.effective_mime_type or rec.mime_type or ""
 
         local_path: str | None = None
-        # Skip download if Drive reports file is not downloadable
-        if not rec.can_download:
-            detected = inspect_source(
-                source_path=rec.path_display or rec.name,
-                mime=mime, ext=ext,
-                fallback_text=rec.ocr_summary or rec.notes or "",
-            )
-        elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
-            local_path = _download_drive_file_to_tmp(
-                drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
-            )
-            detected = inspect_source(
-                source_path=local_path or rec.path_display or rec.name,
-                mime=mime,
-                ext=ext,
-                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
-            )
-        else:
-            detected = inspect_source(
-                source_path=rec.path_display or rec.name,
-                mime=mime,
-                ext=ext,
-                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
-            )
-
+        detected = {}
         try:
+            # Skip download if Drive reports file is not downloadable
+            if not rec.can_download:
+                detected = inspect_source(
+                    source_path=rec.path_display or rec.name,
+                    mime=mime, ext=ext,
+                    fallback_text=rec.ocr_summary or rec.notes or "",
+                )
+            elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
+                local_path = _download_drive_file_to_tmp(
+                    drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
+                )
+                detected = inspect_source(
+                    source_path=local_path or rec.path_display or rec.name,
+                    mime=mime,
+                    ext=ext,
+                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+                )
+            else:
+                detected = inspect_source(
+                    source_path=rec.path_display or rec.name,
+                    mime=mime,
+                    ext=ext,
+                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+                )
 
             # Fix leak of temp path in title
             if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
