@@ -1,0 +1,3 @@
+## 2024-04-10 - Non-blocking Success Notifications in Google Sheets
+**Learning:** In Google Apps Script UI integrations, using `SpreadsheetApp.getUi().alert()` for success notifications interrupts the user workflow by requiring a manual click to dismiss, which is frustrating for routine actions. `SpreadsheetApp.getActiveSpreadsheet().toast()` provides a much smoother, non-blocking experience for success messages while preserving `alert()` for critical errors that actually need the user's attention.
+**Action:** Always check Apps Script `start*` functions and switch to conditional `toast()` for successes and `alert()` for errors.

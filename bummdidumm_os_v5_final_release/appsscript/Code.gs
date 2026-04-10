@@ -147,11 +147,19 @@ function autoCleanupTransientFolder() {
   }
 }
 
-function startFastDeltaScan() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass1-delta-dedupe").msg); }
-function startOcrIndexing() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass2-ocr-index").msg); }
-function startApplyRenames() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-renames").msg); }
-function startSafeSort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-safe-sort").msg); }
-function startApplySort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-sort").msg); }
+function handleJobResponse(res, title) {
+  if (res.success) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(res.msg, title || "bummdidumm OS", 5);
+  } else {
+    SpreadsheetApp.getUi().alert(res.msg);
+  }
+}
+
+function startFastDeltaScan() { handleJobResponse(triggerJob("bummdidumm-pass1-delta-dedupe"), "Fast Delta-Scan"); }
+function startOcrIndexing() { handleJobResponse(triggerJob("bummdidumm-pass2-ocr-index"), "OCR & Indexing"); }
+function startApplyRenames() { handleJobResponse(triggerJob("bummdidumm-apply-renames"), "Renames"); }
+function startSafeSort() { handleJobResponse(triggerJob("bummdidumm-safe-sort"), "Safe Sort"); }
+function startApplySort() { handleJobResponse(triggerJob("bummdidumm-apply-sort"), "Apply Sort"); }
 
 function startFullRun() {
   const res = triggerJob("bummdidumm-pass1-delta-dedupe");
@@ -163,7 +171,7 @@ function startFullRun() {
   props.setProperty("FULL_RUN_RUN_ID", "run_" + new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14));
   props.setProperty("FULL_RUN_PHASE", "WAITING_FOR_PASS1");
   ensurePollingTrigger();
-  SpreadsheetApp.getUi().alert("✅ Kompletter Lauf gestartet.");
+  SpreadsheetApp.getActiveSpreadsheet().toast("✅ Kompletter Lauf gestartet.", "bummdidumm OS", 5);
 }
 
 function clearErrorReports() {
