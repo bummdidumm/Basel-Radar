@@ -1,0 +1,4 @@
+## 2025-04-10 - Disk Exhaustion via Temporary Files
+**Vulnerability:** A Denial of Service (DoS) vulnerability existed in `_download_drive_file_to_tmp` in `main_pass2.py` where a temporary file was created with `delete=False` but not removed if the `next_chunk()` stream threw an exception (e.g. quota limit, network error).
+**Learning:** In code dealing with large downloads to disk using `delete=False` to retain a file handle across contexts, `except Exception:` blocks MUST contain an explicit `os.remove` fallback if a file path was partially constructed. Failing to do so causes unbounded silent disk filling when network/quota errors happen.
+**Prevention:** Always initialize temp variables to `None` outside the `try` block, and perform `os.remove(tmp_name)` inside `except Exception:` (guarded by `FileNotFoundError`) to ensure resource cleanup before the exception handler exits.

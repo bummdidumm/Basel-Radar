@@ -44,16 +44,23 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     if size_bytes > _MAX_DOWNLOAD_BYTES:
         return None
     params = {"supportsAllDrives": True} if enable_shared_drives else {}
+    tmp_name = None
     try:
         request = drive_service.files().get_media(fileId=file_id, **params)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+            tmp_name = tmp.name
             downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
             done = False
             while not done:
                 _, done = downloader.next_chunk()
             tmp.flush()
-            return tmp.name
+            return tmp_name
     except Exception:
+        if tmp_name:
+            try:
+                os.remove(tmp_name)
+            except FileNotFoundError:
+                pass
         return None
 
 
