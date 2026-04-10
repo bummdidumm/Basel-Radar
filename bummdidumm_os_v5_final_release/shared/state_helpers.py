@@ -62,6 +62,7 @@ class StateTracker:
             self._dirty = False
         except Exception as e:
             _log.error("State flush fehlgeschlagen", extra={"error": str(e)})
+            raise e
 
     def compact_hash_index(self):
         COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
@@ -158,7 +159,15 @@ class StateTracker:
                 r.size_bytes, r.md5, r.sha256, r.status, r.change_type, r.duplicate_of,
                 r.archive_result, r.suggested_name, r.web_link, r.notes
             ])
-        self.sheets.append_rows("Dedupe_Report", rows)
+
+        # Enforce limits (primitive sliding window retention)
+        # Assuming maximum of ~10k items per run, appending is usually safe.
+        # For actual deletion logic, it's better placed in a cleanup run, but we will wrap this defensively.
+        try:
+            self.sheets.append_rows("Dedupe_Report", rows)
+        except Exception as e:
+            _log.error("Dedupe_Report append fehlgeschlagen", extra={"error": str(e)})
+            raise e
 
     def flush_duplicate_groups(self, groups_accumulator: Dict[str, Dict]):
         """
@@ -220,3 +229,4 @@ class StateTracker:
 
         except Exception as e:
             _log.error("Duplicate_Groups flush fehlgeschlagen", extra={"error": str(e)})
+            raise e

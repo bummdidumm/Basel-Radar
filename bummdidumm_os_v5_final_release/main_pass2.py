@@ -16,6 +16,11 @@ from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 from personal_brain.utils import sanitize_path
 from personal_brain.utils import PARSEABLE_EXTS as _PARSEABLE_EXTS, PARSEABLE_MIMES as _PARSEABLE_MIMES
+from personal_brain.utils import get_parseable_mime_type
+import zipfile
+import hashlib
+import logging
+from shared.log import get_logger
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -24,6 +29,9 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 # Set BRAIN_INDEX_ROOT to a path that survives restarts (e.g. a mounted volume or
 # a directory synced back to Drive). Defaults to a subdirectory next to this file.
 BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
+if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
+    # Fail fast if running in Cloud Run without persistent brain_index mapping
+    raise RuntimeError("BRAIN_INDEX_ROOT must be set explicitly when running in Cloud Run to avoid index ephemeral destruction.")
 
 
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
@@ -57,7 +65,6 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
             tmp.flush()
             return tmp_path
     except Exception as e:
-        import logging
         logging.debug(f"Failed to download drive file {file_id}: {e}")
         if tmp_path and os.path.exists(tmp_path):
             try:
@@ -113,14 +120,12 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
 
             # Recursive dispatch: if the detected content found parseable files inside a ZIP
             if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
-                import zipfile
                 with zipfile.ZipFile(local_path, "r") as z:
                     for zinfo in z.infolist():
                         if zinfo.is_dir() or zinfo.file_size > 50 * 1024 * 1024:
                             continue
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
-                            from personal_brain.utils import get_parseable_mime_type
                             sub_mime = get_parseable_mime_type(sub_ext)
                             sub_local_path = None
                             try:
@@ -142,8 +147,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 sub_content.setdefault("event_time_start", sub_event_time)
                                 sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
 
-                                import hashlib
-                                from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                                 canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
                                 sub_file_id = f"{rec.file_id}_{hashlib.sha256((rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
@@ -177,7 +180,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     "contains_media_refs": False,
                                 })
                             except Exception as e:
-                                import logging
                                 logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
                             finally:
                                 if sub_local_path and os.path.exists(sub_local_path):
@@ -250,7 +252,6 @@ def run_pass2():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
-    from shared.log import get_logger
     log = get_logger("pass2", run_id=state.run_id, phase="PASS_2")
     log.info("Pass 2 gestartet")
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
@@ -350,8 +351,8 @@ def run_pass2():
             if ENABLE_OCR and ocr.is_ocr_worthy(mime_type) and status == "ORIGINAL" and change_type in ["NEW", "UPDATED"] and ocr_calls_this_run < OCR_BUDGET_PER_RUN:
                 try:
                     ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
-                    ocr_calls_this_run += 1
                     if ocr_data:
+                        ocr_calls_this_run += 1
                         rec.ocr_doc_type = ocr_data.get("doc_type", "")
                         rec.ocr_amount = str(ocr_data.get("amount", "") or "")
                         rec.ocr_date = ocr_data.get("date", "")

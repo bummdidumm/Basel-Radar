@@ -27,7 +27,7 @@ def determine_change_type(f: dict, known_file_details: dict, is_initial: bool) -
     if file_id not in known_file_details:
         return "NEW"
 
-    cached = known_file_details[file_id]
+    cached = known_file_details.get(file_id, {})
 
     cached_name = cached.get("name")
     current_name = f.get("name")
@@ -81,7 +81,7 @@ def check_md5_size_prefilter(f: dict, known_file_details: dict) -> bool:
     current_md5 = f.get("md5Checksum")
     current_size = str(f.get("size", "0"))
 
-    cached = known_file_details[file_id]
+    cached = known_file_details.get(file_id, {})
     cached_md5 = cached.get("md5")
     cached_size = str(cached.get("size_bytes", "0"))
 

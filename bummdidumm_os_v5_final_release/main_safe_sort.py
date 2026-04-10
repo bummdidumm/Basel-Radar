@@ -53,6 +53,9 @@ def run_safe_sort():
     import logging
     semantic_hints = {}
     brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
+    if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
+        log.warning("BRAIN_INDEX_ROOT is not set in Cloud Run. Semantic hints will not be available or persisted correctly.")
+
     registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"
     if registry_path.exists():
         try:

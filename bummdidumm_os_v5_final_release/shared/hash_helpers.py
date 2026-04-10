@@ -47,5 +47,6 @@ def calculate_sha256_streaming(drive_service, file_id: str, mime_type: str, base
 
         return sink.sha.hexdigest(), export_source
     except Exception as e:
-        print(f"Hash error for {file_id}: {e}")
+        import logging
+        logging.getLogger("bummdidumm.hash").error("Hash error", extra={"file_id": file_id, "error": str(e)})
         return None, "Error"

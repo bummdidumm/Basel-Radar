@@ -50,6 +50,21 @@ def run_pass1():
     start_token = state.get_val("drive_start_page_token")
     in_progress_token = state.get_val("in_progress_page_token")
 
+    # GUARD: Prevent parallel runs overlapping logic
+    # Falls wir nicht gerade selbst aus dem Checkpoint resümiert haben (dann ist state.get_val("run_id") == self.run_id):
+    if state.get_val("current_phase") in ["INITIAL_SCAN", "DELTA_FETCH"]:
+        # check if it is stale > 1 hours, then we take over.
+        last_utc_str = state.get_val("last_run_utc")
+        if last_utc_str:
+            try:
+                last_t = datetime.fromisoformat(last_utc_str)
+                diff = (datetime.now(timezone.utc) - last_t).total_seconds()
+                if diff < 3600 and state.get_val("run_id") != state.run_id:
+                    log.warning("Parallel-Run Guard: Es läuft bereits ein Pass 1. Breche ab.")
+                    return
+            except ValueError:
+                pass
+
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
 
@@ -73,23 +88,25 @@ def run_pass1():
         if not start_token:
             log.info("Initialer Run: Walk über TARGET_FOLDER", extra={"folder_id": TARGET_FOLDER_ID})
             state.set_val("current_phase", "INITIAL_SCAN")
+            state.flush_state()
 
             new_start_page_token = drive_mgr.get_initial_token()
-            all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
-            files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-            _process_file_batch(
-                drive_service,
-                drive_mgr,
-                state,
-                files,
-                known_file_details,
-                True,
-                inbox_trash_folder_id,
-                folder_registry,
-                sha_to_primary_file_id,
+            # Setup the callback args
+            kwargs = {
+                "drive_service": drive_service,
+                "drive_mgr": drive_mgr,
+                "state": state,
+                "known_file_details": known_file_details,
+                "is_initial": True,
+                "inbox_trash_folder_id": inbox_trash_folder_id,
+                "folder_registry": folder_registry,
+                "sha_to_primary_file_id": sha_to_primary_file_id,
+            }
+
+            processed = drive_mgr.walk_recursive_chunked(
+                TARGET_FOLDER_ID, state, _process_file_batch_wrapper, kwargs
             )
-            processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
             state.flush_state()
@@ -157,6 +174,10 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
 
     _module_log.warning("01_inbox_trash nicht auflösbar")
     return ""
+
+
+def _process_file_batch_wrapper(files, **kwargs):
+    _process_file_batch(files=files, **kwargs)
 
 
 def _process_file_batch(

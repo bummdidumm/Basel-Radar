@@ -91,21 +91,21 @@ def run_apply_sort():
             # Flush periodically to not build up a massive array in memory,
             # but still benefit from batched update performance.
             if len(update_requests) >= 50:
-                sheet_mgr._execute_with_backoff(
-                    sheets_service.spreadsheets().values().batchUpdate(
+                def _batch_update_1():
+                    return sheets_service.spreadsheets().values().batchUpdate(
                         spreadsheetId=CONTROL_SHEET_ID,
                         body={"valueInputOption": "RAW", "data": update_requests}
-                    )
-                )
+                    ).execute()
+                sheet_mgr._execute_with_backoff(_batch_update_1)
                 update_requests = []
 
     if update_requests:
-        sheet_mgr._execute_with_backoff(
-            sheets_service.spreadsheets().values().batchUpdate(
+        def _batch_update_2():
+            return sheets_service.spreadsheets().values().batchUpdate(
                 spreadsheetId=CONTROL_SHEET_ID,
                 body={"valueInputOption": "RAW", "data": update_requests}
-            )
-        )
+            ).execute()
+        sheet_mgr._execute_with_backoff(_batch_update_2)
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")
