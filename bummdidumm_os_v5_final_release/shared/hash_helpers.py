@@ -47,6 +47,21 @@ def calculate_sha256_streaming(drive_service, file_id: str, mime_type: str, base
 
         return sink.sha.hexdigest(), export_source
     except Exception as e:
+        # Specifically catch HttpError or built-in OS/IO errors which might bubble up
+        from googleapiclient.errors import HttpError
         import logging
-        logging.getLogger("bummdidumm.hash").error("Hash error", extra={"file_id": file_id, "error": str(e)})
+
+        # Determine retryability for potential future implementation, or simply log cleaner errors
+        is_http_err = isinstance(e, HttpError)
+        status_code = getattr(getattr(e, 'resp', None), 'status', 'unknown') if is_http_err else 'N/A'
+
+        logging.getLogger("bummdidumm.hash").error(
+            "Hash calculation error",
+            extra={
+                "file_id": file_id,
+                "error": str(e),
+                "is_http_error": is_http_err,
+                "status_code": status_code
+            }
+        )
         return None, "Error"

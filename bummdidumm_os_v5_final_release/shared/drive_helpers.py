@@ -134,6 +134,8 @@ class DriveManager:
                 # Checkpointing
                 state.set_val("initial_scan_queue", ",".join(queue))
                 state.set_val("initial_scan_page_token", page_token or "")
+                # We do not strictly need to save the new start token here as it's fetched at the start of walk
+                # but if we wanted to, we could. The queue saves the progress anyway.
                 state.flush_state()
 
                 if not page_token:

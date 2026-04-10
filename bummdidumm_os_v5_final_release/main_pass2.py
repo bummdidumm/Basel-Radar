@@ -54,24 +54,35 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
         return None
     params = {"supportsAllDrives": True} if enable_shared_drives else {}
     tmp_path = None
-    try:
-        request = drive_service.files().get_media(fileId=file_id, **params)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
-            tmp_path = tmp.name
-            downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
-            tmp.flush()
-            return tmp_path
-    except Exception as e:
-        logging.debug(f"Failed to download drive file {file_id}: {e}")
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-        return None
+    for attempt in range(3):
+        try:
+            request = drive_service.files().get_media(fileId=file_id, **params)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+                tmp_path = tmp.name
+                downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+                tmp.flush()
+                return tmp_path
+        except Exception as e:
+            from googleapiclient.errors import HttpError
+            import time
+            is_http_err = isinstance(e, HttpError)
+            status_code = getattr(e.resp, 'status', 'unknown') if is_http_err else 'N/A'
+            if status_code in (429, 503, 500, 502) and attempt < 2:
+                logging.warning(f"Retrying transient download error {status_code} for {file_id}")
+                time.sleep((2 ** attempt) + 1)
+                continue
+
+            logging.debug(f"Failed to download drive file {file_id}: {e}")
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            return None
+    return None
 
 
 def _build_personal_brain_sources(records_to_index, drive_service, enable_shared_drives: bool) -> list[dict]:
