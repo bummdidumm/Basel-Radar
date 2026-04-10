@@ -52,6 +52,14 @@ def run_pass1():
 
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
+
+    # FIX: Duplicate-Hash-Lookup nur einmal pro Run aufbauen statt pro Batch neu.
+    sha_to_primary_file_id = {
+        meta.get("sha"): fid
+        for fid, meta in known_file_details.items()
+        if meta.get("sha")
+    }
+
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
     registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
@@ -70,7 +78,17 @@ def run_pass1():
             all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
             files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id, folder_registry)
+            _process_file_batch(
+                drive_service,
+                drive_mgr,
+                state,
+                files,
+                known_file_details,
+                True,
+                inbox_trash_folder_id,
+                folder_registry,
+                sha_to_primary_file_id,
+            )
             processed = len(files)
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -90,7 +108,17 @@ def run_pass1():
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id, folder_registry)
+                _process_file_batch(
+                    drive_service,
+                    drive_mgr,
+                    state,
+                    files,
+                    known_file_details,
+                    False,
+                    inbox_trash_folder_id,
+                    folder_registry,
+                    sha_to_primary_file_id,
+                )
                 processed += len(files)
 
                 if next_token:
@@ -131,13 +159,31 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     return ""
 
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str, folder_registry: dict = None):
+def _process_file_batch(
+    drive_service,
+    drive_mgr,
+    state,
+    files,
+    known_file_details,
+    is_initial,
+    inbox_trash_folder_id: str,
+    folder_registry: dict = None,
+    sha_to_primary_file_id: dict = None,
+):
     if folder_registry is None:
         folder_registry = {}
+
+    if sha_to_primary_file_id is None:
+        # FIX: Fallback für Tests / ältere Aufrufer, falls das Lookup nicht
+        # von run_pass1() vorab übergeben wurde.
+        sha_to_primary_file_id = {
+            meta.get("sha"): fid
+            for fid, meta in known_file_details.items()
+            if meta.get("sha")
+        }
+
     records_to_process = []
     duplicate_groups_accumulator = {}
-
-    sha_to_primary_file_id = {meta.get("sha"): fid for fid, meta in known_file_details.items() if meta.get("sha")}
 
     for f in files:
         file_id = f.get("id", "")
