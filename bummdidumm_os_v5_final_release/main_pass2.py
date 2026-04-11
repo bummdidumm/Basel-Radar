@@ -270,10 +270,10 @@ def run_pass2():
 
     state.set_val("current_phase", "PASS2_OCR_INDEXING")
 
-    current_run_id = state.get_val("last_successful_run_id")
+    current_run_id = state.get_val("ready_for_pass2_run_id")
 
     if not current_run_id:
-        state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Kein erfolgreicher Pass 1 gefunden.")
+        state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
         return
 
     # Load Knowledge Exclusions
@@ -458,6 +458,8 @@ def run_pass2():
         )
 
         state.set_val("current_phase", "PASS2_DONE")
+        # Clear coordination key indicating successful processing
+        state.set_val("ready_for_pass2_run_id", "")
         state.log_run("PASS_2", "SUCCESS", processed, errors)
 
     except Exception as e:

@@ -51,19 +51,30 @@ def run_pass1():
     in_progress_token = state.get_val("in_progress_page_token")
 
     # GUARD: Prevent parallel runs overlapping logic
-    # Falls wir nicht gerade selbst aus dem Checkpoint resümiert haben (dann ist state.get_val("run_id") == self.run_id):
-    if state.get_val("current_phase") in ["INITIAL_SCAN", "DELTA_FETCH"]:
+    # Difference between legitimate resume vs competing start:
+    # A legitimate resume occurs if state.run_id matches state.get_val("run_id").
+    # If not, another instance might still be processing. We must abort to prevent state corruption.
+    current_phase = state.get_val("current_phase")
+    existing_run_id = state.get_val("run_id")
+
+    if current_phase in ["INITIAL_SCAN", "DELTA_FETCH"] and existing_run_id and existing_run_id != state.run_id:
         # check if it is stale > 1 hours, then we take over.
         last_utc_str = state.get_val("last_run_utc")
+        is_stale = False
         if last_utc_str:
             try:
                 last_t = datetime.fromisoformat(last_utc_str)
                 diff = (datetime.now(timezone.utc) - last_t).total_seconds()
-                if diff < 3600 and state.get_val("run_id") != state.run_id:
-                    log.warning("Parallel-Run Guard: Es läuft bereits ein Pass 1. Breche ab.")
-                    return
+                if diff >= 3600:
+                    is_stale = True
             except ValueError:
                 pass
+
+        if not is_stale:
+            log.warning("Parallel-Run Guard: Es läuft bereits ein aktiver Pass 1 Lauf. Breche Start ab um Korruption zu vermeiden.", extra={"active_run": existing_run_id, "my_run": state.run_id})
+            return
+        else:
+            log.warning("Parallel-Run Guard: Stale Run erkannt (> 1h alt). Übernehme Ausführung.", extra={"stale_run": existing_run_id, "my_run": state.run_id})
 
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
@@ -151,6 +162,9 @@ def run_pass1():
 
         state.set_val("current_phase", "PASS1_DONE")
         state.set_val("last_successful_run_id", state.run_id)
+        # Coordinate handover to Pass 2 securely to avoid race conditions.
+        # Pass 2 should only pick up this run_id when explicitly signaled.
+        state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
@@ -264,17 +278,31 @@ def _process_file_batch(
         # identisch geblieben sind, wollen wir das Hashing überspringen.
         if change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (not is_initial and check_md5_size_prefilter(f, known_file_details)):
             rec.status = "UNCHANGED_CONTENT"
-            rec.sha256 = known_file_details[file_id].get("sha", "")
+            rec.sha256 = known_file_details.get(file_id, {}).get("sha", "")
 
             if rec.sha256 == "HASH_SKIPPED_SIZE":
                 rec.status = "SKIPPED_SIZE"
 
-            known_file_details[rec.file_id].update({
-                "name": rec.name,
-                "parent_ids_sorted": rec.parent_ids_sorted,
-                "path_display": rec.path_display,
-                "updated_at": rec.updated_at
-            })
+            # Check if file_id exists in cache before updating it.
+            # If it's UNCHANGED_CONTENT but somehow missing in cache, we seed it instead of throwing KeyError.
+            if file_id in known_file_details:
+                known_file_details[file_id].update({
+                    "name": rec.name,
+                    "parent_ids_sorted": rec.parent_ids_sorted,
+                    "path_display": rec.path_display,
+                    "updated_at": rec.updated_at
+                })
+            else:
+                known_file_details[file_id] = {
+                    "sha": rec.sha256,
+                    "name": rec.name,
+                    "parent_ids_sorted": rec.parent_ids_sorted,
+                    "path_display": rec.path_display,
+                    "updated_at": rec.updated_at,
+                    "size_bytes": rec.size_bytes,
+                    "md5": rec.md5,
+                    "effective_mime_type": rec.effective_mime_type
+                }
             records_to_process.append(rec)
             continue
 
