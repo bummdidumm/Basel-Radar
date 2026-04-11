@@ -1,0 +1,3 @@
+## 2024-04-11 - Use non-blocking notifications for script success states
+**Learning:** Google Apps Script success states (`startFullRun`, `startFastDeltaScan`, etc.) used blocking `alert()` popups which interrupt user workflow, whereas non-blocking `toast()` notifications provide a smoother, less intrusive UX for positive feedback, especially for asynchronous trigger jobs.
+**Action:** When updating Apps Script UIs with multiple entry points (menu actions), abstract repetitive result handling into a centralized helper function (`handleTriggerResult`) that uses `toast()` for success and `alert()` for errors.
