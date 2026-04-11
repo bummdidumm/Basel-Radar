@@ -272,8 +272,8 @@ def run_pass2():
 
             # Validiere, welche Records wir überhaupt an das AI-OS im JSONL weiterleiten.
             # Wir lassen "DUPLICATE" und "SKIPPED_SIZE" weg.
-            valid_statuses = ["ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS"]
-            if not any(status.startswith(s) for s in valid_statuses):
+            valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS")
+            if not status.startswith(valid_statuses):
                 continue
 
             rec = FileRecord(

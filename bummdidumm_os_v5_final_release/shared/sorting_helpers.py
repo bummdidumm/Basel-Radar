@@ -54,7 +54,7 @@ class SortingRules:
         elif mime.startswith("audio/"):
             key = "50c_audio"
             reason = "Prio 2: Audiodatei (Mime-Type)"
-        elif any(name.endswith(ext) for ext in [".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql"]):
+        elif name.endswith((".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql")):
             key = "30_scripts"
             reason = "Prio 3: Code/Skript (Dateiendung)"
         elif name.endswith(".md") and ("script" in path or "code" in path or "project" in path):
@@ -69,7 +69,7 @@ class SortingRules:
         elif any(marker in name for marker in ["decision", "entscheid", "adr", "architecture_decision"]):
             key = "10_decisions"
             reason = "Prio 6: Entscheidungs-Kontext im Namen"
-        elif any(name.endswith(ext) for ext in [".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z"]):
+        elif name.endswith((".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z")):
             key = "60_software"
             reason = "Prio 7: Software/Binärpaket (Dateiendung)"
         else:

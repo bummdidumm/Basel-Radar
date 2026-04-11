@@ -113,10 +113,10 @@ class StateTracker:
 
     def append_new_hashes(self, new_records: List[FileRecord]):
         rows = []
+        valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "SKIPPED_SIZE")
         for r in new_records:
-            valid_statuses = ["ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "SKIPPED_SIZE"]
 
-            if r.sha256 and any(r.status.startswith(s) for s in valid_statuses):
+            if r.sha256 and r.status.startswith(valid_statuses):
                 # Hash_Index: sha256, file_id, name, parent_ids_sorted, path_display, updated_at, size_bytes, md5, effective_mime_type
                 rows.append([
                     r.sha256, r.file_id, r.name, r.parent_ids_sorted, r.path_display,
