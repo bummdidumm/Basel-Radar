@@ -166,6 +166,8 @@ def run_pass1():
         # Pass 2 should only pick up this run_id when explicitly signaled.
         state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
+        state.compact_hash_index()
+        state.compact_reports()
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
     except Exception as e:

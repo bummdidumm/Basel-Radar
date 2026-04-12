@@ -83,6 +83,28 @@ class StateTracker:
         )
         _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
+    def compact_reports(self):
+        """Behält im Dedupe_Report, Run_Log und Error_Report nur die letzten N Runs."""
+        RETENTION_RUNS = int(os.environ.get("REPORT_RETENTION_RUNS", "30"))
+
+        for sheet_name in ("Run_Log", "Error_Report"):
+            try:
+                rows = self.sheets.read_all_rows(sheet_name, "A:G")
+                if len(rows) <= RETENTION_RUNS + 1:
+                    continue
+                keep = [rows[0]] + rows[-(RETENTION_RUNS):]  # Header + letzte N Zeilen
+                self.sheets._execute_with_backoff(
+                    self.sheets.sheets.spreadsheets().values().update(
+                        spreadsheetId=self.sheets.spreadsheet_id,
+                        range=f"{sheet_name}!A1",
+                        valueInputOption="RAW",
+                        body={"values": keep}
+                    )
+                )
+                _log.info(f"{sheet_name} kompaktiert", extra={"kept_rows": len(keep)})
+            except Exception as e:
+                _log.warning(f"{sheet_name} Kompaktierung fehlgeschlagen", extra={"error": str(e)})
+
     def load_known_hashes(self) -> Dict[str, dict]:
         """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""
         if self._known_hashes is not None:

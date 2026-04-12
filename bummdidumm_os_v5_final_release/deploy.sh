@@ -2,7 +2,8 @@
 set -euo pipefail
 
 : "${PROJECT_ID:?Bitte PROJECT_ID setzen}"
-TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
+: "${TARGET_FOLDER_ID:?Bitte TARGET_FOLDER_ID setzen (Google Drive Zielordner-ID)}"
+: "${BRAIN_INDEX_ROOT:?Bitte BRAIN_INDEX_ROOT setzen (z.B. /tmp/brain_index fuer ephemeren Betrieb)}"
 : "${ARCHIVE_FOLDER_ID:?Bitte ARCHIVE_FOLDER_ID setzen}"
 : "${INDEX_FOLDER_ID:?Bitte INDEX_FOLDER_ID setzen}"
 : "${CONTROL_SHEET_ID:?Bitte CONTROL_SHEET_ID setzen}"
@@ -10,12 +11,13 @@ TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 
 REGION="${REGION:-europe-west6}"
 SKIP_OVER_MB="${SKIP_OVER_MB:-500}"
-SA_EMAIL="${SA_EMAIL:-bummdidumm-runner@${PROJECT_ID}.iam.gserviceaccount.com}"
+: "${SA_EMAIL:?Bitte SA_EMAIL setzen (Service Account E-Mail, z.B. bummdidumm-runner@PROJECT_ID.iam.gserviceaccount.com)}"
 
 echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID"
 
 gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
   --source . \
+  --dockerfile Dockerfile.pass1 \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
   --set-env-vars="TARGET_FOLDER_ID=${TARGET_FOLDER_ID},ARCHIVE_FOLDER_ID=${ARCHIVE_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},SKIP_OVER_MB=${SKIP_OVER_MB}" \
@@ -24,26 +26,27 @@ gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
 
 gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --source . \
+  --dockerfile Dockerfile.pass2 \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN:-500}" \
+  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN:-500},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
   --command="python","main_pass2.py"
 
 gcloud run jobs deploy bummdidumm-apply-renames \
-  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --source . --dockerfile Dockerfile.renames --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=1800s \
   --command="python","main_apply_renames.py"
 
 gcloud run jobs deploy bummdidumm-safe-sort \
-  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --source . --dockerfile Dockerfile.safesort --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command="python","main_safe_sort.py"
 
 gcloud run jobs deploy bummdidumm-apply-sort \
-  --source . --region "$REGION" --service-account "$SA_EMAIL" \
+  --source . --dockerfile Dockerfile.applysort --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command="python","main_apply_sort.py"

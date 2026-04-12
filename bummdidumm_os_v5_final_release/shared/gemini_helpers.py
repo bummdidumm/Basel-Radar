@@ -31,8 +31,15 @@ _OCR_SYSTEM_PROMPT = (
 class GeminiOCR:
     def __init__(self, drive_service, enable_shared_drives: bool = True):
         self.drive = drive_service
-        self.client = genai.Client() if "GEMINI_API_KEY" in os.environ else None
         self.enable_shared_drives = enable_shared_drives
+        if "GEMINI_API_KEY" not in os.environ:
+            _log.warning(
+                "GEMINI_API_KEY nicht gesetzt. OCR wird vollständig übersprungen. "
+                "Bitte GEMINI_API_KEY als Umgebungsvariable setzen."
+            )
+            self.client = None
+        else:
+            self.client = genai.Client()
 
     @staticmethod
     def is_ocr_worthy(mime_type: str) -> bool:

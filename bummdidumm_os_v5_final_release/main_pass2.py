@@ -141,8 +141,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                             sub_local_path = None
                             try:
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
-                                    tf.write(z.read(zinfo))
                                     sub_local_path = tf.name
+                                    tf.write(z.read(zinfo))
 
                                 sanitized_name = sanitize_path(zinfo.filename)
                                 sub_detected = inspect_source(
