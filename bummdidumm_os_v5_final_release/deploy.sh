@@ -41,7 +41,7 @@ gcloud run jobs deploy bummdidumm-apply-renames \
 
 gcloud run jobs deploy bummdidumm-safe-sort \
   --source . --dockerfile Dockerfile.safesort --region "$REGION" --service-account "$SA_EMAIL" \
-  --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command="python","main_safe_sort.py"
 

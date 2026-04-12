@@ -88,6 +88,11 @@ def run_audit() -> bool:
         if must.lower() not in gh.lower():
             errors.append(f"Gemini Robustness fehlt: {must}")
 
+    dsh = _read(ROOT / "deploy.sh")
+    for must in ["BRAIN_INDEX_ROOT", "--dockerfile Dockerfile", "TARGET_FOLDER_ID:?"]:
+        if must not in dsh:
+            errors.append(f"Deploy-Skript Härtung fehlt: {must}")
+
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
     (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
