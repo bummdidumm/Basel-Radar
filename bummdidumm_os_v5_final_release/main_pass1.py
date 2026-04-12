@@ -2,6 +2,7 @@ import os
 from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
+import logging as _logging
 
 from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
@@ -9,6 +10,8 @@ from shared.drive_helpers import DriveManager
 from shared.hash_helpers import calculate_sha256_streaming
 from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
 from shared.models import FileRecord
+
+_module_log = _logging.getLogger("bummdidumm.pass1")
 
 TARGET_FOLDER_ID = os.environ.get("TARGET_FOLDER_ID", "")
 ARCHIVE_FOLDER_ID = os.environ.get("ARCHIVE_FOLDER_ID")
@@ -30,7 +33,6 @@ def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLU
     return f"{iso_date}_{project_slug}_{safe}"
 
 def run_pass1():
-    print("Starte Pass 1: Delta + Dedupe + Archivierung")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -40,13 +42,50 @@ def run_pass1():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("pass1", run_id=state.run_id, phase="PASS_1")
+    log.info("Pass 1 gestartet")
     drive_mgr = DriveManager(drive_service, TARGET_FOLDER_ID, ENABLE_SHARED_DRIVES)
 
     start_token = state.get_val("drive_start_page_token")
     in_progress_token = state.get_val("in_progress_page_token")
 
+    # GUARD: Prevent parallel runs overlapping logic
+    # Difference between legitimate resume vs competing start:
+    # A legitimate resume occurs if state.run_id matches state.get_val("run_id").
+    # If not, another instance might still be processing. We must abort to prevent state corruption.
+    current_phase = state.get_val("current_phase")
+    existing_run_id = state.get_val("run_id")
+
+    if current_phase in ["INITIAL_SCAN", "DELTA_FETCH"] and existing_run_id and existing_run_id != state.run_id:
+        # check if it is stale > 1 hours, then we take over.
+        last_utc_str = state.get_val("last_run_utc")
+        is_stale = False
+        if last_utc_str:
+            try:
+                last_t = datetime.fromisoformat(last_utc_str)
+                diff = (datetime.now(timezone.utc) - last_t).total_seconds()
+                if diff >= 3600:
+                    is_stale = True
+            except ValueError:
+                pass
+
+        if not is_stale:
+            log.warning("Parallel-Run Guard: Es läuft bereits ein aktiver Pass 1 Lauf. Breche Start ab um Korruption zu vermeiden.", extra={"active_run": existing_run_id, "my_run": state.run_id})
+            return
+        else:
+            log.warning("Parallel-Run Guard: Stale Run erkannt (> 1h alt). Übernehme Ausführung.", extra={"stale_run": existing_run_id, "my_run": state.run_id})
+
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
+
+    # FIX: Duplicate-Hash-Lookup nur einmal pro Run aufbauen statt pro Batch neu.
+    sha_to_primary_file_id = {
+        meta.get("sha"): fid
+        for fid, meta in known_file_details.items()
+        if meta.get("sha")
+    }
+
     inbox_trash_folder_id = _resolve_inbox_trash_folder_id(sheet_mgr)
 
     registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
@@ -58,15 +97,27 @@ def run_pass1():
 
     try:
         if not start_token:
-            print("Initialer Run: Führe kompletten Walk über TARGET_FOLDER durch.")
+            log.info("Initialer Run: Walk über TARGET_FOLDER", extra={"folder_id": TARGET_FOLDER_ID})
             state.set_val("current_phase", "INITIAL_SCAN")
+            state.flush_state()
 
             new_start_page_token = drive_mgr.get_initial_token()
-            all_items = drive_mgr.walk_recursive(TARGET_FOLDER_ID)
-            files = [f for f in all_items if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-            _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, True, inbox_trash_folder_id, folder_registry)
-            processed = len(files)
+            # Setup the callback args
+            kwargs = {
+                "drive_service": drive_service,
+                "drive_mgr": drive_mgr,
+                "state": state,
+                "known_file_details": known_file_details,
+                "is_initial": True,
+                "inbox_trash_folder_id": inbox_trash_folder_id,
+                "folder_registry": folder_registry,
+                "sha_to_primary_file_id": sha_to_primary_file_id,
+            }
+
+            processed = drive_mgr.walk_recursive_chunked(
+                TARGET_FOLDER_ID, state, _process_file_batch_wrapper, kwargs
+            )
 
             state.set_val("drive_start_page_token", new_start_page_token)
             state.flush_state()
@@ -81,11 +132,21 @@ def run_pass1():
             new_start_page_token = None
 
             while active_token:
-                print(f"Hole Delta Chunk: {active_token}")
+                log.debug("Delta Chunk", extra={"token": active_token})
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
 
-                _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, False, inbox_trash_folder_id, folder_registry)
+                _process_file_batch(
+                    drive_service,
+                    drive_mgr,
+                    state,
+                    files,
+                    known_file_details,
+                    False,
+                    inbox_trash_folder_id,
+                    folder_registry,
+                    sha_to_primary_file_id,
+                )
                 processed += len(files)
 
                 if next_token:
@@ -101,6 +162,9 @@ def run_pass1():
 
         state.set_val("current_phase", "PASS1_DONE")
         state.set_val("last_successful_run_id", state.run_id)
+        # Coordinate handover to Pass 2 securely to avoid race conditions.
+        # Pass 2 should only pick up this run_id when explicitly signaled.
+        state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
@@ -122,17 +186,39 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     except Exception:
         pass
 
-    print("WARN: 01_inbox_trash lane is conceptually expected but cannot be resolved from env or Folder_Registry.")
+    _module_log.warning("01_inbox_trash nicht auflösbar")
     return ""
 
 
-def _process_file_batch(drive_service, drive_mgr, state, files, known_file_details, is_initial, inbox_trash_folder_id: str, folder_registry: dict = None):
+def _process_file_batch_wrapper(files, **kwargs):
+    _process_file_batch(files=files, **kwargs)
+
+
+def _process_file_batch(
+    drive_service,
+    drive_mgr,
+    state,
+    files,
+    known_file_details,
+    is_initial,
+    inbox_trash_folder_id: str,
+    folder_registry: dict = None,
+    sha_to_primary_file_id: dict = None,
+):
     if folder_registry is None:
         folder_registry = {}
+
+    if sha_to_primary_file_id is None:
+        # FIX: Fallback für Tests / ältere Aufrufer, falls das Lookup nicht
+        # von run_pass1() vorab übergeben wurde.
+        sha_to_primary_file_id = {
+            meta.get("sha"): fid
+            for fid, meta in known_file_details.items()
+            if meta.get("sha")
+        }
+
     records_to_process = []
     duplicate_groups_accumulator = {}
-
-    sha_to_primary_file_id = {meta.get("sha"): fid for fid, meta in known_file_details.items() if meta.get("sha")}
 
     for f in files:
         file_id = f.get("id", "")
@@ -168,7 +254,15 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
             updated_at=f.get("modifiedTime", ""),
             created_time=f.get("createdTime", ""),
             web_link=f.get("webViewLink", ""),
-            parents=f.get("parents", [])
+            parents=f.get("parents", []),
+            description=f.get("description", ""),
+            starred=f.get("starred", False),
+            owner_email=(f.get("owners") or [{}])[0].get("emailAddress", ""),
+            owner_name=(f.get("owners") or [{}])[0].get("displayName", ""),
+            last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", ""),
+            can_edit=(f.get("capabilities") or {}).get("canEdit", True),
+            can_share=(f.get("capabilities") or {}).get("canShare", True),
+            can_download=(f.get("capabilities") or {}).get("canDownload", True)
         )
         rec.change_type = change_type
         rec.suggested_name = suggested_name
@@ -184,17 +278,31 @@ def _process_file_batch(drive_service, drive_mgr, state, files, known_file_detai
         # identisch geblieben sind, wollen wir das Hashing überspringen.
         if change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (not is_initial and check_md5_size_prefilter(f, known_file_details)):
             rec.status = "UNCHANGED_CONTENT"
-            rec.sha256 = known_file_details[file_id].get("sha", "")
+            rec.sha256 = known_file_details.get(file_id, {}).get("sha", "")
 
             if rec.sha256 == "HASH_SKIPPED_SIZE":
                 rec.status = "SKIPPED_SIZE"
 
-            known_file_details[rec.file_id].update({
-                "name": rec.name,
-                "parent_ids_sorted": rec.parent_ids_sorted,
-                "path_display": rec.path_display,
-                "updated_at": rec.updated_at
-            })
+            # Check if file_id exists in cache before updating it.
+            # If it's UNCHANGED_CONTENT but somehow missing in cache, we seed it instead of throwing KeyError.
+            if file_id in known_file_details:
+                known_file_details[file_id].update({
+                    "name": rec.name,
+                    "parent_ids_sorted": rec.parent_ids_sorted,
+                    "path_display": rec.path_display,
+                    "updated_at": rec.updated_at
+                })
+            else:
+                known_file_details[file_id] = {
+                    "sha": rec.sha256,
+                    "name": rec.name,
+                    "parent_ids_sorted": rec.parent_ids_sorted,
+                    "path_display": rec.path_display,
+                    "updated_at": rec.updated_at,
+                    "size_bytes": rec.size_bytes,
+                    "md5": rec.md5,
+                    "effective_mime_type": rec.effective_mime_type
+                }
             records_to_process.append(rec)
             continue
 

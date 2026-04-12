@@ -155,7 +155,7 @@ class JsonlWriter:
         # Custom merge logic for entities
         entity_path = self.published / "02_entity_index.jsonl"
         entity_path.parent.mkdir(parents=True, exist_ok=True)
-        merged_entities = self._read_existing(entity_path, "entity_id")
+        merged_entities: dict = self._read_existing(entity_path, "entity_id")
 
         for new_ent in entities:
             eid = new_ent["entity_id"]
@@ -190,6 +190,31 @@ class JsonlWriter:
             tmp_path.replace(target_path)
         return daily
 
+    def write_weekly_memory(self, _records: list[dict]) -> dict[str, dict]:
+        """Rebuild weekly memory from the full daily memory index."""
+        from .weekly_memory_builder import build_weekly_memory
+        daily_dir = self.daily_dir
+        daily_memories: dict[str, dict] = {}
+        if daily_dir.exists():
+            import json as _json
+            for f in daily_dir.glob("*.json"):
+                if f.is_file():
+                    try:
+                        daily_memories[f.stem] = _json.loads(f.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+        weekly = build_weekly_memory(daily_memories)
+        weekly_dir = self.published / "04_weekly_memory"
+        weekly_dir.mkdir(parents=True, exist_ok=True)
+        import json as _json
+        for week_key, payload in weekly.items():
+            target = weekly_dir / f"{week_key}.json"
+            tmp = target.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as wf:
+                _json.dump(payload, wf, ensure_ascii=False, indent=2)
+            tmp.replace(target)
+        return weekly
+
     def write_search_views(self, _records: list[dict]) -> dict[str, list[dict]]:
         """Rebuild all search views from the full merged record index."""
         all_records = self._load_full_records()
@@ -206,6 +231,11 @@ class JsonlWriter:
         self._write_jsonl(
             self.published / "12_search_views" / "llm_conversations.jsonl",
             views["llm_conversations.jsonl"],
+            "search_id",
+        )
+        self._write_jsonl(
+            self.published / "12_search_views" / "fulltext_index.jsonl",
+            views["fulltext_index.jsonl"],
             "search_id",
         )
         return views
@@ -284,7 +314,7 @@ class JsonlWriter:
         )
 
         # Build Master Output combining all data
-        master_output = {
+        master_output: dict = {
             "sources": sources,
             "records": records,
             "entities": entities,

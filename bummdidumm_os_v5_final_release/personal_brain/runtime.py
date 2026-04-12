@@ -16,7 +16,7 @@ class PersonalBrainRuntime:
         self.registry = ParserRegistry()
         self.writer = JsonlWriter(out_root)
 
-    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict = None) -> dict[str, int]:
+    def process_sources(self, sources: list[dict[str, Any]], exclusions: dict | None = None) -> dict[str, int]:
         if exclusions is None:
             exclusions = {}
         source_rows: dict[str, dict] = {}
@@ -59,6 +59,13 @@ class PersonalBrainRuntime:
                 (ent["entity_type"], ent["canonical_name"]): ent["entity_id"]
                 for ent in normalized_entities
             }
+
+            # Bidirektionales Entity-Record-Linking
+            # Alle Entity-IDs dieser Source den zugehörigen Records zuweisen
+            source_entity_ids = [ent["entity_id"] for ent in normalized_entities]
+            for rec in normalized_records:
+                rec["related_entity_ids"] = source_entity_ids
+
             for ent in normalized_entities:
                 entity_rows[ent["entity_id"]] = ent
 
@@ -82,6 +89,7 @@ class PersonalBrainRuntime:
 
         self.writer.write_source_record_entity_relation(source_list, record_list, entity_list, relation_list)
         self.writer.write_daily_memory(record_list)
+        self.writer.write_weekly_memory(record_list)
         views = self.writer.write_search_views(record_list)
         self.writer.write_reports()
 

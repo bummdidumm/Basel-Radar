@@ -15,7 +15,8 @@ class PerplexityExportParser(BaseParser):
     default_entity_type = "topic"
     match_tokens = ('perplexity',)
 
-    def can_handle(self, source_meta: dict, preview: dict) -> bool:
+    from personal_brain.parsers.base import SourcePreview
+    def can_handle(self, source_meta: dict, preview: SourcePreview) -> bool:
         name = source_meta.get("original_filename", "").lower()
         return "perplexity" in name
 

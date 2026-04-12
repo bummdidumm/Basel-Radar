@@ -16,6 +16,11 @@ from personal_brain.runtime import PersonalBrainRuntime
 from personal_brain.source_ingestion import inspect_source
 from personal_brain.utils import sanitize_path
 from personal_brain.utils import PARSEABLE_EXTS as _PARSEABLE_EXTS, PARSEABLE_MIMES as _PARSEABLE_MIMES
+from personal_brain.utils import get_parseable_mime_type
+import zipfile
+import hashlib
+import logging
+from shared.log import get_logger
 
 CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 INDEX_FOLDER_ID = os.environ.get("INDEX_FOLDER_ID")
@@ -24,9 +29,13 @@ PROJECT_SLUG = os.environ.get("PROJECT_SLUG", "bummdidumm")
 # Set BRAIN_INDEX_ROOT to a path that survives restarts (e.g. a mounted volume or
 # a directory synced back to Drive). Defaults to a subdirectory next to this file.
 BRAIN_INDEX_ROOT = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
+if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
+    # Fail fast if running in Cloud Run without persistent brain_index mapping
+    raise RuntimeError("BRAIN_INDEX_ROOT must be set explicitly when running in Cloud Run to avoid index ephemeral destruction.")
 
 
 ENABLE_OCR = os.environ.get("ENABLE_OCR", "true").lower() == "true"
+OCR_BUDGET_PER_RUN = int(os.environ.get("OCR_BUDGET_PER_RUN", "500"))
 ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() == "true"
 
 # Extensions and MIME types for which we attempt a real Drive download so the
@@ -44,17 +53,36 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     if size_bytes > _MAX_DOWNLOAD_BYTES:
         return None
     params = {"supportsAllDrives": True} if enable_shared_drives else {}
-    try:
-        request = drive_service.files().get_media(fileId=file_id, **params)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
-            downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
-            tmp.flush()
-            return tmp.name
-    except Exception:
-        return None
+    tmp_path = None
+    for attempt in range(3):
+        try:
+            request = drive_service.files().get_media(fileId=file_id, **params)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+                tmp_path = tmp.name
+                downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+                tmp.flush()
+                return tmp_path
+        except Exception as e:
+            from googleapiclient.errors import HttpError
+            import time
+            is_http_err = isinstance(e, HttpError)
+            status_code = getattr(e.resp, 'status', 'unknown') if is_http_err else 'N/A'
+            if status_code in (429, 503, 500, 502) and attempt < 2:
+                logging.warning(f"Retrying transient download error {status_code} for {file_id}")
+                time.sleep((2 ** attempt) + 1)
+                continue
+
+            logging.debug(f"Failed to download drive file {file_id}: {e}")
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            return None
+    return None
 
 
 def _build_personal_brain_sources(records_to_index, drive_service, enable_shared_drives: bool) -> list[dict]:
@@ -70,18 +98,32 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         mime = rec.effective_mime_type or rec.mime_type or ""
 
         local_path: str | None = None
-        if rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
-            local_path = _download_drive_file_to_tmp(
-                drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
-            )
-
+        detected = {}
         try:
-            detected = inspect_source(
-                source_path=local_path or rec.path_display or rec.name,
-                mime=mime,
-                ext=ext,
-                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
-            )
+            # Skip download if Drive reports file is not downloadable
+            if not rec.can_download:
+                detected = inspect_source(
+                    source_path=rec.path_display or rec.name,
+                    mime=mime, ext=ext,
+                    fallback_text=rec.ocr_summary or rec.notes or "",
+                )
+            elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
+                local_path = _download_drive_file_to_tmp(
+                    drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
+                )
+                detected = inspect_source(
+                    source_path=local_path or rec.path_display or rec.name,
+                    mime=mime,
+                    ext=ext,
+                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+                )
+            else:
+                detected = inspect_source(
+                    source_path=rec.path_display or rec.name,
+                    mime=mime,
+                    ext=ext,
+                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+                )
 
             # Fix leak of temp path in title
             if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
@@ -89,14 +131,12 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
 
             # Recursive dispatch: if the detected content found parseable files inside a ZIP
             if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
-                import zipfile
                 with zipfile.ZipFile(local_path, "r") as z:
                     for zinfo in z.infolist():
                         if zinfo.is_dir() or zinfo.file_size > 50 * 1024 * 1024:
                             continue
                         sub_ext = os.path.splitext(zinfo.filename)[1].lower()
                         if sub_ext in _PARSEABLE_EXTS:
-                            from personal_brain.utils import get_parseable_mime_type
                             sub_mime = get_parseable_mime_type(sub_ext)
                             sub_local_path = None
                             try:
@@ -118,8 +158,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                 sub_content.setdefault("event_time_start", sub_event_time)
                                 sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
 
-                                import hashlib
-                                from pathlib import Path
                                 sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                                 canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
                                 sub_file_id = f"{rec.file_id}_{hashlib.sha256((rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
@@ -153,7 +191,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                                     "contains_media_refs": False,
                                 })
                             except Exception as e:
-                                import logging
                                 logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
                             finally:
                                 if sub_local_path and os.path.exists(sub_local_path):
@@ -174,6 +211,14 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
         # (which is an internal delta status, not a meaningful topic).
         ocr_topic = rec.ocr_doc_type.strip() if rec.ocr_doc_type else ""
         content.setdefault("topics", [ocr_topic] if ocr_topic else [])
+        # OCR-extracted people/orgs → inject into content for Brain Index entity extraction
+        if rec.ocr_people:
+            content["people"] = list(dict.fromkeys(content.get("people", []) + rec.ocr_people))
+        if rec.ocr_organizations:
+            content["apps"] = list(dict.fromkeys(content.get("apps", []) + rec.ocr_organizations))
+        # Starred files → higher importance_score
+        if rec.starred:
+            content["importance_score"] = min(1.0, content.get("importance_score", 0.5) + 0.25)
         content.setdefault("url", rec.web_link or "")
 
         canonical_path = rec.path_display or rec.name
@@ -199,7 +244,7 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
             "is_export": detected.get("is_export", True),
             "is_bundle": detected.get("is_bundle", False),
             "is_archive": detected.get("is_archive", False),
-            "contains_pii": bool(rec.ocr_full_text),
+            "contains_pii": rec.ocr_sensitivity in ("medium", "high"),
             "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
             "contains_geo": "map" in (rec.path_display or "").lower(),
             "contains_financial": bool(rec.ocr_amount),
@@ -209,7 +254,6 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
 
 
 def run_pass2():
-    print("Starte Pass 2: OCR + Indexing")
     if not all([CONTROL_SHEET_ID, INDEX_FOLDER_ID]):
         raise ValueError("Missing CONTROL_SHEET_ID or INDEX_FOLDER_ID")
 
@@ -219,14 +263,17 @@ def run_pass2():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    log = get_logger("pass2", run_id=state.run_id, phase="PASS_2")
+    log.info("Pass 2 gestartet")
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
+    ocr_calls_this_run = 0
 
     state.set_val("current_phase", "PASS2_OCR_INDEXING")
 
-    current_run_id = state.get_val("last_successful_run_id")
+    current_run_id = state.get_val("ready_for_pass2_run_id")
 
     if not current_run_id:
-        state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Kein erfolgreicher Pass 1 gefunden.")
+        state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
         return
 
     # Load Knowledge Exclusions
@@ -242,7 +289,8 @@ def run_pass2():
     sorting_data = {}
     for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
         for s_row in sort_chunk:
-            if len(s_row) >= 12 and s_row[0] == current_run_id:
+            # FIX: Off-by-one-Grenze bei Sorting-Zeilen -> Zugriff auf Index 12 nur noch ab 13 Spalten.
+            if len(s_row) >= 13 and s_row[0] == current_run_id:
                 sorting_data[s_row[1]] = {
                     "current_parent_id": s_row[5],
                     "folder_rule": s_row[6],
@@ -311,17 +359,25 @@ def run_pass2():
 
             # ZWEI-PFADE ORCHESTRIERUNG FÜR PASS 2
             # Pfad A: OCR-pflichtige Originale
-            if ENABLE_OCR and status in ["ORIGINAL", "ORIGINAL_RESUMED"] and change_type in ["NEW", "UPDATED"]:
+            if ENABLE_OCR and ocr.is_ocr_worthy(mime_type) and status == "ORIGINAL" and change_type in ["NEW", "UPDATED"] and ocr_calls_this_run < OCR_BUDGET_PER_RUN:
                 try:
                     ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
                     if ocr_data:
+                        ocr_calls_this_run += 1
                         rec.ocr_doc_type = ocr_data.get("doc_type", "")
-                        rec.ocr_amount = str(ocr_data.get("amount", ""))
+                        rec.ocr_amount = str(ocr_data.get("amount", "") or "")
                         rec.ocr_date = ocr_data.get("date", "")
                         rec.ocr_vendor = ocr_data.get("vendor", "")
                         rec.ocr_summary = ocr_data.get("summary", "")
                         rec.ocr_full_text = ocr_data.get("full_text", "")
                         rec.effective_mime_type = effective_mime
+                        rec.ocr_people = ocr_data.get("people_mentioned", [])
+                        rec.ocr_organizations = ocr_data.get("organizations_mentioned", [])
+                        rec.ocr_sensitivity = ocr_data.get("sensitivity", "low")
+                        rec.ocr_is_readable = ocr_data.get("is_readable", True)
+                        rec.ocr_language = ocr_data.get("language", "")
+                        rec.ocr_currency = ocr_data.get("currency", "")
+                        rec.ocr_reference_number = ocr_data.get("reference_number", "")
                     else:
                         errors += 1
                         state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")
@@ -402,6 +458,8 @@ def run_pass2():
         )
 
         state.set_val("current_phase", "PASS2_DONE")
+        # Clear coordination key indicating successful processing
+        state.set_val("ready_for_pass2_run_id", "")
         state.log_run("PASS_2", "SUCCESS", processed, errors)
 
     except Exception as e:

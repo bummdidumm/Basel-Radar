@@ -19,13 +19,18 @@ jobs:
 
   personal-brain-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: python -m pip install --upgrade pip pytest
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip pytest pip-audit
       - run: pip install -r bummdidumm_os_v5_final_release/requirements.txt
+      - name: Security audit
+        run: pip-audit -r bummdidumm_os_v5_final_release/requirements.txt --skip-editable
       - run: python3 bummdidumm_os_v5_final_release/release_audit.py
       - run: PYTHONPATH=bummdidumm_os_v5_final_release pytest bummdidumm_os_v5_final_release/tests/ -q
 

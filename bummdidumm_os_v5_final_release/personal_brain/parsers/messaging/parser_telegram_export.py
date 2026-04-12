@@ -13,7 +13,8 @@ class TelegramExportParser(BaseParser):
     default_record_type = "message_event"
     match_tokens = ("telegram", "result.json")
 
-    def can_handle(self, source_meta: dict, preview: dict) -> bool:
+    from personal_brain.parsers.base import SourcePreview
+    def can_handle(self, source_meta: dict, preview: SourcePreview) -> bool:
         filename = source_meta.get("original_filename", "").lower()
         path = source_meta.get("source_path", "").lower()
         # Only match if "telegram" appears in filename or path
@@ -60,7 +61,7 @@ class TelegramExportParser(BaseParser):
 
         # Add Telegram app entity
         if ("app", "telegram") not in dedup:
-            ent = {"entity_type": "app", "canonical_name": "telegram", "display_name": "Telegram"}
+            ent: dict = {"entity_type": "app", "canonical_name": "telegram", "display_name": "Telegram"}
             dedup[("app", "telegram")] = ent
             entities.append(ent)
 
@@ -68,12 +69,12 @@ class TelegramExportParser(BaseParser):
             for person in record.get("people", []):
                 canon = person.lower()
                 if ("person", canon) not in dedup:
-                    ent = {
+                    person_ent: dict = {
                         "entity_type": "person",
                         "canonical_name": canon,
                         "display_name": person,
                         "importance_score": 0.8
                     }
-                    dedup[("person", canon)] = ent
-                    entities.append(ent)
+                    dedup[("person", canon)] = person_ent
+                    entities.append(person_ent)
         return list(dedup.values())

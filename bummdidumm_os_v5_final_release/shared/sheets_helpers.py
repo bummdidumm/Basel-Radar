@@ -1,6 +1,8 @@
 import time
 from typing import List, Any
 from googleapiclient.errors import HttpError
+from shared.log import get_logger as _get_logger
+_log = _get_logger("sheets", phase="SHARED")
 
 class SheetManager:
     """Provides base interactions with the Google Sheets API."""
@@ -31,9 +33,13 @@ class SheetManager:
                 return request_op.execute()
             except HttpError as e:
                 # 429 ist Quota Exceeded/Rate Limit
-                if e.resp.status == 429:
+                if e.resp.status == 429 or (
+                    e.resp.status == 403 and
+                    any(d.get("reason", "") in ("rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded")
+                        for d in (e.error_details or []))
+                ):
                     sleep_time = (2 ** attempt) + 1  # 1, 3, 5, 9, 17 Sekunden
-                    print(f"Sheets API Quota (429) erreicht. Backoff für {sleep_time}s... (Versuch {attempt+1}/{max_retries})")
+                    _log.warning("Sheets API rate limit", extra={"sleep_sec": sleep_time, "attempt": attempt + 1, "max": max_retries})
                     time.sleep(sleep_time)
                 else:
                     raise
@@ -70,7 +76,7 @@ class SheetManager:
                         body={"values": [header_row]}
                     ))
         except Exception as e:
-            print(f"Error initializing sheets: {e}")
+            _log.error("Sheets init fehlgeschlagen", extra={"error": str(e)})
 
     def append_rows(self, tab: str, rows: List[List[Any]]):
         if not rows:
@@ -91,7 +97,7 @@ class SheetManager:
             ))
             return res.get("values", [])
         except Exception as e:
-            print(f"WARN: read_all_rows({tab}) failed: {e}")
+            _log.warning("read_all_rows fehlgeschlagen", extra={"tab": tab, "error": str(e)})
             return []
 
     def read_rows_chunked(self, tab: str, chunk_size: int = 1000):
@@ -118,7 +124,7 @@ class SheetManager:
 
                 start_row += chunk_size
             except Exception as e:
-                print(f"Fehler bei chunked read ({range_str}): {e}")
+                _log.error("Chunked read fehlgeschlagen", extra={"range": range_str, "error": str(e)})
                 break
 
     def read_rows_chunked_with_row_numbers(self, tab: str, chunk_size: int = 1000):
@@ -142,5 +148,5 @@ class SheetManager:
                     break
                 start_row += chunk_size
             except Exception as e:
-                print(f"Fehler bei chunked read with row numbers ({range_str}): {e}")
+                _log.error("Chunked read with row numbers fehlgeschlagen", extra={"range": range_str, "error": str(e)})
                 break

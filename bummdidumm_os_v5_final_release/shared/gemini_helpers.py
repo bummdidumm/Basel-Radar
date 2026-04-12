@@ -7,6 +7,25 @@ from googleapiclient.http import MediaIoBaseDownload
 from google import genai
 from google.genai.errors import APIError
 from .models import ExtractedDocument
+from shared.log import get_logger as _get_logger
+_log = _get_logger("gemini", phase="SHARED")
+
+_OCR_WORTHY_MIMES = frozenset({
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/tiff",
+    "image/bmp", "image/heic", "image/heif",
+    "application/pdf",
+    "application/vnd.google-apps.document",
+})
+
+_OCR_SYSTEM_PROMPT = (
+    "Du bist ein Dokumenten-Analyse-Spezialist für einen persönlichen Wissens-Assistenten in der Schweiz.\n"
+    "Extrahiere ausschliesslich Informationen die explizit im Dokument vorhanden sind.\n"
+    "- Erfinde keine Werte. Falls ein Feld nicht vorhanden: null zurückgeben.\n"
+    "- Behalte originale Schreibweise für Namen, Beträge und Daten bei.\n"
+    "- Dokumente können auf Deutsch, Französisch, Englisch oder Italienisch sein.\n"
+    "- Währungen: CHF (Schweizer Franken), EUR, USD.\n"
+    "- Sensitivity high: Ausweise, Kontoauszüge, Verträge, medizinische Dokumente.\n"
+)
 
 
 class GeminiOCR:
@@ -14,6 +33,11 @@ class GeminiOCR:
         self.drive = drive_service
         self.client = genai.Client() if "GEMINI_API_KEY" in os.environ else None
         self.enable_shared_drives = enable_shared_drives
+
+    @staticmethod
+    def is_ocr_worthy(mime_type: str) -> bool:
+        """True wenn MIME-Type OCR-relevant. Verhindert API-Calls für Code/JSON/CSV."""
+        return mime_type in _OCR_WORTHY_MIMES or mime_type.startswith("image/")
 
     def _base_params(self) -> dict:
         return {"supportsAllDrives": True} if self.enable_shared_drives else {}
@@ -41,7 +65,7 @@ class GeminiOCR:
                 tmp.flush()
             return tmp_name, effective_mime
         except Exception as e:
-            print(f"Download for OCR failed: {e}")
+            _log.error("OCR Download fehlgeschlagen", extra={"error": str(e)})
             if tmp_name:
                 try:
                     os.remove(tmp_name)
@@ -58,7 +82,7 @@ class GeminiOCR:
     def extract_structured_data(self, file_id: str, mime_type: str) -> Tuple[Optional[dict], str]:
         if not self.client:
             return None, mime_type
-        if not (mime_type.startswith("image/") or mime_type == "application/pdf" or "document" in mime_type):
+        if not self.is_ocr_worthy(mime_type):
             return None, mime_type
 
         tmp_path, effective_mime = self._download_for_ocr(file_id, mime_type)
@@ -68,7 +92,7 @@ class GeminiOCR:
         gemini_file = None
         try:
             gemini_file = self.client.files.upload(file=tmp_path, mime_type=effective_mime)
-            prompt = "Bitte analysiere dieses Dokument und extrahiere die angeforderten strukturierten Daten."
+            prompt = "Analysiere dieses Dokument und extrahiere alle angeforderten strukturierten Felder."
 
             max_retries = 6
             for attempt in range(max_retries):
@@ -76,7 +100,12 @@ class GeminiOCR:
                     response = self.client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=[gemini_file, prompt],
-                        config={"response_mime_type": "application/json", "response_schema": ExtractedDocument}
+                        config={
+                            "system_instruction": _OCR_SYSTEM_PROMPT,
+                            "response_mime_type": "application/json",
+                            "response_schema": ExtractedDocument,
+                            "temperature": 0.1,
+                        }
                     )
                     if response.text:
                         return json.loads(response.text), effective_mime
@@ -84,17 +113,18 @@ class GeminiOCR:
                 except APIError as api_err:
                     if self._is_retryable(api_err):
                         sleep_time = min(120, (2 ** attempt) * 3)
-                        print(f"Gemini Quota/Rate Limit ({getattr(api_err, 'code', 'unknown')}). Backoff {sleep_time}s (Versuch {attempt+1}/{max_retries})")
+                        _log.warning("Gemini rate limit", extra={"code": getattr(api_err, "code", "unknown"), "sleep_sec": sleep_time, "attempt": attempt + 1})
                         time.sleep(sleep_time)
                         continue
-                    print(f"Gemini non-retryable API error for {file_id}: {api_err}")
+
+                    _log.error("Gemini non-retryable error", extra={"file_id": file_id, "error": str(api_err)})
                     raise
 
-            print(f"Gemini OCR retries exhausted for file {file_id}.")
+            _log.error("Gemini OCR retries exhausted", extra={"file_id": file_id})
             return None, effective_mime
 
         except Exception as e:
-            print(f"Gemini OCR Fehler für {file_id}: {e}")
+            _log.error("Gemini OCR exception", extra={"file_id": file_id, "error": str(e)})
             return None, effective_mime
         finally:
             try:
@@ -105,4 +135,4 @@ class GeminiOCR:
                 try:
                     self.client.files.delete(name=gemini_file.name)
                 except Exception as e:
-                    print(f"Warning: Failed to delete Gemini temp file {gemini_file.name}: {e}")
+                    _log.warning("Gemini temp file cleanup fehlgeschlagen", extra={"name": gemini_file.name, "error": str(e)})

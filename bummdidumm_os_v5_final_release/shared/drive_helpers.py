@@ -1,4 +1,6 @@
 from typing import List, Dict, Tuple, Optional
+from shared.log import get_logger as _get_logger
+_log = _get_logger("drive", phase="SHARED")
 
 class DriveManager:
     """Encapsulates Google Drive API interactions, caching, and filtering."""
@@ -17,7 +19,7 @@ class DriveManager:
             except HttpError as e:
                 if e.resp.status in (429, 500, 503):
                     sleep_time = (2 ** attempt) + 1
-                    print(f"Drive API {e.resp.status}. Backoff {sleep_time}s ({attempt+1}/5)")
+                    _log.warning("Drive API rate limit", extra={"status": e.resp.status, "sleep_sec": sleep_time, "attempt": attempt + 1})
                     time.sleep(sleep_time)
                 else:
                     raise
@@ -68,7 +70,7 @@ class DriveManager:
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
-    def get_parent_and_name_path(self, file_id: str, name: str, parents: List[str] = None) -> str:
+    def get_parent_and_name_path(self, file_id: str, name: str, parents: Optional[List[str]] = None) -> str:
         """
         Returns a descriptive pseudo-path consisting of the first parent ID and the file name.
         Allows for basic visual distinction in logs without executing costly tree-walks.
@@ -79,48 +81,78 @@ class DriveManager:
 
     def walk_recursive(self, folder_id: str) -> List[Dict]:
         """Performs initial recursive scan."""
-        records = []
-        queue = [folder_id]
+        return []  # Deprecated in favor of chunked processing in main_pass1
+
+    def walk_recursive_chunked(self, folder_id: str, state, process_batch_callback, batch_kwargs: dict):
+        """Performs initial recursive scan in bounded chunks to prevent timeout endloops."""
+        queue = state.get_val("initial_scan_queue")
+        if queue:
+            queue = queue.split(",")
+        else:
+            queue = [folder_id]
+
+        active_page_token = state.get_val("initial_scan_page_token") or None
+
+        total_processed = 0
 
         while queue:
             current = queue.pop(0)
-            page_token = None
+            page_token = active_page_token
 
             while True:
                 params = self._list_params()
                 if self.enable_shared_drives:
                     params["corpora"] = "allDrives"
 
-                # Empty TARGET_FOLDER_ID means "scan from root".
-                # Restricting query to root avoids listing all depths at once and
-                # prevents duplicate traversal when recursion is enabled.
                 query = f"'{current}' in parents and trashed = false" if current else "'root' in parents and trashed = false"
 
-                resp = self.drive.files().list(
-                    q=query,
-                    pageSize=1000,
-                    pageToken=page_token,
-                    fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink)",
-                    **params
-                ).execute()
+                def _do_list():
+                    return self.drive.files().list(
+                        q=query,
+                        pageSize=1000,
+                        pageToken=page_token,
+                        fields="nextPageToken, files(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload))",
+                        **params
+                    ).execute()
+
+                resp = self.execute_with_backoff(_do_list)
 
                 children = resp.get("files", [])
+                files = []
                 for item in children:
-                    records.append(item)
                     if item["mimeType"] == "application/vnd.google-apps.folder":
                         queue.append(item["id"])
+                    else:
+                        files.append(item)
+
+                if files:
+                    process_batch_callback(files, **batch_kwargs)
+                    total_processed += len(files)
 
                 page_token = resp.get("nextPageToken")
+
+                # Checkpointing
+                state.set_val("initial_scan_queue", ",".join(queue))
+                state.set_val("initial_scan_page_token", page_token or "")
+                # We do not strictly need to save the new start token here as it's fetched at the start of walk
+                # but if we wanted to, we could. The queue saves the progress anyway.
+                state.flush_state()
+
                 if not page_token:
                     break
 
-        return records
+            active_page_token = None # Reset for next folder
+
+        state.set_val("initial_scan_queue", "")
+        state.set_val("initial_scan_page_token", "")
+        state.flush_state()
+        return total_processed
 
     def fetch_delta_chunk(self, page_token: str) -> Tuple[List[Dict], Optional[str], Optional[str]]:
         params = self._list_params()
         params["pageToken"] = page_token
         params["spaces"] = "drive"
-        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink))"
+        params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload)))"
 
         res = self.drive.changes().list(**params).execute()
 
@@ -164,12 +196,16 @@ class DriveManager:
             return "DRY_RUN: NO_ARCHIVE_ID"
         try:
             params = self._base_params()
-            self.drive.files().update(
-                fileId=file_id,
-                addParents=archive_folder_id,
-                removeParents=",".join(parents),
-                **params
-            ).execute()
+            def _do_update():
+                return self.drive.files().update(
+                    fileId=file_id,
+                    addParents=archive_folder_id,
+                    removeParents=",".join(parents),
+                    **params
+                ).execute()
+            self.execute_with_backoff(_do_update)
+            import time
+            time.sleep(0.5)  # Throttle to avoid aggressive 429
             return "SUCCESS"
         except Exception as e:
             return f"FAILED:{str(e)[:50]}"

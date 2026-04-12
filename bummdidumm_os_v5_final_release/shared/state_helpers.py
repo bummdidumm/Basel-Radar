@@ -1,16 +1,18 @@
 from datetime import datetime, timezone
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from .sheets_helpers import SheetManager
 from .models import FileRecord
+from shared.log import get_logger as _get_logger
+_log = _get_logger("state", phase="SHARED")
 
 class StateTracker:
     def __init__(self, sheets_manager: SheetManager):
         self.sheets = sheets_manager
         self.run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
-        self._state_cache = {}
-        self._known_hashes = None
+        self._state_cache: dict[str, str] = {}
+        self._known_hashes: Optional[Dict[str, dict[str, Any]]] = None
         self._dirty = False
 
         self.sheets.initialize_headers()
@@ -59,14 +61,15 @@ class StateTracker:
             ).execute()
             self._dirty = False
         except Exception as e:
-            print(f"Failed to save state to sheet: {e}")
+            _log.error("State flush fehlgeschlagen", extra={"error": str(e)})
+            raise e
 
     def compact_hash_index(self):
         COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
         known = self.load_known_hashes()
         if len(known) < COMPACT_THRESHOLD:
             return
-        print(f"Kompaktiere Hash_Index ({len(known)} Einträge)...")
+        _log.info("Hash_Index Kompaktierung gestartet", extra={"entries": len(known)})
         rows = [["sha256","file_id","name","parent_ids_sorted","path_display","updated_at","size_bytes","md5","effective_mime_type"]]
         for fid, meta in known.items():
             rows.append([meta.get("sha",""), fid, meta.get("name",""), meta.get("parent_ids_sorted",""),
@@ -78,7 +81,7 @@ class StateTracker:
                 range="Hash_Index!A1", valueInputOption="RAW", body={"values": rows}
             )
         )
-        print(f"Hash_Index kompaktiert auf {len(known)} Einträge.")
+        _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
     def load_known_hashes(self) -> Dict[str, dict]:
         """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""
@@ -156,7 +159,15 @@ class StateTracker:
                 r.size_bytes, r.md5, r.sha256, r.status, r.change_type, r.duplicate_of,
                 r.archive_result, r.suggested_name, r.web_link, r.notes
             ])
-        self.sheets.append_rows("Dedupe_Report", rows)
+
+        # Enforce limits (primitive sliding window retention)
+        # Assuming maximum of ~10k items per run, appending is usually safe.
+        # For actual deletion logic, it's better placed in a cleanup run, but we will wrap this defensively.
+        try:
+            self.sheets.append_rows("Dedupe_Report", rows)
+        except Exception as e:
+            _log.error("Dedupe_Report append fehlgeschlagen", extra={"error": str(e)})
+            raise e
 
     def flush_duplicate_groups(self, groups_accumulator: Dict[str, Dict]):
         """
@@ -172,7 +183,7 @@ class StateTracker:
             rows = self.sheets.read_all_rows("Duplicate_Groups", "A:D")
 
             # 2. Build index of existing shas to row_index (1-based)
-            existing_index = {}
+            existing_index: dict[str, dict[str, Any]] = {}
             for i, row in enumerate(rows):
                 if len(row) >= 3:
                     existing_index[row[0]] = {
@@ -217,4 +228,5 @@ class StateTracker:
                 self.sheets.append_rows("Duplicate_Groups", appends)
 
         except Exception as e:
-            print(f"Error flushing Duplicate_Groups: {e}")
+            _log.error("Duplicate_Groups flush fehlgeschlagen", extra={"error": str(e)})
+            raise e

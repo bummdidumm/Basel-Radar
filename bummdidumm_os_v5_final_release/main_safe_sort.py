@@ -11,7 +11,6 @@ CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 
 
 def run_safe_sort():
-    print("Starte Safe Mode: Generiere Sortier-Vorschläge")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -20,6 +19,9 @@ def run_safe_sort():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("safe_sort", phase="SAFE_SORT")
+    log.info("Safe Sort gestartet")
 
     folder_registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
     folder_registry = {}
@@ -51,6 +53,9 @@ def run_safe_sort():
     import logging
     semantic_hints = {}
     brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
+    if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
+        log.warning("BRAIN_INDEX_ROOT is not set in Cloud Run. Semantic hints will not be available or persisted correctly.")
+
     registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"
     if registry_path.exists():
         try:
@@ -132,7 +137,7 @@ def run_safe_sort():
             suggestions = []
 
     state.log_run("SAFE_SORT", "SUCCESS", processed, errors)
-    print(f"Safe Sort beendet. {processed} Vorschläge generiert.")
+    log.info("Safe Sort beendet", extra={"processed": processed})
 
 
 if __name__ == "__main__":

@@ -1,5 +1,9 @@
 // Control Plane für bummdidumm-OS V5
-const REGION = "us-central1";
+
+function getRegion() {
+  const props = PropertiesService.getScriptProperties();
+  return props.getProperty("REGION") || "europe-west6";
+}
 
 function getProjectId() {
   const props = PropertiesService.getScriptProperties();
@@ -10,7 +14,8 @@ function getProjectId() {
 
 function triggerJob(jobName) {
   const projectId = getProjectId();
-  const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${REGION}/jobs/${jobName}:run`;
+  const region = getRegion();
+  const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/jobs/${jobName}:run`;
   const res = UrlFetchApp.fetch(url, {
     method: "post",
     contentType: "application/json",
@@ -147,11 +152,17 @@ function autoCleanupTransientFolder() {
   }
 }
 
-function startFastDeltaScan() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass1-delta-dedupe").msg); }
-function startOcrIndexing() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass2-ocr-index").msg); }
-function startApplyRenames() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-renames").msg); }
-function startSafeSort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-safe-sort").msg); }
-function startApplySort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-sort").msg); }
+function handleJobAlert(jobName) {
+  const res = triggerJob(jobName);
+  if (res.success) SpreadsheetApp.getActiveSpreadsheet().toast(res.msg, "bummdidumm", 5);
+  else SpreadsheetApp.getUi().alert(res.msg);
+}
+
+function startFastDeltaScan() { handleJobAlert("bummdidumm-pass1-delta-dedupe"); }
+function startOcrIndexing() { handleJobAlert("bummdidumm-pass2-ocr-index"); }
+function startApplyRenames() { handleJobAlert("bummdidumm-apply-renames"); }
+function startSafeSort() { handleJobAlert("bummdidumm-safe-sort"); }
+function startApplySort() { handleJobAlert("bummdidumm-apply-sort"); }
 
 function startFullRun() {
   const res = triggerJob("bummdidumm-pass1-delta-dedupe");
@@ -163,7 +174,7 @@ function startFullRun() {
   props.setProperty("FULL_RUN_RUN_ID", "run_" + new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14));
   props.setProperty("FULL_RUN_PHASE", "WAITING_FOR_PASS1");
   ensurePollingTrigger();
-  SpreadsheetApp.getUi().alert("✅ Kompletter Lauf gestartet.");
+  SpreadsheetApp.getActiveSpreadsheet().toast("✅ Kompletter Lauf gestartet.", "bummdidumm", 5);
 }
 
 function clearErrorReports() {

@@ -2,12 +2,20 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 class ExtractedDocument(BaseModel):
-    doc_type: str = Field(description="Art des Dokuments (z.B. Rechnung, Brief, Foto, Vertrag, Sonstiges)")
-    amount: Optional[float] = Field(description="Ein erkannter Rechnungs- oder Gesamtbetrag, falls vorhanden")
-    date: Optional[str] = Field(description="Das Beleg- oder Erstelldatum im ISO Format YYYY-MM-DD")
-    vendor: Optional[str] = Field(description="Der Name des Absenders, Händlers oder Ausstellers")
-    summary: str = Field(description="Eine kurze, prägnante Zusammenfassung des Inhalts (1-3 Sätze)")
-    full_text: Optional[str] = Field(description="Der vollständige extrahierte Text aus dem Dokument")
+    doc_type: str = Field(description="Art des Dokuments: Rechnung, Vertrag, Brief, Foto, Ausweis, Quittung, Versicherung, Kontoauszug, Sonstiges")
+    language: str = Field(default="de", description="Hauptsprache: de, fr, en, it")
+    amount: Optional[float] = Field(default=None, description="Rechnungs- oder Gesamtbetrag falls vorhanden")
+    currency: Optional[str] = Field(default=None, description="Währung: CHF, EUR, USD")
+    date: Optional[str] = Field(default=None, description="Hauptdatum im ISO Format YYYY-MM-DD")
+    vendor: Optional[str] = Field(default=None, description="Absender, Händler oder Aussteller")
+    recipient: Optional[str] = Field(default=None, description="Empfänger falls vorhanden")
+    people_mentioned: List[str] = Field(default_factory=list, description="Alle genannten Personen-Namen")
+    organizations_mentioned: List[str] = Field(default_factory=list, description="Alle genannten Firmen/Organisationen")
+    reference_number: Optional[str] = Field(default=None, description="Referenznummer, Bestellnummer, Vertragsnummer")
+    is_readable: bool = Field(default=True, description="False wenn Dokument unleserlich oder leer")
+    sensitivity: str = Field(default="low", description="low / medium / high — high bei Ausweis, Kontoauszug, medizinischen Dokumenten")
+    summary: str = Field(description="1-3 Sätze Zusammenfassung")
+    full_text: Optional[str] = Field(default=None, description="Vollständiger extrahierter Text")
 
 class FileRecord(BaseModel):
     """Internal model holding all state for a single file through the pipeline."""
@@ -46,10 +54,27 @@ class FileRecord(BaseModel):
     parents: List[str] = []
     export_source: str = ""
 
-    # OCR properties
+    # OCR properties (erweitert)
     ocr_doc_type: str = ""
     ocr_amount: str = ""
     ocr_date: str = ""
     ocr_vendor: str = ""
     ocr_summary: str = ""
     ocr_full_text: str = ""
+    ocr_people: List[str] = []
+    ocr_organizations: List[str] = []
+    ocr_sensitivity: str = "low"
+    ocr_is_readable: bool = True
+    ocr_language: str = ""
+    ocr_currency: str = ""
+    ocr_reference_number: str = ""
+
+    # Drive metadata (erweitert)
+    description: str = ""
+    starred: bool = False
+    owner_email: str = ""
+    owner_name: str = ""
+    last_modified_by_email: str = ""
+    can_edit: bool = True
+    can_share: bool = True
+    can_download: bool = True

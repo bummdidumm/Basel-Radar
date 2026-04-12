@@ -13,7 +13,8 @@ class GoogleContactsParser(BaseParser):
     default_record_type = "contacts_export"
     match_tokens = ("contacts", "google")
 
-    def can_handle(self, source_meta: dict, preview: dict) -> bool:
+    from personal_brain.parsers.base import SourcePreview
+    def can_handle(self, source_meta: dict, preview: SourcePreview) -> bool:
         if "contacts" in source_meta.get("original_filename", "").lower():
             return True
         return False

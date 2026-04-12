@@ -10,7 +10,6 @@ ENABLE_SHARED_DRIVES = os.environ.get("ENABLE_SHARED_DRIVES", "true").lower() ==
 
 
 def run_apply_sort():
-    print("Starte Apply Mode: Führe sichere Sortiervorschläge aus")
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -23,6 +22,9 @@ def run_apply_sort():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    from shared.log import get_logger
+    log = get_logger("apply_sort", phase="APPLY_SORT")
+    log.info("Apply Sort gestartet")
 
     state.set_val("current_phase", "APPLY_SORT")
     current_run_id = state.get_val("last_successful_run_id")
@@ -89,25 +91,25 @@ def run_apply_sort():
             # Flush periodically to not build up a massive array in memory,
             # but still benefit from batched update performance.
             if len(update_requests) >= 50:
-                sheet_mgr._execute_with_backoff(
-                    sheets_service.spreadsheets().values().batchUpdate(
+                def _batch_update_1():
+                    return sheets_service.spreadsheets().values().batchUpdate(
                         spreadsheetId=CONTROL_SHEET_ID,
                         body={"valueInputOption": "RAW", "data": update_requests}
-                    )
-                )
+                    ).execute()
+                sheet_mgr._execute_with_backoff(_batch_update_1)
                 update_requests = []
 
     if update_requests:
-        sheet_mgr._execute_with_backoff(
-            sheets_service.spreadsheets().values().batchUpdate(
+        def _batch_update_2():
+            return sheets_service.spreadsheets().values().batchUpdate(
                 spreadsheetId=CONTROL_SHEET_ID,
                 body={"valueInputOption": "RAW", "data": update_requests}
-            )
-        )
+            ).execute()
+        sheet_mgr._execute_with_backoff(_batch_update_2)
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")
-    print(f"Apply Sort beendet. {processed} Dateien verschoben.")
+    log.info("Apply Sort beendet", extra={"processed": processed, "errors": errors})
 
 
 if __name__ == "__main__":
