@@ -147,11 +147,19 @@ function autoCleanupTransientFolder() {
   }
 }
 
-function startFastDeltaScan() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass1-delta-dedupe").msg); }
-function startOcrIndexing() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-pass2-ocr-index").msg); }
-function startApplyRenames() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-renames").msg); }
-function startSafeSort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-safe-sort").msg); }
-function startApplySort() { SpreadsheetApp.getUi().alert(triggerJob("bummdidumm-apply-sort").msg); }
+function handleTriggerResult(res) {
+  if (res.success) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(res.msg);
+  } else {
+    SpreadsheetApp.getUi().alert(res.msg);
+  }
+}
+
+function startFastDeltaScan() { handleTriggerResult(triggerJob("bummdidumm-pass1-delta-dedupe")); }
+function startOcrIndexing() { handleTriggerResult(triggerJob("bummdidumm-pass2-ocr-index")); }
+function startApplyRenames() { handleTriggerResult(triggerJob("bummdidumm-apply-renames")); }
+function startSafeSort() { handleTriggerResult(triggerJob("bummdidumm-safe-sort")); }
+function startApplySort() { handleTriggerResult(triggerJob("bummdidumm-apply-sort")); }
 
 function startFullRun() {
   const res = triggerJob("bummdidumm-pass1-delta-dedupe");
@@ -163,7 +171,7 @@ function startFullRun() {
   props.setProperty("FULL_RUN_RUN_ID", "run_" + new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14));
   props.setProperty("FULL_RUN_PHASE", "WAITING_FOR_PASS1");
   ensurePollingTrigger();
-  SpreadsheetApp.getUi().alert("✅ Kompletter Lauf gestartet.");
+  SpreadsheetApp.getActiveSpreadsheet().toast("✅ Kompletter Lauf gestartet.");
 }
 
 function clearErrorReports() {
