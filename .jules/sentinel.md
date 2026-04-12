@@ -1,0 +1,4 @@
+## 2026-04-12 - Prevent Disk Exhaustion via Temporary File Leaks
+**Vulnerability:** The `_download_drive_file_to_tmp` and zip extraction loops used `tempfile.NamedTemporaryFile(delete=False)` but lacked robust cleanup logic in exception blocks. Network failures during Google Drive API downloads or invalid zip structures could trigger exceptions, leaving temporary files orphaned on disk and leading to a DoS via disk exhaustion over time.
+**Learning:** When using `delete=False` in long-running jobs (especially those fetching external data), the `finally:` block or an equivalent `except:` catch-all must *always* remove the file. Assignments to the path variable tracking the temp file must occur *before* any operation that could throw an exception.
+**Prevention:** Always structure temp file creations such that the path reference is obtained immediately and cleanup uses `os.path.exists()` checks inside the outermost `except Exception` or `finally` handlers.

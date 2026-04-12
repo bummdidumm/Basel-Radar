@@ -44,9 +44,11 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     if size_bytes > _MAX_DOWNLOAD_BYTES:
         return None
     params = {"supportsAllDrives": True} if enable_shared_drives else {}
+    tmp_path = None
     try:
         request = drive_service.files().get_media(fileId=file_id, **params)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as tmp:
+            tmp_path = tmp.name
             downloader = MediaIoBaseDownload(tmp, request, chunksize=4 * 1024 * 1024)
             done = False
             while not done:
@@ -54,6 +56,11 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
             tmp.flush()
             return tmp.name
     except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
         return None
 
 
@@ -101,8 +108,8 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
                             sub_local_path = None
                             try:
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
-                                    tf.write(z.read(zinfo))
                                     sub_local_path = tf.name
+                                    tf.write(z.read(zinfo))
 
                                 sanitized_name = sanitize_path(zinfo.filename)
                                 sub_detected = inspect_source(
