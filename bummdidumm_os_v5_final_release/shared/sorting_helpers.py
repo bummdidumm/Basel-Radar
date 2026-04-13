@@ -11,6 +11,7 @@ class SortingRules:
 
     def resolve_target(self, folder_key: str) -> Tuple[str, str, str]:
         entry = self.folder_registry.get(folder_key, {})
+        # Note: entry also contains 'parent_folder_id' per registry schema
         return (
             entry.get("folder_name", folder_key),
             entry.get("folder_id", ""),

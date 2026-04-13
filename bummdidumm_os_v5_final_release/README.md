@@ -23,6 +23,13 @@ chmod +x deploy.sh
 PROJECT_ID=... TARGET_FOLDER_ID=... BRAIN_INDEX_ROOT=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CONTROL_SHEET_ID=... GEMINI_API_KEY=... ./deploy.sh
 ```
 
+## Lokale Entwicklung
+Um alle Abhängigkeiten konsistent zu installieren, verwende das Lockfile:
+```bash
+pip install -r bummdidumm_os_v5_final_release/requirements.lock
+```
+(Die `requirements.txt` dient als Quelldatei für pip-tools).
+
 ## Laufmodi
 
 ### Implemented Now (Current Release)

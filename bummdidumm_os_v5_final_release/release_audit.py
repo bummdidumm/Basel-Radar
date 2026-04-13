@@ -93,6 +93,13 @@ def run_audit() -> bool:
         if must not in dsh:
             errors.append(f"Deploy-Skript Härtung fehlt: {must}")
 
+    req_txt = _read(ROOT / "requirements.txt")
+    req_lock = _read(ROOT / "requirements.lock")
+    if not req_txt or not req_lock:
+        errors.append("requirements.txt oder requirements.lock fehlt")
+    if "google-genai" not in req_lock or "google-api-python-client" not in req_lock:
+        errors.append("requirements.lock scheint ungültig oder unvollständig")
+
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
     (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
