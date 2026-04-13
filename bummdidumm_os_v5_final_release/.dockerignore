@@ -1,0 +1,9 @@
+tests/
+*.md
+release_audit.json
+SELF_AUDIT.md
+Dockerfile.*
+*.sh
+__pycache__/
+*.pyc
+.env

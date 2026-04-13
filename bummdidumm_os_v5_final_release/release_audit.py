@@ -93,6 +93,21 @@ def run_audit() -> bool:
         if must not in dsh:
             errors.append(f"Deploy-Skript Härtung fehlt: {must}")
 
+    readme = _read(ROOT / "README.md")
+    if "main_pass3_embed_prep.py" in readme and not (ROOT / "main_pass3_embed_prep.py").exists():
+        errors.append("README referenziert main_pass3_embed_prep.py, aber die Datei existiert nicht im Release-Root")
+
+    ci = _read(Path(".github") / "workflows" / "personal-brain-gates.yml")
+    if ci and "requirements.lock" not in ci:
+        errors.append("CI nutzt requirements.lock nicht")
+
+    if not (ROOT / ".dockerignore").is_file():
+        errors.append(".dockerignore fehlt im Release-Verzeichnis")
+
+    p1 = _read(ROOT / "main_pass1.py")
+    if "compact_hash_index()" not in p1 or "compact_reports()" not in p1:
+        errors.append("Compaction ist nicht im Hauptpfad von Pass 1 verdrahtet")
+
     req_txt = _read(ROOT / "requirements.txt")
     req_lock = _read(ROOT / "requirements.lock")
     if not req_txt or not req_lock:
