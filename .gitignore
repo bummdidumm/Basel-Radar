@@ -7,3 +7,4 @@ debug_gemini_day_scan/
 *.log
 .DS_Store
 *.zip
+node_modules/
