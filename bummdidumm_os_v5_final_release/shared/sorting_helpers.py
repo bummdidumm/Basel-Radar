@@ -1,5 +1,18 @@
 from typing import Dict, Tuple
 
+# ⚡ Bolt Optimization: Hoist static sets and tuples to module level
+# Prevents redundant object creation and memory allocation on every iteration of determine_target.
+_FINANCIAL_HINTS = frozenset({
+    "invoice", "rechnung", "receipt", "quittung", "beleg",
+    "contract", "vertrag", "bank_statement", "kontoauszug",
+    "mahnung", "lieferschein", "delivery_note"
+})
+
+_PROJECT_MARKERS = ("projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os")
+_DECISION_MARKERS = ("decision", "entscheid", "adr", "architecture_decision")
+_SOFTWARE_EXTS = (".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z")
+_SCRIPT_EXTS = (".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql")
+
 class SortingRules:
     """Sortierregeln + Registry-Navigation für folder-aware Zielermittlung."""
 
@@ -27,12 +40,6 @@ class SortingRules:
         current_parent_id = file_meta.get("current_parent_id", "")
         semantic_topic_hint = file_meta.get("semantic_topic_hint", "").lower()
 
-        _FINANCIAL_HINTS = frozenset({
-            "invoice", "rechnung", "receipt", "quittung", "beleg",
-            "contract", "vertrag", "bank_statement", "kontoauszug",
-            "mahnung", "lieferschein", "delivery_note"
-        })
-
         if lane == "INBOX_TRASH" or (self.inbox_trash_folder_id and current_parent_id == self.inbox_trash_folder_id):
             key = "01_inbox_trash"
             reason = "Prio 0: Inbox Trash Lane"
@@ -54,7 +61,7 @@ class SortingRules:
         elif mime.startswith("audio/"):
             key = "50c_audio"
             reason = "Prio 2: Audiodatei (Mime-Type)"
-        elif name.endswith((".py", ".js", ".ts", ".gs", ".ipynb", ".sh", ".yaml", ".yml", ".json", ".sql")):
+        elif name.endswith(_SCRIPT_EXTS):
             key = "30_scripts"
             reason = "Prio 3: Code/Skript (Dateiendung)"
         elif name.endswith(".md") and ("script" in path or "code" in path or "project" in path):
@@ -63,13 +70,13 @@ class SortingRules:
         elif mime == "application/pdf":
             key = "40b_referenzen"
             reason = "Prio 4: PDF Dokument"
-        elif any(marker in name or marker in path for marker in ["projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os"]):
+        elif any(marker in name or marker in path for marker in _PROJECT_MARKERS):
             key = "40c_projekte"
             reason = "Prio 5: Projektmarker im Namen/Pfad"
-        elif any(marker in name for marker in ["decision", "entscheid", "adr", "architecture_decision"]):
+        elif any(marker in name for marker in _DECISION_MARKERS):
             key = "10_decisions"
             reason = "Prio 6: Entscheidungs-Kontext im Namen"
-        elif name.endswith((".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z")):
+        elif name.endswith(_SOFTWARE_EXTS):
             key = "60_software"
             reason = "Prio 7: Software/Binärpaket (Dateiendung)"
         else:
