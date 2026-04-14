@@ -1,5 +1,15 @@
 from typing import Dict, Tuple
 
+_FINANCIAL_HINTS = frozenset({
+    "invoice", "rechnung", "receipt", "quittung", "beleg",
+    "contract", "vertrag", "bank_statement", "kontoauszug",
+    "mahnung", "lieferschein", "delivery_note"
+})
+
+_ERROR_STATUSES = ["ERROR", "FATAL", "UNREADABLE"]
+_PROJECT_MARKERS = ["projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os"]
+_DECISION_MARKERS = ["decision", "entscheid", "adr", "architecture_decision"]
+
 class SortingRules:
     """Sortierregeln + Registry-Navigation für folder-aware Zielermittlung."""
 
@@ -27,19 +37,13 @@ class SortingRules:
         current_parent_id = file_meta.get("current_parent_id", "")
         semantic_topic_hint = file_meta.get("semantic_topic_hint", "").lower()
 
-        _FINANCIAL_HINTS = frozenset({
-            "invoice", "rechnung", "receipt", "quittung", "beleg",
-            "contract", "vertrag", "bank_statement", "kontoauszug",
-            "mahnung", "lieferschein", "delivery_note"
-        })
-
         if lane == "INBOX_TRASH" or (self.inbox_trash_folder_id and current_parent_id == self.inbox_trash_folder_id):
             key = "01_inbox_trash"
             reason = "Prio 0: Inbox Trash Lane"
         elif "DUPLICATE" in status:
             key = "99_archive"
             reason = "Prio 1: Duplikat"
-        elif status in ["ERROR", "FATAL", "UNREADABLE"]:
+        elif status in _ERROR_STATUSES:
             key = "99_quarantine"
             reason = "Prio 1: Fehlerfall/Quarantäne"
         elif semantic_topic_hint in _FINANCIAL_HINTS:
@@ -63,10 +67,10 @@ class SortingRules:
         elif mime == "application/pdf":
             key = "40b_referenzen"
             reason = "Prio 4: PDF Dokument"
-        elif any(marker in name or marker in path for marker in ["projektai", "bummdidumm", "driveview", "sky", "matrix", "ai_os"]):
+        elif any(marker in name or marker in path for marker in _PROJECT_MARKERS):
             key = "40c_projekte"
             reason = "Prio 5: Projektmarker im Namen/Pfad"
-        elif any(marker in name for marker in ["decision", "entscheid", "adr", "architecture_decision"]):
+        elif any(marker in name for marker in _DECISION_MARKERS):
             key = "10_decisions"
             reason = "Prio 6: Entscheidungs-Kontext im Namen"
         elif name.endswith((".apk", ".exe", ".dmg", ".pkg", ".deb", ".rpm", ".zip", ".tar", ".7z")):

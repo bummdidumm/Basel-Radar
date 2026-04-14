@@ -305,6 +305,10 @@ def run_pass2():
     processed = 0
     errors = 0
 
+    # Validiere, welche Records wir überhaupt an das AI-OS im JSONL weiterleiten.
+    # Wir lassen "DUPLICATE" und "SKIPPED_SIZE" weg.
+    valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS")
+
     # Cap Pass 2 RAM load: Chunkweises Auslesen
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
@@ -318,9 +322,6 @@ def run_pass2():
             file_id = row[4]
             mime_type = row[5]
 
-            # Validiere, welche Records wir überhaupt an das AI-OS im JSONL weiterleiten.
-            # Wir lassen "DUPLICATE" und "SKIPPED_SIZE" weg.
-            valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS")
             if not status.startswith(valid_statuses):
                 continue
 
