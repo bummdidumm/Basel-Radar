@@ -70,17 +70,18 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
             import time
             is_http_err = isinstance(e, HttpError)
             status_code = getattr(e.resp, 'status', 'unknown') if is_http_err else 'N/A'
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            tmp_path = None
             if status_code in (429, 503, 500, 502) and attempt < 2:
                 logging.warning(f"Retrying transient download error {status_code} for {file_id}")
                 time.sleep((2 ** attempt) + 1)
                 continue
 
             logging.debug(f"Failed to download drive file {file_id}: {e}")
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except OSError:
-                    pass
             return None
     return None
 
