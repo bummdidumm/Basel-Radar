@@ -1,0 +1,3 @@
+## 2024-04-13 - Add confirmation dialogs for destructive AppScript actions
+**Learning:** AppScript custom menus directly triggering destructive actions (like `startApplySort` moving/deleting files) without any confirmation can lead to accidental operations. Users expect an intentional speed bump before modifying Drive structure or deleting logs. The built-in `SpreadsheetApp.getUi().alert()` provides a native, accessible way to intercept these clicks.
+**Action:** Always add YES/NO confirmations via `SpreadsheetApp.getUi().alert()` before executing destructive Google Workspace actions, and pair them with non-blocking `toast` success notifications.

@@ -160,9 +160,24 @@ function handleJobAlert(jobName) {
 
 function startFastDeltaScan() { handleJobAlert("bummdidumm-pass1-delta-dedupe"); }
 function startOcrIndexing() { handleJobAlert("bummdidumm-pass2-ocr-index"); }
-function startApplyRenames() { handleJobAlert("bummdidumm-apply-renames"); }
+
+function startApplyRenames() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('Bestätigung', 'Bist du sicher, dass du die Renames anwenden willst? (Destruktiv)', ui.ButtonSet.YES_NO);
+  if (response === ui.Button.YES) {
+    handleJobAlert("bummdidumm-apply-renames");
+  }
+}
+
 function startSafeSort() { handleJobAlert("bummdidumm-safe-sort"); }
-function startApplySort() { handleJobAlert("bummdidumm-apply-sort"); }
+
+function startApplySort() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('Bestätigung', 'Bist du sicher, dass du die Sortierung anwenden willst? (Destruktiv)', ui.ButtonSet.YES_NO);
+  if (response === ui.Button.YES) {
+    handleJobAlert("bummdidumm-apply-sort");
+  }
+}
 
 function startFullRun() {
   const res = triggerJob("bummdidumm-pass1-delta-dedupe");
@@ -178,9 +193,14 @@ function startFullRun() {
 }
 
 function clearErrorReports() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Error_Report");
-  if (!sheet || sheet.getLastRow() <= 1) return;
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('Bestätigung', 'Bist du sicher, dass du die Error Reports leeren willst? (Destruktiv)', ui.ButtonSet.YES_NO);
+  if (response === ui.Button.YES) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Error_Report");
+    if (!sheet || sheet.getLastRow() <= 1) return;
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+    SpreadsheetApp.getActiveSpreadsheet().toast("✅ Error Reports geleert.", "bummdidumm", 5);
+  }
 }
 
 function onOpen() {
