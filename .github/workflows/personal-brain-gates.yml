@@ -28,9 +28,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip pytest pip-audit
-      - run: pip install -r bummdidumm_os_v5_final_release/requirements.txt
+      - run: pip install --no-deps -r bummdidumm_os_v5_final_release/requirements.lock
       - name: Security audit
-        run: pip-audit -r bummdidumm_os_v5_final_release/requirements.txt --skip-editable
+        run: pip-audit -r bummdidumm_os_v5_final_release/requirements.lock --skip-editable
       - run: python3 bummdidumm_os_v5_final_release/release_audit.py
       - run: PYTHONPATH=bummdidumm_os_v5_final_release pytest bummdidumm_os_v5_final_release/tests/ -q
 

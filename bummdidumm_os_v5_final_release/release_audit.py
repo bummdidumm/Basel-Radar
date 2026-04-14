@@ -88,6 +88,22 @@ def run_audit() -> bool:
         if must.lower() not in gh.lower():
             errors.append(f"Gemini Robustness fehlt: {must}")
 
+    deploy = _read(ROOT / "deploy.sh")
+    if "BRAIN_INDEX_ROOT" not in deploy:
+        errors.append("deploy.sh: BRAIN_INDEX_ROOT fehlt in den Job-Env-Vars")
+    if ': "${SA_EMAIL:?' not in deploy:
+        errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
+
+    if not (ROOT / ".dockerignore").is_file():
+        errors.append(".dockerignore fehlt im Release-Verzeichnis")
+
+    ci = _read(Path(".github") / "workflows" / "personal-brain-gates.yml")
+    if "requirements.lock" not in ci:
+        errors.append("CI nutzt requirements.lock nicht (nutzt requirements.txt)")
+
+    if "compact_hash_index()" not in p1 or "compact_reports()" not in p1:
+        errors.append("Compaction ist nicht im Hauptpfad von Pass 1 verdrahtet")
+
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
     (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
