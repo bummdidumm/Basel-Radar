@@ -71,6 +71,8 @@ def run_audit() -> bool:
     for fld in ["current_parent_id", "current_path", "target_parent_id", "target_path", "folder_rule", "folder_rule_reason", "sort_mode", "move_result"]:
         if fld not in p2:
             errors.append(f"Folder-aware Feld fehlt in main_pass2.py: {fld}")
+    if "os.remove(tmp_path)" not in p2:
+        errors.append("main_pass2.py: kein tmp_path cleanup in _download_drive_file_to_tmp (Retry-Leak)")
 
     ss = _read(ROOT / "main_safe_sort.py")
     aps = _read(ROOT / "main_apply_sort.py")

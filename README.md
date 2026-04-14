@@ -8,7 +8,7 @@ The core implementation is fully self-contained within the `bummdidumm_os_v5_fin
 The system executes in distinct, modular passes:
 - **Pass 1:** Initial scan, delta changes, hashing, and deduplication (`main_pass1.py`).
 - **Pass 2:** OCR extraction and Personal Brain ingestion (`main_pass2.py` / `personal_brain/runtime.py`).
-- **Pass 3:** Embedding prep for external vector DBs like Qdrant (`main_pass3_embed_prep.py`).
+- **Pass 3 (planned):** Embedding prep for external vector DBs like Qdrant — not yet implemented (`main_pass3_embed_prep.py` does not exist in this release).
 - **Safe Sort / Apply Sort:** Rules-based organization and folder management.
 
 ### Personal Brain Scope
@@ -38,7 +38,11 @@ source venv/bin/activate
 ```
 
 ### 2. Dependencies
-Install the required packages pointing to the isolated project directory:
+For reproducible installs (matches CI and Docker images), use the lock file:
+```bash
+pip install --no-deps -r bummdidumm_os_v5_final_release/requirements.lock
+```
+For development with flexible dependency resolution:
 ```bash
 pip install -r bummdidumm_os_v5_final_release/requirements.txt
 ```
