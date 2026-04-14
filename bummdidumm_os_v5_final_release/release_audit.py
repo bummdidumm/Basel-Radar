@@ -91,8 +91,8 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if "BRAIN_INDEX_ROOT" not in deploy:
-        errors.append("deploy.sh: BRAIN_INDEX_ROOT fehlt in den Job-Env-Vars")
+    if ': "${BRAIN_INDEX_ROOT:?' not in deploy:
+        errors.append("deploy.sh: BRAIN_INDEX_ROOT hat kein fail-fast (:? Syntax) — wird bei fehlendem Mount nicht abgebrochen")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
 

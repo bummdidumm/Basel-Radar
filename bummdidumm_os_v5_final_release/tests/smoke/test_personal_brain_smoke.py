@@ -504,5 +504,77 @@ class PersonalBrainSmokeTest(unittest.TestCase):
                 # but subject must always be a real entity.
 
 
+    # ------------------------------------------------------------------
+    # P2: file_id wiring — Punkt A regression guard
+    # ------------------------------------------------------------------
+
+    def test_file_id_propagated_to_record_index(self):
+        """file_id from the input item must appear in every record written to 01_record_index.jsonl.
+
+        This is the end-to-end regression test for the semantic-hints data path:
+        PersonalBrainRuntime -> _build_source (file_id stored) -> _build_record (file_id carried) ->
+        writers.write_source_record_entity_relation -> 01_record_index.jsonl -> main_safe_sort.py loads it.
+
+        Without file_id in the record, main_safe_sort.py's semantic_hints dict stays empty for every
+        file that went through a real indexing run.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test-project", out_root=Path(td))
+
+            drive_file_id = "google-drive-file-id-abc123"
+            item = {
+                "file_id": drive_file_id,
+                "checksum_sha256": "deadbeef",
+                "source_path": "/fake/invoice.pdf",
+                "source_path_rel": "inbox/invoice.pdf",
+                "original_filename": "invoice.pdf",
+                "mime": "application/pdf",
+                "ext": ".pdf",
+                # topics must be inside content so the base parser's parse_to_records()
+                # can forward it via content.get("topics", []) to the record.
+                "content": {
+                    "title": "invoice.pdf",
+                    "raw_text": "Rechnungsnummer 42",
+                    "topics": ["Rechnung"],
+                },
+            }
+
+            runtime.process_sources([item])
+
+            out = Path(td) / "20_index" / "published"
+            record_lines = [
+                line for line in (out / "01_record_index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertGreater(len(record_lines), 0, "01_record_index.jsonl must not be empty")
+
+            for line in record_lines:
+                rec = json.loads(line)
+                self.assertEqual(
+                    rec.get("file_id"), drive_file_id,
+                    f"Record {rec.get('record_id')} is missing file_id or has wrong value. "
+                    f"Got: {rec.get('file_id')!r}, expected: {drive_file_id!r}. "
+                    "This breaks the semantic_hints lookup in main_safe_sort.py."
+                )
+
+            # Also verify the semantic hint loading logic (mirrors main_safe_sort.py lines 61-71)
+            # to confirm the path is bridged end-to-end.
+            semantic_hints: dict[str, str] = {}
+            for line in record_lines:
+                data = json.loads(line)
+                fid = data.get("file_id")
+                if fid:
+                    topics = data.get("topics", [])
+                    if topics:
+                        semantic_hints[fid] = topics[0]
+
+            # The item supplied topics=["Rechnung"] which should propagate through to the record.
+            self.assertIn(
+                drive_file_id, semantic_hints,
+                "semantic_hints dict built from 01_record_index.jsonl does not contain the drive file_id. "
+                "main_safe_sort.py would silently produce empty semantic hints."
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
