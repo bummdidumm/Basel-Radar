@@ -1,0 +1,4 @@
+## 2026-04-14 - Fix temporary file leak during retryable downloads and ZIP extraction
+**Vulnerability:** Local Denial of Service (DoS) due to unbounded temporary file creation when HTTP downloads loop on retryable errors (like 429 Too Many Requests) and during corrupted ZIP extraction without capturing the `tf.name` before `tf.write()`.
+**Learning:** In `main_pass2.py`, Python `continue` statements inside `except` blocks bypassed local cleanup logic causing `tmp_path` to orphan on disk. Additionally, in ZIP loops, creating the `tf` but failing on `.write()` meant `sub_local_path` remained `None`, thus escaping the `finally` cleanup block.
+**Prevention:** Ensure temporary file unlinking (`os.remove`) executes *before* loop control flow operations (like `continue`) when retrying network operations. When extracting bytes to a temp file, assign the file name to a cleanup-tracked variable before initiating blocking write operations.
