@@ -80,8 +80,11 @@ class DriveManager:
         return name
 
     def walk_recursive(self, folder_id: str) -> List[Dict]:
-        """Performs initial recursive scan."""
-        return []  # Deprecated in favor of chunked processing in main_pass1
+        """Deprecated. Use walk_recursive_chunked() instead."""
+        raise NotImplementedError(
+            "walk_recursive() is deprecated and must not be called. "
+            "Use walk_recursive_chunked() for all production code paths."
+        )
 
     def walk_recursive_chunked(self, folder_id: str, state, process_batch_callback, batch_kwargs: dict):
         """Performs initial recursive scan in bounded chunks to prevent timeout endloops."""

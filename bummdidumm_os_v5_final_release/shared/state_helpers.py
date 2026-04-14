@@ -83,6 +83,41 @@ class StateTracker:
         )
         _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
+    def compact_reports(self):
+        """Compact Run_Log and Error_Report by retaining only the most recent rows."""
+        RUN_LOG_MAX = int(os.environ.get("RUN_LOG_COMPACT_MAX", "500"))
+        ERROR_REPORT_MAX = int(os.environ.get("ERROR_REPORT_COMPACT_MAX", "500"))
+
+        for sheet_name, max_rows, col_range in [
+            ("Run_Log", RUN_LOG_MAX, "A:F"),
+            ("Error_Report", ERROR_REPORT_MAX, "A:G"),
+        ]:
+            rows = self.sheets.read_all_rows(sheet_name, col_range)
+            if len(rows) <= max_rows + 1:  # +1 for header
+                continue
+            header = rows[0] if rows else []
+            keep = rows[1:][-max_rows:]
+            compacted = ([header] if header else []) + keep
+            _log.info(f"{sheet_name} Kompaktierung gestartet",
+                      extra={"before": len(rows), "after": len(compacted)})
+            # Clear first to avoid stale trailing rows, then rewrite
+            self.sheets._execute_with_backoff(
+                self.sheets.sheets.spreadsheets().values().clear(
+                    spreadsheetId=self.sheets.spreadsheet_id,
+                    range=f"{sheet_name}!{col_range}",
+                    body={}
+                )
+            )
+            self.sheets._execute_with_backoff(
+                self.sheets.sheets.spreadsheets().values().update(
+                    spreadsheetId=self.sheets.spreadsheet_id,
+                    range=f"{sheet_name}!A1",
+                    valueInputOption="RAW",
+                    body={"values": compacted}
+                )
+            )
+            _log.info(f"{sheet_name} kompaktiert", extra={"kept": len(keep)})
+
     def load_known_hashes(self) -> Dict[str, dict]:
         """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""
         if self._known_hashes is not None:

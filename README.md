@@ -61,3 +61,29 @@ PYTHONPATH=bummdidumm_os_v5_final_release pytest bummdidumm_os_v5_final_release/
 Repository governance and finalization protocols are strictly defined to maintain consistency.
 - Read [REPO_GOVERNANCE_SETUP.md](REPO_GOVERNANCE_SETUP.md) for GitHub branch protection and review requirements.
 - Read [AGENT_FINALIZATION_PROTOCOL.md](AGENT_FINALIZATION_PROTOCOL.md) for automated agent task constraints.
+
+## Cloud Run Environment Variables
+
+The following environment variables **must** be set before running `deploy.sh`. Missing required variables cause the script to abort immediately (`set -euo pipefail`).
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PROJECT_ID` | Yes | GCP project ID |
+| `ARCHIVE_FOLDER_ID` | Yes | Google Drive folder ID for archived duplicates |
+| `INDEX_FOLDER_ID` | Yes | Google Drive folder ID for index outputs |
+| `CONTROL_SHEET_ID` | Yes | Google Sheets spreadsheet ID for state and reports |
+| `GEMINI_API_KEY` | Yes | Gemini API key for OCR / Personal Brain |
+| `SA_EMAIL` | Yes | Service account email for Cloud Run jobs |
+| `BRAIN_INDEX_ROOT` | Yes (Pass 2 + Safe Sort) | Persistent path for the Personal Brain index |
+| `TARGET_FOLDER_ID` | No | Optional Drive folder to scope Pass 1 scanning |
+| `REGION` | No | Cloud Run region (default: `europe-west6`) |
+| `SKIP_OVER_MB` | No | Skip files larger than this MB (default: 500) |
+| `OCR_BUDGET_PER_RUN` | No | Max OCR calls per Pass 2 run (default: 500) |
+
+### BRAIN_INDEX_ROOT
+
+- **Mandatory for Pass 2 and Safe Sort in Cloud Run.**
+- Must point to a persistent path — a mounted volume, a Cloud Storage FUSE mount, or a deliberately managed directory.
+- `main_pass2.py` raises `RuntimeError` at startup if `BRAIN_INDEX_ROOT` is not set when `K_SERVICE` is detected (i.e. running in Cloud Run).
+- Without a persistent mount, the brain index is lost on container restart.
+- Example: a Cloud Storage FUSE-mounted path like `/mnt/brain_index`.
