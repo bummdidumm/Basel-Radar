@@ -87,18 +87,43 @@ class JsonlWriter:
     # ------------------------------------------------------------------
 
     def _write_jsonl(self, path: Path, rows: list[dict], key: str) -> None:
-        """Read-Merge-Write: new rows overwrite existing rows by stable ID.
-        Entries absent from `rows` but present on disk are preserved.
+        """Streaming-Merge-Write: new rows overwrite existing rows by stable ID.
+
+        Existing rows absent from `rows` are streamed directly to the temp file
+        without being buffered in RAM. Only the incoming `rows` (O(m)) are held
+        in memory, avoiding the previous O(n) full-load for large indices.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
-        merged = self._read_existing(path, key)
-        for row in rows:
-            merged[row[key]] = row
+        new_lookup = {row[key]: row for row in rows}
+
+        if path.exists():
+            file_size = path.stat().st_size
+            if file_size > _LARGE_FILE_WARN_BYTES:
+                _log.warning(
+                    "Large JSONL index file detected — RAM pressure possible on merge",
+                    extra={"path": str(path), "size_mb": round(file_size / 1024 / 1024, 1)},
+                )
 
         tmp_path = path.with_suffix(".tmp")
-        with tmp_path.open("w", encoding="utf-8") as f:
-            for k in sorted(merged):
-                f.write(json.dumps(merged[k], ensure_ascii=False) + "\n")
+        with tmp_path.open("w", encoding="utf-8") as out:
+            if path.exists():
+                with path.open(encoding="utf-8") as fh:
+                    for line_num, line in enumerate(fh, 1):
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            row = json.loads(stripped)
+                            k = row.get(key)
+                            if k not in new_lookup:
+                                out.write(stripped + "\n")
+                        except Exception as e:
+                            _log.warning(
+                                "Skipping corrupt line in JSONL",
+                                extra={"path": str(path), "line": line_num, "error": str(e)},
+                            )
+            for k in sorted(new_lookup):
+                out.write(json.dumps(new_lookup[k], ensure_ascii=False) + "\n")
         tmp_path.replace(path)
 
     def _merge_entities(self, merged: dict, new_entity: dict) -> None:
@@ -171,26 +196,67 @@ class JsonlWriter:
         self._write_jsonl(self.published / "00_source_registry.jsonl", sources, "source_id")
         self._write_jsonl(self.published / "01_record_index.jsonl", records, "record_id")
 
-        # Custom merge logic for entities
+        # Custom merge logic for entities — single-pass streaming to keep RAM at O(m).
+        # Existing entities that match an incoming entity_id are merged in place and
+        # written out; all others are streamed through without buffering.
         entity_path = self.published / "02_entity_index.jsonl"
         entity_path.parent.mkdir(parents=True, exist_ok=True)
-        merged_entities: dict = self._read_existing(entity_path, "entity_id")
-
-        for new_ent in entities:
-            eid = new_ent["entity_id"]
-            if eid in merged_entities:
-                self._merge_entities(merged_entities[eid], new_ent)
-            else:
-                merged_entities[eid] = new_ent
+        new_entity_lookup = {e["entity_id"]: e for e in entities}
 
         tmp_entity_path = entity_path.with_suffix(".tmp")
-        with tmp_entity_path.open("w", encoding="utf-8") as f:
-            for k in sorted(merged_entities):
-                clean = {ek: ev for ek, ev in merged_entities[k].items() if not ek.startswith("_") or ek == "_counts_by_source"}
-                f.write(json.dumps(clean, ensure_ascii=False) + "\n")
+        with tmp_entity_path.open("w", encoding="utf-8") as out:
+            if entity_path.exists():
+                with entity_path.open(encoding="utf-8") as fh:
+                    for line_num, line in enumerate(fh, 1):
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            existing_ent = json.loads(stripped)
+                            eid = existing_ent.get("entity_id")
+                            if eid in new_entity_lookup:
+                                self._merge_entities(existing_ent, new_entity_lookup.pop(eid))
+                                clean = {ek: ev for ek, ev in existing_ent.items()
+                                         if not ek.startswith("_") or ek == "_counts_by_source"}
+                                out.write(json.dumps(clean, ensure_ascii=False) + "\n")
+                            else:
+                                out.write(stripped + "\n")
+                        except Exception as e:
+                            _log.warning(
+                                "Skipping corrupt entity line",
+                                extra={"path": str(entity_path), "line": line_num, "error": str(e)},
+                            )
+            for k in sorted(new_entity_lookup):
+                clean = {ek: ev for ek, ev in new_entity_lookup[k].items()
+                         if not ek.startswith("_") or ek == "_counts_by_source"}
+                out.write(json.dumps(clean, ensure_ascii=False) + "\n")
         tmp_entity_path.replace(entity_path)
 
         self._write_jsonl(self.published / "03_relation_index.jsonl", relations, "relation_id")
+        self._write_topic_hints(records)
+
+    def _write_topic_hints(self, records: list[dict]) -> None:
+        """Maintain a compact file_id→topic lookup used by main_safe_sort.py.
+
+        Merges with existing hints so partial re-runs don't erase previous data.
+        The resulting file_topics.json is orders of magnitude smaller than the
+        full record index, making Safe Sort startup much faster.
+        """
+        hint_path = self.published / "file_topics.json"
+        existing: dict[str, str] = {}
+        if hint_path.exists():
+            try:
+                existing = json.loads(hint_path.read_text(encoding="utf-8"))
+            except Exception as e:
+                _log.warning("Could not load existing topic hints", extra={"error": str(e)})
+        for rec in records:
+            fid = rec.get("file_id")
+            topics = rec.get("topics", [])
+            if fid and topics:
+                existing[fid] = topics[0]
+        tmp = hint_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(existing, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(hint_path)
 
     def write_daily_memory(self, _records: list[dict]) -> dict[str, dict]:
         """Rebuild daily memory from the full merged record index.
@@ -220,8 +286,8 @@ class JsonlWriter:
                 if f.is_file():
                     try:
                         daily_memories[f.stem] = _json.loads(f.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _log.debug("Skipping unreadable daily memory file", extra={"file": str(f), "error": str(e)})
         weekly = build_weekly_memory(daily_memories)
         weekly_dir = self.published / "04_weekly_memory"
         weekly_dir.mkdir(parents=True, exist_ok=True)
@@ -364,8 +430,8 @@ class JsonlWriter:
                             mf.write(json.dumps(f.stem, ensure_ascii=False) + ":")
                             json.dump(day_data, mf, ensure_ascii=False)
                             first = False
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            _log.debug("Skipping unreadable daily memory entry in master index", extra={"file": str(f), "error": str(e)})
             mf.write("}")
 
             # Search views
@@ -380,8 +446,8 @@ class JsonlWriter:
                             if line.strip():
                                 try:
                                     view_rows.append(json.loads(line))
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    _log.debug("Skipping corrupt search view line", extra={"file": str(f), "error": str(e)})
                         if not first:
                             mf.write(",")
                         mf.write(json.dumps(f.stem, ensure_ascii=False) + ":")

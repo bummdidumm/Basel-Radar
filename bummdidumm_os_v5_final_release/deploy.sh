@@ -13,6 +13,7 @@ TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 
 REGION="${REGION:-europe-west6}"
 SKIP_OVER_MB="${SKIP_OVER_MB:-500}"
+OCR_BUDGET_PER_RUN="${OCR_BUDGET_PER_RUN:-500}"
 
 echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID"
 
@@ -28,7 +29,7 @@ gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --source . \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN:-500},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
   --command="python","main_pass2.py"
 

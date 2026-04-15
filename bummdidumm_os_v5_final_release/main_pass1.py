@@ -9,7 +9,7 @@ from shared.state_helpers import StateTracker
 from shared.drive_helpers import DriveManager
 from shared.hash_helpers import calculate_sha256_streaming
 from shared.change_type_logic import determine_change_type, check_md5_size_prefilter
-from shared.models import FileRecord
+from shared.models import FileRecord, KnownFileMeta
 
 _module_log = _logging.getLogger("bummdidumm.pass1")
 
@@ -258,7 +258,7 @@ def _process_file_batch(
     drive_mgr,
     state,
     files,
-    known_file_details,
+    known_file_details: dict[str, KnownFileMeta],
     is_initial,
     inbox_trash_folder_id: str,
     folder_registry: dict = None,
@@ -279,70 +279,56 @@ def _process_file_batch(
     records_to_process = []
     duplicate_groups_accumulator = {}
 
-    for f in files:
-        rec = _build_file_record(
-            f, drive_mgr, known_file_details, is_initial,
-            inbox_trash_folder_id, folder_registry,
-        )
-        file_id = rec.file_id
-        change_type = rec.change_type
+    # ------------------------------------------------------------------ #
+    # Inner helpers – closures over the mutable accumulators above.       #
+    # Each helper handles one change-type branch and appends to           #
+    # records_to_process / updates known_file_details as needed.          #
+    # ------------------------------------------------------------------ #
 
-        if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
-            rec.status = change_type
-            records_to_process.append(rec)
-            continue
+    def _make_cache_entry(rec: FileRecord) -> KnownFileMeta:
+        return {
+            "sha": rec.sha256,
+            "name": rec.name,
+            "parent_ids_sorted": rec.parent_ids_sorted,
+            "path_display": rec.path_display,
+            "updated_at": rec.updated_at,
+            "size_bytes": rec.size_bytes,
+            "md5": rec.md5,
+            "effective_mime_type": rec.effective_mime_type,
+        }
 
-        # Wenn sich Inhalte nicht geändert haben (UNCHANGED_CONTENT_METADATA_ONLY) ODER
-        # wenn ein MOVED/RENAMED stattfand, bei dem die Binärdaten laut Prefilter
-        # identisch geblieben sind, wollen wir das Hashing überspringen.
-        if change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (not is_initial and check_md5_size_prefilter(f, known_file_details)):
-            rec.status = "UNCHANGED_CONTENT"
-            rec.sha256 = known_file_details.get(file_id, {}).get("sha", "")
+    def _handle_removed(rec: FileRecord) -> None:
+        rec.status = rec.change_type
+        records_to_process.append(rec)
 
-            if rec.sha256 == "HASH_SKIPPED_SIZE":
-                rec.status = "SKIPPED_SIZE"
-
-            # Check if file_id exists in cache before updating it.
-            # If it's UNCHANGED_CONTENT but somehow missing in cache, we seed it instead of throwing KeyError.
-            if file_id in known_file_details:
-                known_file_details[file_id].update({
-                    "name": rec.name,
-                    "parent_ids_sorted": rec.parent_ids_sorted,
-                    "path_display": rec.path_display,
-                    "updated_at": rec.updated_at
-                })
-            else:
-                known_file_details[file_id] = {
-                    "sha": rec.sha256,
-                    "name": rec.name,
-                    "parent_ids_sorted": rec.parent_ids_sorted,
-                    "path_display": rec.path_display,
-                    "updated_at": rec.updated_at,
-                    "size_bytes": rec.size_bytes,
-                    "md5": rec.md5,
-                    "effective_mime_type": rec.effective_mime_type
-                }
-            records_to_process.append(rec)
-            continue
-
-        if rec.size_bytes > SKIP_OVER_MB * 1024 * 1024:
+    def _handle_unchanged(rec: FileRecord) -> None:
+        rec.status = "UNCHANGED_CONTENT"
+        rec.sha256 = known_file_details.get(rec.file_id, {}).get("sha", "")
+        if rec.sha256 == "HASH_SKIPPED_SIZE":
             rec.status = "SKIPPED_SIZE"
-            rec.sha256 = "HASH_SKIPPED_SIZE"
-            # Update cache sofort für denselben Batch, damit nachfolgende Deltas ihn kennen
-            known_file_details[rec.file_id] = {
-                "sha": rec.sha256,
+        # Update cache metadata; seed entry if somehow missing.
+        if rec.file_id in known_file_details:
+            known_file_details[rec.file_id].update({
                 "name": rec.name,
                 "parent_ids_sorted": rec.parent_ids_sorted,
                 "path_display": rec.path_display,
                 "updated_at": rec.updated_at,
-                "size_bytes": rec.size_bytes,
-                "md5": rec.md5,
-                "effective_mime_type": rec.effective_mime_type
-            }
-            records_to_process.append(rec)
-            continue
+            })
+        else:
+            known_file_details[rec.file_id] = _make_cache_entry(rec)
+        records_to_process.append(rec)
 
-        sha, export_source = calculate_sha256_streaming(drive_service, rec.file_id, rec.mime_type, drive_mgr._base_params())
+    def _handle_skipped_size(rec: FileRecord) -> None:
+        rec.status = "SKIPPED_SIZE"
+        rec.sha256 = "HASH_SKIPPED_SIZE"
+        # Update cache sofort für denselben Batch, damit nachfolgende Deltas ihn kennen.
+        known_file_details[rec.file_id] = _make_cache_entry(rec)
+        records_to_process.append(rec)
+
+    def _handle_new_or_updated(rec: FileRecord) -> None:
+        sha, export_source = calculate_sha256_streaming(
+            drive_service, rec.file_id, rec.mime_type, drive_mgr._base_params()
+        )
         rec.sha256 = sha or ""
         rec.export_source = export_source
 
@@ -350,43 +336,51 @@ def _process_file_batch(
             state.log_error("PASS_1", rec.file_id, rec.name, "HashError", "SHA256 fehlgeschlagen")
             rec.status = "HASH_ERROR"
             records_to_process.append(rec)
-            continue
+            return
 
         # Dedupe Logik über Hash Map (O(1))
         duplicate_of_id = sha_to_primary_file_id.get(rec.sha256)
-
         if duplicate_of_id:
-            if duplicate_of_id == rec.file_id:
-                rec.status = "ORIGINAL_RESUMED"
-            else:
-                rec.status = "DUPLICATE"
+            rec.status = "ORIGINAL_RESUMED" if duplicate_of_id == rec.file_id else "DUPLICATE"
+            if rec.status == "DUPLICATE":
                 rec.duplicate_of = duplicate_of_id
         else:
             rec.status = "ORIGINAL"
             sha_to_primary_file_id[rec.sha256] = rec.file_id
-            # Update cache sofort für denselben Batch
-            known_file_details[rec.file_id] = {
-                "sha": rec.sha256,
-                "name": rec.name,
-                "parent_ids_sorted": rec.parent_ids_sorted,
-                "path_display": rec.path_display,
-                "updated_at": rec.updated_at,
-                "size_bytes": rec.size_bytes,
-                "md5": rec.md5,
-                "effective_mime_type": rec.effective_mime_type
-            }
+            # Update cache sofort für denselben Batch.
+            known_file_details[rec.file_id] = _make_cache_entry(rec)
 
         if rec.status == "DUPLICATE" and ENABLE_ARCHIVE:
             rec.archive_result = drive_mgr.archive_duplicate(rec.file_id, rec.parents, ARCHIVE_FOLDER_ID)
             if "SUCCESS" in rec.archive_result:
                 rec.status = f"DUPLICATE_OF:{rec.duplicate_of}|ARCHIVED"
-
-                # Accumulate for batched writes
                 if rec.sha256 not in duplicate_groups_accumulator:
                     duplicate_groups_accumulator[rec.sha256] = {"original": rec.duplicate_of, "duplicates": set()}
                 duplicate_groups_accumulator[rec.sha256]["duplicates"].add(rec.file_id)
 
         records_to_process.append(rec)
+
+    # ------------------------------------------------------------------ #
+    # Main dispatch loop                                                  #
+    # ------------------------------------------------------------------ #
+
+    for f in files:
+        rec = _build_file_record(
+            f, drive_mgr, known_file_details, is_initial,
+            inbox_trash_folder_id, folder_registry,
+        )
+        change_type = rec.change_type
+
+        if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
+            _handle_removed(rec)
+        elif change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (
+            not is_initial and check_md5_size_prefilter(f, known_file_details)
+        ):
+            _handle_unchanged(rec)
+        elif rec.size_bytes > SKIP_OVER_MB * 1024 * 1024:
+            _handle_skipped_size(rec)
+        else:
+            _handle_new_or_updated(rec)
 
     state.append_new_hashes(records_to_process)
     state.append_dedupe_reports(records_to_process)

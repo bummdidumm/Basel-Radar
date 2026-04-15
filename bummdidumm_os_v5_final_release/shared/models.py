@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, TypedDict
 
 class ExtractedDocument(BaseModel):
     doc_type: str = Field(description="Art des Dokuments: Rechnung, Vertrag, Brief, Foto, Ausweis, Quittung, Versicherung, Kontoauszug, Sonstiges")
@@ -78,3 +78,19 @@ class FileRecord(BaseModel):
     can_edit: bool = True
     can_share: bool = True
     can_download: bool = True
+
+
+class KnownFileMeta(TypedDict, total=False):
+    """Shape of the per-file metadata cache entry used throughout Pass 1.
+
+    Stored in the `known_file_details` dict keyed by file_id and also
+    persisted to the Sheets hash-index via StateTracker.
+    """
+    sha: str
+    name: str
+    parent_ids_sorted: str
+    path_display: str
+    updated_at: str
+    size_bytes: int
+    md5: str
+    effective_mime_type: str
