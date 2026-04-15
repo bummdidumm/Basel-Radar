@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
 from .daily_memory_builder import build_daily_memory
 from .search_view_builder import build_search_views
+
+# Warn when a single JSONL index file exceeds this size — indicative of
+# potential RAM pressure on the Read-Merge-Write path.
+_LARGE_FILE_WARN_BYTES = 50 * 1024 * 1024  # 50 MB
+
+_log = logging.getLogger("bummdidumm.writers")
 
 
 class JsonlWriter:
@@ -26,28 +33,40 @@ class JsonlWriter:
     # ------------------------------------------------------------------
 
     def _read_existing(self, path: Path, key: str) -> dict[str, dict]:
-        """Load an existing JSONL file into a dict keyed by `key`. Returns {} if absent."""
+        """Load an existing JSONL file into a dict keyed by `key`. Returns {} if absent.
+
+        Emits a warning when the file exceeds _LARGE_FILE_WARN_BYTES so that
+        operators are alerted to potential RAM pressure before it becomes a problem.
+        """
         if not path.exists():
             return {}
         existing: dict[str, dict] = {}
-        try:
-            content = path.read_text(encoding="utf-8")
-        except Exception as e:
-            import logging
-            logging.error(f"Failed to read file {path}: {e}")
-            return existing
 
-        for line_num, line in enumerate(content.splitlines(), start=1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-                if key in row:
-                    existing[row[key]] = row
-            except Exception as e:
-                import logging
-                logging.warning(f"Skipping corrupt line {line_num} in {path}: {e}")
+        file_size = path.stat().st_size
+        if file_size > _LARGE_FILE_WARN_BYTES:
+            _log.warning(
+                "Large JSONL index file detected — RAM pressure possible on merge",
+                extra={"path": str(path), "size_mb": round(file_size / 1024 / 1024, 1)},
+            )
+
+        try:
+            # Stream line-by-line to avoid a single large string allocation
+            with path.open(encoding="utf-8") as fh:
+                for line_num, line in enumerate(fh, start=1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                        if key in row:
+                            existing[row[key]] = row
+                    except Exception as e:
+                        _log.warning(
+                            "Skipping corrupt line in JSONL",
+                            extra={"path": str(path), "line": line_num, "error": str(e)},
+                        )
+        except Exception as e:
+            _log.error("Failed to read JSONL file", extra={"path": str(path), "error": str(e)})
         return existing
 
     def _load_full_records(self) -> list[dict]:
@@ -313,38 +332,60 @@ class JsonlWriter:
             "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
         )
 
-        # Build Master Output combining all data
-        master_output: dict = {
-            "sources": sources,
-            "records": records,
-            "entities": entities,
-            "relations": relations,
-            "daily_memory": {},
-            "search_views": {}
-        }
+        # Write master index in streaming fashion to avoid holding all four index
+        # dicts plus daily_memory plus search_views in RAM at the same time.
+        # We write each top-level key as a JSON array incrementally.
+        master_path = self.published / "CURRENT_personal_brain_master_index.json"
+        master_tmp = master_path.with_suffix(".tmp")
+        with master_tmp.open("w", encoding="utf-8") as mf:
+            mf.write('{\n"sources":')
+            json.dump(sources, mf, ensure_ascii=False)
+            del sources
+            mf.write(',\n"records":')
+            json.dump(records, mf, ensure_ascii=False)
+            del records
+            mf.write(',\n"entities":')
+            json.dump(entities, mf, ensure_ascii=False)
+            del entities
+            mf.write(',\n"relations":')
+            json.dump(relations, mf, ensure_ascii=False)
+            del relations
 
-        # Load daily memory
-        if self.daily_dir.exists():
-            for f in self.daily_dir.glob("*.json"):
-                if f.is_file():
-                    try:
-                        master_output["daily_memory"][f.stem] = json.loads(f.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+            # Daily memory
+            mf.write(',\n"daily_memory":{')
+            first = True
+            if self.daily_dir.exists():
+                for f in sorted(self.daily_dir.glob("*.json")):
+                    if f.is_file():
+                        try:
+                            day_data = json.loads(f.read_text(encoding="utf-8"))
+                            if not first:
+                                mf.write(",")
+                            mf.write(json.dumps(f.stem, ensure_ascii=False) + ":")
+                            json.dump(day_data, mf, ensure_ascii=False)
+                            first = False
+                        except Exception:
+                            pass
+            mf.write("}")
 
-        # Load search views
-        search_view_dir = self.published / "12_search_views"
-        if search_view_dir.exists():
-            for f in search_view_dir.glob("*.jsonl"):
-                if f.is_file():
-                    view_name = f.stem
-                    master_output["search_views"][view_name] = []
-                    for line in f.read_text(encoding="utf-8").splitlines():
-                        if line.strip():
-                            master_output["search_views"][view_name].append(json.loads(line))
-
-        # Write master output
-        atomic_write_text(
-            self.published / "CURRENT_personal_brain_master_index.json",
-            json.dumps(master_output, ensure_ascii=False, indent=2)
-        )
+            # Search views
+            mf.write(',\n"search_views":{')
+            first = True
+            search_view_dir = self.published / "12_search_views"
+            if search_view_dir.exists():
+                for f in sorted(search_view_dir.glob("*.jsonl")):
+                    if f.is_file():
+                        view_rows = []
+                        for line in f.read_text(encoding="utf-8").splitlines():
+                            if line.strip():
+                                try:
+                                    view_rows.append(json.loads(line))
+                                except Exception:
+                                    pass
+                        if not first:
+                            mf.write(",")
+                        mf.write(json.dumps(f.stem, ensure_ascii=False) + ":")
+                        json.dump(view_rows, mf, ensure_ascii=False)
+                        first = False
+            mf.write("}\n}")
+        master_tmp.replace(master_path)

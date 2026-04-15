@@ -36,6 +36,12 @@ class DriveManager:
         return params
 
     def is_in_target_folder(self, file_id: str, parents: List[str]) -> bool:
+        """Return True if any ancestor of *parents* is target_folder_id.
+
+        Iterative BFS over the Drive folder hierarchy — avoids recursion-depth
+        limits on deep folder trees (Drive can nest 20+ levels) and handles
+        cycles via a visited set.
+        """
         if not self.target_folder_id:
             return True
         if not parents:
@@ -43,23 +49,35 @@ class DriveManager:
         if self.target_folder_id in parents:
             return True
 
-        for p in parents:
-            if p in self.ancestor_cache:
-                if self.ancestor_cache[p]:
-                    return True
+        stack = list(parents)
+        visited: set = set()
+
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == self.target_folder_id:
+                return True
+            if self.ancestor_cache.get(current) is True:
+                return True
+            if self.ancestor_cache.get(current) is False:
                 continue
 
             try:
-                folder_meta = self.drive.files().get(
-                    fileId=p, fields="id,parents", **self._base_params()
+                meta = self.drive.files().get(
+                    fileId=current, fields="id,parents", **self._base_params()
                 ).execute()
-                grandparents = folder_meta.get("parents", [])
-                result = self.is_in_target_folder(p, grandparents)
-                self.ancestor_cache[p] = result
-                if result:
+                grandparents = meta.get("parents", [])
+                if self.target_folder_id in grandparents:
+                    self.ancestor_cache[current] = True
                     return True
+                for gp in grandparents:
+                    if gp not in visited:
+                        stack.append(gp)
             except Exception:
-                self.ancestor_cache[p] = False
+                self.ancestor_cache[current] = False
 
         return False
 

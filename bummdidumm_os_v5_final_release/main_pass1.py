@@ -192,6 +192,63 @@ def _resolve_inbox_trash_folder_id(sheet_mgr) -> str:
     return ""
 
 
+def _build_file_record(f: dict, drive_mgr, known_file_details: dict, is_initial: bool,
+                       inbox_trash_folder_id: str, folder_registry: dict) -> FileRecord:
+    """Construct a FileRecord from a raw Drive API file dict.
+
+    Separated from the hash/dedupe logic in _process_file_batch to make each
+    responsibility independently testable.
+    """
+    file_id = f.get("id", "")
+    mime = f.get("mimeType", "")
+    size = int(f.get("size", 0))
+    name = f.get("name", "UNKNOWN_REMOVED")
+    parents = f.get("parents", [])
+
+    change_type = determine_change_type(f, known_file_details, is_initial)
+    suggested_name = (
+        suggest_rename(name, f.get("createdTime", ""))
+        if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]
+        else ""
+    )
+
+    lane = "ACTIVE"
+    if parents and folder_registry and all(p in folder_registry for p in parents):
+        base_path = folder_registry[parents[0]].rstrip("/")
+        path_disp = f"{base_path}/{name}"
+    else:
+        path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
+
+    if inbox_trash_folder_id and inbox_trash_folder_id in parents:
+        lane = "INBOX_TRASH"
+
+    rec = FileRecord(
+        file_id=file_id,
+        name=name,
+        parent_ids_sorted=",".join(sorted(parents)),
+        path_display=path_disp,
+        mime_type=mime,
+        size_bytes=size,
+        md5=f.get("md5Checksum", ""),
+        updated_at=f.get("modifiedTime", ""),
+        created_time=f.get("createdTime", ""),
+        web_link=f.get("webViewLink", ""),
+        parents=parents,
+        description=f.get("description", ""),
+        starred=f.get("starred", False),
+        owner_email=(f.get("owners") or [{}])[0].get("emailAddress", ""),
+        owner_name=(f.get("owners") or [{}])[0].get("displayName", ""),
+        last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", ""),
+        can_edit=(f.get("capabilities") or {}).get("canEdit", True),
+        can_share=(f.get("capabilities") or {}).get("canShare", True),
+        can_download=(f.get("capabilities") or {}).get("canDownload", True),
+    )
+    rec.change_type = change_type
+    rec.suggested_name = suggested_name
+    rec.notes = f"Lane: {lane}"
+    return rec
+
+
 def _process_file_batch_wrapper(files, **kwargs):
     _process_file_batch(files=files, **kwargs)
 
@@ -223,52 +280,12 @@ def _process_file_batch(
     duplicate_groups_accumulator = {}
 
     for f in files:
-        file_id = f.get("id", "")
-        mime = f.get("mimeType", "")
-        size = int(f.get("size", 0))
-        name = f.get("name", "UNKNOWN_REMOVED")
-
-        change_type = determine_change_type(f, known_file_details, is_initial)
-        suggested_name = suggest_rename(name, f.get("createdTime", "")) if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"] else ""
-
-        lane = "ACTIVE"
-        parents = f.get("parents", [])
-
-        if parents and folder_registry and all(p in folder_registry for p in parents):
-            # full_path is typically absolute like "/00_inbox/...", we don't need to join them all,
-            # we just take the first parent's full path since files usually reside in one primary folder.
-            base_path = folder_registry[parents[0]].rstrip("/")
-            path_disp = f"{base_path}/{name}"
-        else:
-            path_disp = drive_mgr.get_parent_and_name_path(file_id, name, parents)
-
-        if inbox_trash_folder_id and inbox_trash_folder_id in parents:
-            lane = "INBOX_TRASH"
-
-        rec = FileRecord(
-            file_id=file_id,
-            name=name,
-            parent_ids_sorted=",".join(sorted(f.get("parents", []))),
-            path_display=path_disp,
-            mime_type=mime,
-            size_bytes=size,
-            md5=f.get("md5Checksum", ""),
-            updated_at=f.get("modifiedTime", ""),
-            created_time=f.get("createdTime", ""),
-            web_link=f.get("webViewLink", ""),
-            parents=f.get("parents", []),
-            description=f.get("description", ""),
-            starred=f.get("starred", False),
-            owner_email=(f.get("owners") or [{}])[0].get("emailAddress", ""),
-            owner_name=(f.get("owners") or [{}])[0].get("displayName", ""),
-            last_modified_by_email=(f.get("lastModifyingUser") or {}).get("emailAddress", ""),
-            can_edit=(f.get("capabilities") or {}).get("canEdit", True),
-            can_share=(f.get("capabilities") or {}).get("canShare", True),
-            can_download=(f.get("capabilities") or {}).get("canDownload", True)
+        rec = _build_file_record(
+            f, drive_mgr, known_file_details, is_initial,
+            inbox_trash_folder_id, folder_registry,
         )
-        rec.change_type = change_type
-        rec.suggested_name = suggested_name
-        rec.notes = f"Lane: {lane}"
+        file_id = rec.file_id
+        change_type = rec.change_type
 
         if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
             rec.status = change_type
@@ -308,7 +325,7 @@ def _process_file_batch(
             records_to_process.append(rec)
             continue
 
-        if size > SKIP_OVER_MB * 1024 * 1024:
+        if rec.size_bytes > SKIP_OVER_MB * 1024 * 1024:
             rec.status = "SKIPPED_SIZE"
             rec.sha256 = "HASH_SKIPPED_SIZE"
             # Update cache sofort für denselben Batch, damit nachfolgende Deltas ihn kennen
