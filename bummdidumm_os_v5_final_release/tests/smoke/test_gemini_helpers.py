@@ -144,33 +144,42 @@ class TestExtractStructuredData:
 
 class TestRateLimitGemini:
     def test_sleep_called_exactly_once_on_n_plus_1th_call(self):
-        """time.sleep must be called exactly once when the (N+1)th call exceeds the RPM limit."""
+        """First N calls register immediately; N+1th call sleeps exactly once then registers.
+
+        Uses rpm_limit=3 so the test is independent of the module default.
+        The fake clock advances past the 60s window when sleep fires, allowing
+        the loop to re-check, clear the old timestamps, and register without
+        a second sleep.
+        """
         import shared.gemini_helpers as gh
 
-        rpm_limit = 3  # Use a small limit to keep the test fast
+        rpm_limit = 3
 
         # Reset module-level state so prior test runs don't interfere
         with gh._gemini_lock:
             gh._gemini_call_times.clear()
 
+        clock = [1000.0]
+
+        def fake_monotonic():
+            return clock[0]
+
+        def fake_sleep(seconds):
+            # Advance the fake clock past the 60-second RPM window so that
+            # on re-entry the old timestamps are pruned and the slot opens.
+            clock[0] += 65.0
+
         with patch.object(gh, "_GEMINI_RPM_LIMIT", rpm_limit):
-            with patch("shared.gemini_helpers.time.sleep") as mock_sleep:
-                # Simulate rapid calls by freezing monotonic time so all N calls
-                # appear to be within the same 60-second window.
-                fake_now = 1000.0
-
-                def fake_monotonic():
-                    return fake_now
-
-                with patch("shared.gemini_helpers.time.monotonic", side_effect=fake_monotonic):
+            with patch("shared.gemini_helpers.time.monotonic", side_effect=fake_monotonic):
+                with patch("shared.gemini_helpers.time.sleep", side_effect=fake_sleep) as mock_sleep:
                     # First N calls: should NOT trigger sleep
                     for _ in range(rpm_limit):
                         gh._rate_limit_gemini()
 
-                    # (N+1)th call: should trigger sleep exactly once
+                    # (N+1)th call: should sleep exactly once, then register
                     gh._rate_limit_gemini()
 
         assert mock_sleep.call_count == 1, (
-            f"Expected time.sleep to be called exactly once on the {rpm_limit + 1}th call, "
+            f"Expected time.sleep called exactly once on the {rpm_limit + 1}th call, "
             f"got {mock_sleep.call_count}"
         )

@@ -20,17 +20,19 @@ _GEMINI_RPM_LIMIT = int(os.environ.get("GEMINI_RPM_LIMIT", "9"))
 
 def _rate_limit_gemini() -> None:
     """Proactive RPM guard before generate_content calls."""
-    sleep_time = 0.0
-    with _gemini_lock:
-        now = time.monotonic()
-        _gemini_call_times[:] = [t for t in _gemini_call_times if now - t < 60]
-        if len(_gemini_call_times) >= _GEMINI_RPM_LIMIT:
-            sleep_time = 60 - (now - _gemini_call_times[0]) + 0.5
-    if sleep_time > 0:
+    while True:
+        with _gemini_lock:
+            now = time.monotonic()
+            _gemini_call_times[:] = [t for t in _gemini_call_times if now - t < 60]
+
+            if len(_gemini_call_times) < _GEMINI_RPM_LIMIT:
+                _gemini_call_times.append(now)
+                return
+
+            sleep_time = max(0.0, 60 - (now - _gemini_call_times[0]) + 0.5)
+
         _log.info("Gemini RPM limit reached, sleeping %.1fs", sleep_time)
         time.sleep(sleep_time)
-    with _gemini_lock:
-        _gemini_call_times.append(time.monotonic())
 
 _OCR_WORTHY_MIMES = frozenset({
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/tiff",
