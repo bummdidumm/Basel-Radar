@@ -6,9 +6,7 @@ Covers:
 """
 import sys
 import os
-import time
-import types
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from shared.drive_helpers import DriveManager

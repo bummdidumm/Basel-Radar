@@ -9,7 +9,7 @@ Covers:
 import sys
 import os
 import tempfile
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from shared.gemini_helpers import GeminiOCR

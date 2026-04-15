@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from unittest import mock
 
 import main_pass1
-from main_pass1 import _acquire_lease_or_abort, run_pass1
+from main_pass1 import _acquire_lease_or_abort, _touch_lease, run_pass1
 
 
 class SharedStateStore:
@@ -80,7 +80,8 @@ class TestParallelRunGuardHelpers(unittest.TestCase):
 
         self.assertTrue(_acquire_lease_or_abort(state, log, lease_timeout_sec=3600))
         self.assertEqual(shared.data.get("lease_owner_id"), "owner_new")
-        self.assertEqual(shared.data.get("run_id"), "run_new")
+        self.assertEqual(shared.data.get("run_id"), "run_old")
+        self.assertEqual(state.run_id, "run_old")
 
     def test_same_owner_can_continue(self):
         recent = datetime.now(timezone.utc).isoformat()
@@ -109,6 +110,37 @@ class TestParallelRunGuardHelpers(unittest.TestCase):
 
         self.assertFalse(_acquire_lease_or_abort(state, log, lease_timeout_sec=3600))
         self.assertEqual(shared.data.get("lease_owner_id"), "owner_other_won")
+
+    def test_touch_lease_does_not_overwrite_foreign_owner(self):
+        shared = SharedStateStore(
+            {
+                "lease_owner_id": "owner_foreign",
+                "lease_heartbeat_at": "2026-01-01T00:00:00+00:00",
+                "run_id": "run_foreign",
+            }
+        )
+        state = DummyStateTracker(shared, owner_id="owner_local", run_id="run_local")
+
+        result = _touch_lease(state)
+
+        self.assertFalse(result)
+        self.assertEqual(shared.data.get("lease_owner_id"), "owner_foreign")
+        self.assertEqual(shared.data.get("run_id"), "run_foreign")
+
+    def test_resume_without_lease_adopts_existing_run_id(self):
+        shared = SharedStateStore(
+            {
+                "current_phase": "DELTA_FETCH",
+                "lease_owner_id": "",
+                "run_id": "run_resume_001",
+            }
+        )
+        state = DummyStateTracker(shared, owner_id="owner_resume", run_id="run_new")
+        log = mock.Mock()
+
+        self.assertTrue(_acquire_lease_or_abort(state, log, lease_timeout_sec=3600))
+        self.assertEqual(state.run_id, "run_resume_001")
+        self.assertEqual(shared.data.get("run_id"), "run_resume_001")
 
 
 class TestParallelRunGuardIntegration(unittest.TestCase):

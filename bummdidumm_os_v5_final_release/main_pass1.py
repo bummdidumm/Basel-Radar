@@ -49,23 +49,41 @@ def _is_lease_stale(state, lease_timeout_sec: int) -> bool:
     return diff >= lease_timeout_sec
 
 
-def _touch_lease(state):
+def _claim_lease(state):
     now_utc = datetime.now(timezone.utc).isoformat()
     state.set_val("lease_owner_id", state.owner_id)
-    if not state.get_val("lease_acquired_at"):
-        state.set_val("lease_acquired_at", now_utc)
+    state.set_val("lease_acquired_at", now_utc)
     state.set_val("lease_heartbeat_at", now_utc)
     state.set_val("run_id", state.run_id)
     state.flush_state()
 
 
+def _touch_lease(state) -> bool:
+    state.reload_state()
+    if state.get_val("lease_owner_id") != state.owner_id:
+        return False
+    now_utc = datetime.now(timezone.utc).isoformat()
+    state.set_val("lease_heartbeat_at", now_utc)
+    state.flush_state()
+    return True
+
+
 def _release_lease(state):
+    state.reload_state()
+    if state.get_val("lease_owner_id") != state.owner_id:
+        return
     state.set_val("lease_owner_id", "")
     state.set_val("lease_heartbeat_at", "")
     state.set_val("lease_acquired_at", "")
 
 
+def _touch_lease_or_raise(state, context: str):
+    if not _touch_lease(state):
+        raise RuntimeError(f"Lease verloren während {context}")
+
+
 def _acquire_lease_or_abort(state, log, lease_timeout_sec: int) -> bool:
+    state.reload_state()
     existing_owner = state.get_val("lease_owner_id")
     existing_run_id = state.get_val("run_id")
     existing_phase = state.get_val("current_phase")
@@ -83,10 +101,19 @@ def _acquire_lease_or_abort(state, log, lease_timeout_sec: int) -> bool:
         )
         return False
 
-    _touch_lease(state)
+    if existing_run_id and (
+        (existing_owner and existing_owner != state.owner_id and _is_lease_stale(state, lease_timeout_sec))
+        or (not existing_owner and existing_phase in ["INITIAL_SCAN", "DELTA_FETCH"])
+    ):
+        state.run_id = existing_run_id
+
+    _claim_lease(state)
     state.reload_state()
     if state.get_val("lease_owner_id") != state.owner_id:
         log.warning("Parallel-Run Guard: Lease-Konkurrenz erkannt, Start abgebrochen.")
+        return False
+    if state.get_val("run_id") != state.run_id:
+        log.warning("Parallel-Run Guard: run_id-Konkurrenz erkannt, Start abgebrochen.")
         return False
     return True
 
@@ -152,7 +179,11 @@ def run_pass1():
             }
 
             processed = drive_mgr.walk_recursive_chunked(
-                TARGET_FOLDER_ID, state, _process_file_batch_wrapper, kwargs, lease_touch_callback=lambda: _touch_lease(state)
+                TARGET_FOLDER_ID,
+                state,
+                _process_file_batch_wrapper,
+                kwargs,
+                lease_touch_callback=lambda: _touch_lease_or_raise(state, "Initial-Scan"),
             )
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -168,7 +199,7 @@ def run_pass1():
             new_start_page_token = None
 
             while active_token:
-                _touch_lease(state)
+                _touch_lease_or_raise(state, "Delta-Fetch")
                 log.debug("Delta Chunk", extra={"token": active_token})
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
