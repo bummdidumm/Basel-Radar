@@ -137,3 +137,18 @@ class TestExecuteWithBackoff:
 
         with pytest.raises(HttpError):
             mgr.execute_with_backoff(forbidden)
+
+
+class TestFetchDeltaChunk:
+    def test_fetch_delta_chunk_uses_backoff_wrapper(self):
+        mgr = _make_manager()
+        mgr.execute_with_backoff = MagicMock(
+            return_value={"changes": [], "nextPageToken": "nxt", "newStartPageToken": "new"}
+        )
+
+        changes, next_token, new_start = mgr.fetch_delta_chunk("token_1")
+
+        assert changes == []
+        assert next_token == "nxt"
+        assert new_start == "new"
+        assert mgr.execute_with_backoff.call_count == 1

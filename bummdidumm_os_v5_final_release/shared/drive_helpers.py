@@ -1,5 +1,4 @@
-from typing import List, Dict, Tuple, Optional
-from datetime import datetime, timezone
+from typing import List, Dict, Tuple, Optional, Callable
 from shared.log import get_logger as _get_logger
 _log = _get_logger("drive", phase="SHARED")
 
@@ -103,7 +102,14 @@ class DriveManager:
             "Use walk_recursive_chunked() for all production code paths."
         )
 
-    def walk_recursive_chunked(self, folder_id: str, state, process_batch_callback, batch_kwargs: dict):
+    def walk_recursive_chunked(
+        self,
+        folder_id: str,
+        state,
+        process_batch_callback,
+        batch_kwargs: dict,
+        lease_touch_callback: Optional[Callable[[], None]] = None,
+    ):
         """Performs initial recursive scan in bounded chunks to prevent timeout endloops."""
         queue = state.get_val("initial_scan_queue")
         if queue:
@@ -154,11 +160,11 @@ class DriveManager:
                 # Checkpointing
                 state.set_val("initial_scan_queue", ",".join(queue))
                 state.set_val("initial_scan_page_token", page_token or "")
-                if state.get_val("lease_owner_id"):
-                    state.set_val("lease_heartbeat_at", datetime.now(timezone.utc).isoformat())
                 # We do not strictly need to save the new start token here as it's fetched at the start of walk
                 # but if we wanted to, we could. The queue saves the progress anyway.
                 state.flush_state()
+                if lease_touch_callback:
+                    lease_touch_callback()
 
                 if not page_token:
                     break
