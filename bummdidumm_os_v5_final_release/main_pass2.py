@@ -269,13 +269,14 @@ def run_pass2():
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
     ocr_calls_this_run = 0
 
-    state.set_val("current_phase", "PASS2_OCR_INDEXING")
-
     current_run_id = state.get_val("ready_for_pass2_run_id")
 
     if not current_run_id:
+        state.set_val("current_phase", "PASS2_BLOCKED_NO_HANDOVER")
         state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
         return
+
+    state.set_val("current_phase", "PASS2_OCR_INDEXING")
 
     # Load Knowledge Exclusions
     exclusions = {}
