@@ -6,9 +6,11 @@ class DummyStateTracker:
     def __init__(self, initial_state):
         self._state = initial_state
         self.run_id = "run_new"
+        self.owner_id = "owner_new"
     def get_val(self, key): return self._state.get(key)
     def set_val(self, key, val): self._state[key] = val
     def flush_state(self): pass
+    def reload_state(self): pass
     def load_known_hashes(self): return {}
 
 class DummySheetMgr:
@@ -46,7 +48,13 @@ class TestParallelRunGuard(unittest.TestCase):
 
     def test_active_run_prevented(self):
         recent_time = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
-        state = DummyStateTracker({"current_phase": "DELTA_FETCH", "run_id": "run_active", "last_run_utc": recent_time})
+        state = DummyStateTracker({
+            "current_phase": "DELTA_FETCH",
+            "run_id": "run_active",
+            "last_run_utc": recent_time,
+            "lease_owner_id": "owner_active",
+            "lease_heartbeat_at": recent_time
+        })
 
         import main_pass1
         old_creds = main_pass1.get_user_credentials

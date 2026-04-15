@@ -1,4 +1,5 @@
 from typing import List, Dict, Tuple, Optional
+from datetime import datetime, timezone
 from shared.log import get_logger as _get_logger
 _log = _get_logger("drive", phase="SHARED")
 
@@ -83,8 +84,6 @@ class DriveManager:
 
     def get_initial_token(self) -> str:
         params = self._base_params()
-        if self.enable_shared_drives:
-            params["driveId"] = None
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
@@ -155,6 +154,8 @@ class DriveManager:
                 # Checkpointing
                 state.set_val("initial_scan_queue", ",".join(queue))
                 state.set_val("initial_scan_page_token", page_token or "")
+                if state.get_val("lease_owner_id"):
+                    state.set_val("lease_heartbeat_at", datetime.now(timezone.utc).isoformat())
                 # We do not strictly need to save the new start token here as it's fetched at the start of walk
                 # but if we wanted to, we could. The queue saves the progress anyway.
                 state.flush_state()
@@ -175,7 +176,9 @@ class DriveManager:
         params["spaces"] = "drive"
         params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload)))"
 
-        res = self.drive.changes().list(**params).execute()
+        def _do_delta_list():
+            return self.drive.changes().list(**params).execute()
+        res = self.execute_with_backoff(_do_delta_list)
 
         changes = []
         for change in res.get("changes", []):

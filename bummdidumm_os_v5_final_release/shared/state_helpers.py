@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import os
+import uuid
 from typing import Dict, List, Optional, Any
 from .sheets_helpers import SheetManager
 from .models import FileRecord
@@ -9,7 +10,10 @@ _log = _get_logger("state", phase="SHARED")
 class StateTracker:
     def __init__(self, sheets_manager: SheetManager):
         self.sheets = sheets_manager
-        self.run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        uniq = uuid.uuid4().hex[:8]
+        self.run_id = f"run_{ts}_{uniq}"
+        self.owner_id = f"owner_{uuid.uuid4().hex}"
 
         self._state_cache: dict[str, str] = {}
         self._known_hashes: Optional[Dict[str, dict[str, Any]]] = None
@@ -18,23 +22,15 @@ class StateTracker:
         self.sheets.initialize_headers()
         self._load_state()
 
-        # Resume-Verhalten absichern:
-        # Falls wir uns noch in einem laufenden Lauf befinden, behalten wir die run_id,
-        # anstatt einen neuen Report-Block anzufangen.
-        current_phase = self._state_cache.get("current_phase", "IDLE")
-        saved_run_id = self._state_cache.get("run_id")
-        if current_phase in ["DELTA_FETCH", "INITIAL_SCAN"] and saved_run_id:
-            self.run_id = saved_run_id
-        else:
-            # Speichere die neue run_id
-            self.set_val("run_id", self.run_id)
-            self.flush_state()
-
     def _load_state(self):
+        self._state_cache = {}
         rows = self.sheets.read_all_rows("State", "A:B")
         for row in rows:
             if len(row) >= 2 and row[0] != "key":
                 self._state_cache[row[0]] = row[1]
+
+    def reload_state(self):
+        self._load_state()
 
     def get_val(self, key: str) -> Optional[str]:
         return self._state_cache.get(key)
