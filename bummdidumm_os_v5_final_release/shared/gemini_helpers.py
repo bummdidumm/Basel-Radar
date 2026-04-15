@@ -2,6 +2,7 @@ import os
 import json
 import time
 import tempfile
+from threading import Lock
 from typing import Optional, Tuple
 from googleapiclient.http import MediaIoBaseDownload
 from google import genai
@@ -9,6 +10,30 @@ from google.genai.errors import APIError
 from .models import ExtractedDocument
 from shared.log import get_logger as _get_logger
 _log = _get_logger("gemini", phase="SHARED")
+
+_gemini_call_times: list[float] = []
+_gemini_lock = Lock()
+_GEMINI_RPM_LIMIT = max(1, int(os.environ.get("GEMINI_RPM_LIMIT", "9")))
+# Default 9 = safe buffer below gemini-2.5-flash Free Tier (10 RPM official limit)
+# Adjust via env var if model or tier changes. Clamped to >= 1 so the
+# rate-limit loop never attempts _gemini_call_times[0] on an empty list.
+
+
+def _rate_limit_gemini() -> None:
+    """Proactive RPM guard before generate_content calls."""
+    while True:
+        with _gemini_lock:
+            now = time.monotonic()
+            _gemini_call_times[:] = [t for t in _gemini_call_times if now - t < 60]
+
+            if len(_gemini_call_times) < _GEMINI_RPM_LIMIT:
+                _gemini_call_times.append(now)
+                return
+
+            sleep_time = max(0.0, 60 - (now - _gemini_call_times[0]) + 0.5)
+
+        _log.info("Gemini RPM limit reached, sleeping %.1fs", sleep_time)
+        time.sleep(sleep_time)
 
 _OCR_WORTHY_MIMES = frozenset({
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/tiff",
@@ -97,6 +122,7 @@ class GeminiOCR:
             max_retries = 6
             for attempt in range(max_retries):
                 try:
+                    _rate_limit_gemini()
                     response = self.client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=[gemini_file, prompt],

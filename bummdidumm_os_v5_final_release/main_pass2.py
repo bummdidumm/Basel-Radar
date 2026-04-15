@@ -86,6 +86,191 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     return None
 
 
+def _extract_zip_sources(zip_bytes: bytes, parent_rec) -> list[dict]:
+    """Parse parseable files inside a ZIP archive and return source dicts for each.
+
+    Each sub-file is written to a short-lived temp file, parsed by inspect_source,
+    then the temp file is immediately deleted. The parent record supplies metadata
+    (run_utc, file_id, sha256, etc.) used to build stable sub-file IDs.
+    """
+    import io
+    sources = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as z:
+            for zinfo in z.infolist():
+                if zinfo.is_dir() or zinfo.file_size > 50 * 1024 * 1024:
+                    continue
+                sub_ext = os.path.splitext(zinfo.filename)[1].lower()
+                if sub_ext not in _PARSEABLE_EXTS:
+                    continue
+                sub_mime = get_parseable_mime_type(sub_ext)
+                sub_local_path = None
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
+                        sub_local_path = tf.name
+                        tf.write(z.read(zinfo))
+
+                    sanitized_name = sanitize_path(zinfo.filename)
+                    sub_detected = inspect_source(
+                        source_path=sub_local_path,
+                        mime=sub_mime,
+                        ext=sub_ext,
+                        fallback_text="",
+                        original_path=sanitized_name,
+                    )
+                    sub_content = sub_detected.get("content", {})
+                    sub_content.setdefault("title", sanitized_name)
+                    sub_event_time = parent_rec.ocr_date or parent_rec.run_utc or ""
+                    sub_content.setdefault("event_time_start", sub_event_time)
+                    sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
+
+                    sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
+                    canonical_sub_path = f"{parent_rec.path_display or parent_rec.name}/{sanitized_name}"
+                    sub_file_id = f"{parent_rec.file_id}_{hashlib.sha256((parent_rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
+                    sources.append({
+                        "file_id": sub_file_id,
+                        "bundle_id": parent_rec.file_id,
+                        "source_path": canonical_sub_path,
+                        "source_path_rel": canonical_sub_path,
+                        "original_filename": sanitized_name,
+                        "mime": sub_mime,
+                        "ext": sub_ext,
+                        "checksum_sha256": sub_checksum,
+                        "raw_ref": f"{parent_rec.web_link or parent_rec.path_display or parent_rec.name}/{sanitized_name}",
+                        "status": parent_rec.status,
+                        "sot_status": "derived",
+                        "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
+                        "preview": {
+                            "coverage_start": parent_rec.run_utc,
+                            "coverage_end": parent_rec.run_utc,
+                            **sub_detected.get("preview", {}),
+                        },
+                        "text_preview": sub_detected.get("text_preview", ""),
+                        "content": sub_content,
+                        "is_export": sub_detected.get("is_export", True),
+                        "is_bundle": sub_detected.get("is_bundle", False),
+                        "is_archive": False,
+                        "contains_pii": False,
+                        "contains_messages": "message" in sanitized_name.lower() or "chat" in sanitized_name.lower(),
+                        "contains_geo": "map" in sanitized_name.lower() or "location" in sanitized_name.lower(),
+                        "contains_financial": False,
+                        "contains_media_refs": False,
+                    })
+                except Exception as e:
+                    logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
+                finally:
+                    if sub_local_path and os.path.exists(sub_local_path):
+                        os.remove(sub_local_path)
+    except Exception as e:
+        logging.warning(f"Failed to open ZIP for {parent_rec.file_id}: {e}")
+    return sources
+
+
+def _build_source_from_record(rec, drive_service, enable_shared_drives: bool) -> list[dict]:
+    """Build one or more source dicts for a single FileRecord.
+
+    Downloads the file if parseable, runs inspect_source, and expands ZIP
+    archives into additional per-file source dicts. Returns a list because
+    a single ZIP record can yield multiple sources.
+    """
+    ext = os.path.splitext(rec.name)[1].lower()
+    mime = rec.effective_mime_type or rec.mime_type or ""
+
+    local_path: str | None = None
+    detected = {}
+    try:
+        # Skip download if Drive reports file is not downloadable
+        if not rec.can_download:
+            detected = inspect_source(
+                source_path=rec.path_display or rec.name,
+                mime=mime, ext=ext,
+                fallback_text=rec.ocr_summary or rec.notes or "",
+            )
+        elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
+            local_path = _download_drive_file_to_tmp(
+                drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
+            )
+            detected = inspect_source(
+                source_path=local_path or rec.path_display or rec.name,
+                mime=mime,
+                ext=ext,
+                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+            )
+        else:
+            detected = inspect_source(
+                source_path=rec.path_display or rec.name,
+                mime=mime,
+                ext=ext,
+                fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
+            )
+
+        # Fix leak of temp path in title
+        if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
+            detected["content"]["title"] = rec.name
+
+        # Recursive dispatch: if the detected content found parseable files inside a ZIP
+        zip_sources: list[dict] = []
+        if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
+            zip_bytes = Path(local_path).read_bytes()
+            zip_sources = _extract_zip_sources(zip_bytes, rec)
+    finally:
+        if local_path and os.path.exists(local_path):
+            os.remove(local_path)
+
+    content = detected.get("content", {})
+    content.setdefault("title", rec.name)
+    content.setdefault("summary", rec.ocr_summary or rec.notes or "")
+    event_time = rec.ocr_date or rec.run_utc or ""
+    content.setdefault("event_time_start", event_time)
+    content.setdefault("event_date", event_time[:10] if event_time else "")
+    if rec.folder_rule:
+        content.setdefault("apps", [rec.folder_rule])
+    # Use OCR doc_type as a semantic topic hint; avoid using change_type
+    # (which is an internal delta status, not a meaningful topic).
+    ocr_topic = rec.ocr_doc_type.strip() if rec.ocr_doc_type else ""
+    content.setdefault("topics", [ocr_topic] if ocr_topic else [])
+    # OCR-extracted people/orgs → inject into content for Brain Index entity extraction
+    if rec.ocr_people:
+        content["people"] = list(dict.fromkeys(content.get("people", []) + rec.ocr_people))
+    if rec.ocr_organizations:
+        content["apps"] = list(dict.fromkeys(content.get("apps", []) + rec.ocr_organizations))
+    # Starred files → higher importance_score
+    if rec.starred:
+        content["importance_score"] = min(1.0, content.get("importance_score", 0.5) + 0.25)
+    content.setdefault("url", rec.web_link or "")
+
+    canonical_path = rec.path_display or rec.name
+    parent_source = {
+        "file_id": rec.file_id,
+        "source_path": canonical_path,
+        "source_path_rel": canonical_path,
+        "original_filename": rec.name,
+        "mime": mime,
+        "ext": ext,
+        "checksum_sha256": rec.sha256 or "",
+        "raw_ref": rec.web_link or rec.path_display or rec.name,
+        "status": rec.status,
+        "sot_status": "derived",
+        "canonical_format": "binary" if mime == "application/octet-stream" else "text" if mime.startswith("text/") else "json" if "json" in mime else "unknown",
+        "preview": {
+            "coverage_start": rec.run_utc,
+            "coverage_end": rec.run_utc,
+            **detected.get("preview", {}),
+        },
+        "text_preview": detected.get("text_preview", ""),
+        "content": content,
+        "is_export": detected.get("is_export", True),
+        "is_bundle": detected.get("is_bundle", False),
+        "is_archive": detected.get("is_archive", False),
+        "contains_pii": rec.ocr_sensitivity in ("medium", "high"),
+        "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
+        "contains_geo": "map" in (rec.path_display or "").lower(),
+        "contains_financial": bool(rec.ocr_amount),
+        "contains_media_refs": rec.mime_type.startswith("image/"),
+    }
+    return zip_sources + [parent_source]
+
+
 def _build_personal_brain_sources(records_to_index, drive_service, enable_shared_drives: bool) -> list[dict]:
     """Convert FileRecord objects into personal-brain source dicts.
 
@@ -95,162 +280,7 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
     """
     sources = []
     for rec in records_to_index:
-        ext = os.path.splitext(rec.name)[1].lower()
-        mime = rec.effective_mime_type or rec.mime_type or ""
-
-        local_path: str | None = None
-        detected = {}
-        try:
-            # Skip download if Drive reports file is not downloadable
-            if not rec.can_download:
-                detected = inspect_source(
-                    source_path=rec.path_display or rec.name,
-                    mime=mime, ext=ext,
-                    fallback_text=rec.ocr_summary or rec.notes or "",
-                )
-            elif rec.file_id and (ext in _PARSEABLE_EXTS or mime in _PARSEABLE_MIMES or ext == ".zip" or "zip" in mime):
-                local_path = _download_drive_file_to_tmp(
-                    drive_service, rec.file_id, rec.size_bytes, enable_shared_drives
-                )
-                detected = inspect_source(
-                    source_path=local_path or rec.path_display or rec.name,
-                    mime=mime,
-                    ext=ext,
-                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
-                )
-            else:
-                detected = inspect_source(
-                    source_path=rec.path_display or rec.name,
-                    mime=mime,
-                    ext=ext,
-                    fallback_text=rec.ocr_full_text or rec.ocr_summary or rec.notes or "",
-                )
-
-            # Fix leak of temp path in title
-            if local_path and detected.get("content", {}).get("title") == os.path.basename(local_path):
-                detected["content"]["title"] = rec.name
-
-            # Recursive dispatch: if the detected content found parseable files inside a ZIP
-            if detected.get("is_archive") and "archive_files" in detected.get("content", {}) and local_path:
-                with zipfile.ZipFile(local_path, "r") as z:
-                    for zinfo in z.infolist():
-                        if zinfo.is_dir() or zinfo.file_size > 50 * 1024 * 1024:
-                            continue
-                        sub_ext = os.path.splitext(zinfo.filename)[1].lower()
-                        if sub_ext in _PARSEABLE_EXTS:
-                            sub_mime = get_parseable_mime_type(sub_ext)
-                            sub_local_path = None
-                            try:
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=sub_ext) as tf:
-                                    sub_local_path = tf.name
-                                    tf.write(z.read(zinfo))
-
-                                sanitized_name = sanitize_path(zinfo.filename)
-                                sub_detected = inspect_source(
-                                    source_path=sub_local_path,
-                                    mime=sub_mime,
-                                    ext=sub_ext,
-                                fallback_text="",
-                                original_path=sanitized_name
-                                )
-                                sub_content = sub_detected.get("content", {})
-                                sub_content.setdefault("title", sanitized_name)
-                                sub_event_time = rec.ocr_date or rec.run_utc or ""
-                                sub_content.setdefault("event_time_start", sub_event_time)
-                                sub_content.setdefault("event_date", sub_event_time[:10] if sub_event_time else "")
-
-                                sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
-                                canonical_sub_path = f"{rec.path_display or rec.name}/{sanitized_name}"
-                                sub_file_id = f"{rec.file_id}_{hashlib.sha256((rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
-                                sources.append({
-                                    "file_id": sub_file_id,
-                                    "bundle_id": rec.file_id,
-                                    "source_path": canonical_sub_path,
-                                    "source_path_rel": canonical_sub_path,
-                                    "original_filename": sanitized_name,
-                                    "mime": sub_mime,
-                                    "ext": sub_ext,
-                                    "checksum_sha256": sub_checksum,
-                                    "raw_ref": f"{rec.web_link or rec.path_display or rec.name}/{sanitized_name}",
-                                    "status": rec.status,
-                                    "sot_status": "derived",
-                                    "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
-                                    "preview": {
-                                        "coverage_start": rec.run_utc,
-                                        "coverage_end": rec.run_utc,
-                                        **sub_detected.get("preview", {}),
-                                    },
-                                    "text_preview": sub_detected.get("text_preview", ""),
-                                    "content": sub_content,
-                                    "is_export": sub_detected.get("is_export", True),
-                                    "is_bundle": sub_detected.get("is_bundle", False),
-                                    "is_archive": False,
-                                    "contains_pii": False,
-                                    "contains_messages": "message" in sanitized_name.lower() or "chat" in sanitized_name.lower(),
-                                    "contains_geo": "map" in sanitized_name.lower() or "location" in sanitized_name.lower(),
-                                    "contains_financial": False,
-                                    "contains_media_refs": False,
-                                })
-                            except Exception as e:
-                                logging.warning(f"Error parsing sub-file {zinfo.filename}: {e}")
-                            finally:
-                                if sub_local_path and os.path.exists(sub_local_path):
-                                    os.remove(sub_local_path)
-        finally:
-            if local_path and os.path.exists(local_path):
-                os.remove(local_path)
-
-        content = detected.get("content", {})
-        content.setdefault("title", rec.name)
-        content.setdefault("summary", rec.ocr_summary or rec.notes or "")
-        event_time = rec.ocr_date or rec.run_utc or ""
-        content.setdefault("event_time_start", event_time)
-        content.setdefault("event_date", event_time[:10] if event_time else "")
-        if rec.folder_rule:
-            content.setdefault("apps", [rec.folder_rule])
-        # Use OCR doc_type as a semantic topic hint; avoid using change_type
-        # (which is an internal delta status, not a meaningful topic).
-        ocr_topic = rec.ocr_doc_type.strip() if rec.ocr_doc_type else ""
-        content.setdefault("topics", [ocr_topic] if ocr_topic else [])
-        # OCR-extracted people/orgs → inject into content for Brain Index entity extraction
-        if rec.ocr_people:
-            content["people"] = list(dict.fromkeys(content.get("people", []) + rec.ocr_people))
-        if rec.ocr_organizations:
-            content["apps"] = list(dict.fromkeys(content.get("apps", []) + rec.ocr_organizations))
-        # Starred files → higher importance_score
-        if rec.starred:
-            content["importance_score"] = min(1.0, content.get("importance_score", 0.5) + 0.25)
-        content.setdefault("url", rec.web_link or "")
-
-        canonical_path = rec.path_display or rec.name
-        sources.append({
-            "file_id": rec.file_id,
-            "source_path": canonical_path,
-            "source_path_rel": canonical_path,
-            "original_filename": rec.name,
-            "mime": mime,
-            "ext": ext,
-            "checksum_sha256": rec.sha256 or "",
-            "raw_ref": rec.web_link or rec.path_display or rec.name,
-            "status": rec.status,
-            "sot_status": "derived",
-            "canonical_format": "binary" if mime == "application/octet-stream" else "text" if mime.startswith("text/") else "json" if "json" in mime else "unknown",
-            "preview": {
-                "coverage_start": rec.run_utc,
-                "coverage_end": rec.run_utc,
-                **detected.get("preview", {}),
-            },
-            "text_preview": detected.get("text_preview", ""),
-            "content": content,
-            "is_export": detected.get("is_export", True),
-            "is_bundle": detected.get("is_bundle", False),
-            "is_archive": detected.get("is_archive", False),
-            "contains_pii": rec.ocr_sensitivity in ("medium", "high"),
-            "contains_messages": "message" in (rec.ocr_doc_type or "").lower(),
-            "contains_geo": "map" in (rec.path_display or "").lower(),
-            "contains_financial": bool(rec.ocr_amount),
-            "contains_media_refs": rec.mime_type.startswith("image/"),
-        })
+        sources.extend(_build_source_from_record(rec, drive_service, enable_shared_drives))
     return sources
 
 

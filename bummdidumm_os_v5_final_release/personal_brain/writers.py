@@ -4,6 +4,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
+from typing import Iterator
 
 from .daily_memory_builder import build_daily_memory
 from .search_view_builder import build_search_views
@@ -69,8 +70,37 @@ class JsonlWriter:
             _log.error("Failed to read JSONL file", extra={"path": str(path), "error": str(e)})
         return existing
 
+    def _stream_jsonl(self, path: Path) -> Iterator[dict]:
+        """Yield parsed dicts from a JSONL file one line at a time without buffering.
+
+        Use this for aggregation-only passes where no full join is needed.
+        Prefer _read_existing() when a dedup-by-key dict is required.
+        """
+        if not path.exists():
+            return
+        try:
+            with path.open(encoding="utf-8") as fh:
+                for line_num, line in enumerate(fh, start=1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except Exception as e:
+                        _log.warning(
+                            "Skipping corrupt line in JSONL",
+                            extra={"path": str(path), "line": line_num, "error": str(e)},
+                        )
+        except Exception as e:
+            _log.error("Failed to read JSONL file", extra={"path": str(path), "error": str(e)})
+
     def _load_full_records(self) -> list[dict]:
-        """Return the complete merged record index from disk."""
+        """Return the complete merged record index from disk.
+
+        Full load is unavoidable for callers that need all records simultaneously
+        (e.g. build_daily_memory, build_search_views). Use _stream_jsonl() for
+        aggregation-only passes.
+        """
         return list(self._read_existing(self.published / "01_record_index.jsonl", "record_id").values())
 
     def _load_full_sources(self) -> list[dict]:
@@ -265,6 +295,8 @@ class JsonlWriter:
         performed from the on-disk record index so that partial re-index runs
         do not erase previous days.
         """
+        # Full load is unavoidable: build_daily_memory() needs all records in
+        # memory at once to group them by date across the entire history.
         all_records = self._load_full_records()
         daily = build_daily_memory(all_records)
         for day, payload in daily.items():
@@ -302,6 +334,9 @@ class JsonlWriter:
 
     def write_search_views(self, _records: list[dict]) -> dict[str, list[dict]]:
         """Rebuild all search views from the full merged record index."""
+        # Full load is unavoidable: build_search_views() performs multi-dimensional
+        # cross-record joins (by entity, service, date, topic) that require all
+        # records in memory simultaneously.
         all_records = self._load_full_records()
         views = build_search_views(all_records)
         self._write_jsonl(
@@ -326,45 +361,117 @@ class JsonlWriter:
         return views
 
     def write_reports(self) -> None:
-        """Write stats and summary from the full merged indices."""
-        sources = self._load_full_sources()
-        records = self._load_full_records()
-        entities = self._load_full_entities()
-        relations = self._load_full_relations()
+        """Write stats and summary from the full merged indices.
+
+        All aggregation stats are computed via single streaming passes to keep
+        peak RAM proportional to one row at a time rather than the full index.
+        The master index sections are also written by streaming directly from the
+        on-disk JSONL files, avoiding any full-load into RAM.
+        """
+        sources_path = self.published / "00_source_registry.jsonl"
+        records_path = self.published / "01_record_index.jsonl"
+        entities_path = self.published / "02_entity_index.jsonl"
+        relations_path = self.published / "03_relation_index.jsonl"
+
+        # ------------------------------------------------------------------
+        # Streaming pass — sources (all values are aggregations, no full load)
+        # ------------------------------------------------------------------
+        total_sources = 0
+        sources_by_system: Counter[str] = Counter()
+        llm_export_count = 0
+        parse_errors = 0
+        parse_warnings = 0
+        ocr_files_count = 0
+        high_sensitivity_sources: list[str] = []
+        dedicated_parsers = 0
+        generic_sources = 0
+        ocr_only_sources = 0
+        shallow_archive_count = 0
+        unmatched: set[str] = set()
+        _SYSTEMS = ["instagram", "facebook", "telegram", "whatsapp", "messenger", "perplexity"]
+
+        for s in self._stream_jsonl(sources_path):
+            total_sources += 1
+            sources_by_system[s.get("source_system", "unknown")] += 1
+            if s.get("source_system") == "llm":
+                llm_export_count += 1
+            if s.get("parse_error"):
+                parse_errors += 1
+            if s.get("parse_warning"):
+                parse_warnings += 1
+            if s.get("source_format") == "image":
+                ocr_files_count += 1
+            if s.get("sensitivity") == "high":
+                high_sensitivity_sources.append(s["source_id"])
+            parser_name = s.get("parser_name", "")
+            if not parser_name.startswith("parser_generic"):
+                dedicated_parsers += 1
+            else:
+                generic_sources += 1
+            if "event_only_no_content_processing" in str(s.get("notes", "")):
+                ocr_only_sources += 1
+            if s.get("is_archive") and not s.get("record_count", 0):
+                shallow_archive_count += 1
+            src_path = s.get("source_path", "").lower()
+            parser_lower = parser_name.lower()
+            for system in _SYSTEMS:
+                if system in src_path and system not in parser_lower:
+                    unmatched.add(system)
+
+        # ------------------------------------------------------------------
+        # Streaming pass — records (all values are aggregations, no full load)
+        # ------------------------------------------------------------------
+        total_records = 0
+        records_by_type: Counter[str] = Counter()
+        coverage_min_date = ""
+        coverage_max_date = ""
+
+        for r in self._stream_jsonl(records_path):
+            total_records += 1
+            records_by_type[r.get("record_type", "unknown")] += 1
+            d = r.get("event_date", "")
+            if d:
+                if not coverage_min_date or d < coverage_min_date:
+                    coverage_min_date = d
+                if not coverage_max_date or d > coverage_max_date:
+                    coverage_max_date = d
+
+        # ------------------------------------------------------------------
+        # Streaming pass — entities (count + type breakdown only)
+        # ------------------------------------------------------------------
+        total_entities = 0
+        entities_by_type: Counter[str] = Counter()
+
+        for e in self._stream_jsonl(entities_path):
+            total_entities += 1
+            entities_by_type[e.get("entity_type", "unknown")] += 1
+
+        # ------------------------------------------------------------------
+        # Streaming pass — relations (count only)
+        # ------------------------------------------------------------------
+        total_relations = sum(1 for _ in self._stream_jsonl(relations_path))
 
         stats = {
-            "total_sources": len(sources),
-            "total_records": len(records),
-            "total_entities": len(entities),
-            "total_relations": len(relations),
-            "sources_by_system": dict(Counter(s.get("source_system", "unknown") for s in sources)),
-            "records_by_type": dict(Counter(r.get("record_type", "unknown") for r in records)),
-            "entities_by_type": dict(Counter(e.get("entity_type", "unknown") for e in entities)),
-            "coverage_min_date": min(
-                (r.get("event_date", "") for r in records if r.get("event_date")), default=""
-            ),
-            "coverage_max_date": max(
-                (r.get("event_date", "") for r in records if r.get("event_date")), default=""
-            ),
-            "llm_export_count": sum(1 for s in sources if s.get("source_system") == "llm"),
-            "parse_errors": sum(1 for s in sources if s.get("parse_error")),
-            "parse_warnings": sum(1 for s in sources if s.get("parse_warning")),
-            "ocr_files_count": sum(1 for s in sources if s.get("source_format") == "image"),
-            "high_sensitivity_sources": [s["source_id"] for s in sources if s.get("sensitivity") == "high"],
-            "dedicated_parsers": sum(1 for s in sources if not s.get("parser_name", "").startswith("parser_generic")),
-            "generic_sources": sum(1 for s in sources if s.get("parser_name", "").startswith("parser_generic")),
-            "ocr_only_sources": sum(1 for s in sources if "event_only_no_content_processing" in str(s.get("notes", ""))),
-            "shallow_archive_count": sum(1 for s in sources if s.get("is_archive") and not s.get("record_count", 0)),
+            "total_sources": total_sources,
+            "total_records": total_records,
+            "total_entities": total_entities,
+            "total_relations": total_relations,
+            "sources_by_system": dict(sources_by_system),
+            "records_by_type": dict(records_by_type),
+            "entities_by_type": dict(entities_by_type),
+            "coverage_min_date": coverage_min_date,
+            "coverage_max_date": coverage_max_date,
+            "llm_export_count": llm_export_count,
+            "parse_errors": parse_errors,
+            "parse_warnings": parse_warnings,
+            "ocr_files_count": ocr_files_count,
+            "high_sensitivity_sources": high_sensitivity_sources,
+            "dedicated_parsers": dedicated_parsers,
+            "generic_sources": generic_sources,
+            "ocr_only_sources": ocr_only_sources,
+            "shallow_archive_count": shallow_archive_count,
+            "missing_parser_families": sorted(list(unmatched)),
         }
-
-        unmatched = set()
-        for s in sources:
-            path = s.get("source_path", "").lower()
-            parser = s.get("parser_name", "").lower()
-            for system in ["instagram", "facebook", "telegram", "whatsapp", "messenger", "perplexity"]:
-                if system in path and system not in parser:
-                    unmatched.add(system)
-        stats["missing_parser_families"] = sorted(list(unmatched))
 
         def atomic_write_text(path: Path, content: str) -> None:
             tmp = path.with_suffix(".tmp")
@@ -393,29 +500,59 @@ class JsonlWriter:
             f"Entities: {stats['total_entities']}\n"
             f"Relations: {stats['total_relations']}\n"
         )
-        atomic_write_text(
-            self.published / "CURRENT_personal_brain_index.jsonl",
-            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
-        )
 
-        # Write master index in streaming fashion to avoid holding all four index
-        # dicts plus daily_memory plus search_views in RAM at the same time.
-        # We write each top-level key as a JSON array incrementally.
+        # Stream record index directly from disk — avoids building a full list in RAM
+        index_path = self.published / "CURRENT_personal_brain_index.jsonl"
+        index_tmp = index_path.with_suffix(".tmp")
+        with index_tmp.open("w", encoding="utf-8") as out:
+            for r in self._stream_jsonl(records_path):
+                out.write(json.dumps(r, ensure_ascii=False) + "\n")
+        index_tmp.replace(index_path)
+
+        # Write master index by streaming each section directly from the on-disk
+        # JSONL files — no full-load of any index into RAM.
         master_path = self.published / "CURRENT_personal_brain_master_index.json"
         master_tmp = master_path.with_suffix(".tmp")
         with master_tmp.open("w", encoding="utf-8") as mf:
-            mf.write('{\n"sources":')
-            json.dump(sources, mf, ensure_ascii=False)
-            del sources
-            mf.write(',\n"records":')
-            json.dump(records, mf, ensure_ascii=False)
-            del records
-            mf.write(',\n"entities":')
-            json.dump(entities, mf, ensure_ascii=False)
-            del entities
-            mf.write(',\n"relations":')
-            json.dump(relations, mf, ensure_ascii=False)
-            del relations
+            # Sources
+            mf.write('{\n"sources":[')
+            first = True
+            for obj in self._stream_jsonl(sources_path):
+                if not first:
+                    mf.write(",")
+                mf.write(json.dumps(obj, ensure_ascii=False))
+                first = False
+            mf.write(']')
+
+            # Records
+            mf.write(',\n"records":[')
+            first = True
+            for obj in self._stream_jsonl(records_path):
+                if not first:
+                    mf.write(",")
+                mf.write(json.dumps(obj, ensure_ascii=False))
+                first = False
+            mf.write(']')
+
+            # Entities
+            mf.write(',\n"entities":[')
+            first = True
+            for obj in self._stream_jsonl(entities_path):
+                if not first:
+                    mf.write(",")
+                mf.write(json.dumps(obj, ensure_ascii=False))
+                first = False
+            mf.write(']')
+
+            # Relations
+            mf.write(',\n"relations":[')
+            first = True
+            for obj in self._stream_jsonl(relations_path):
+                if not first:
+                    mf.write(",")
+                mf.write(json.dumps(obj, ensure_ascii=False))
+                first = False
+            mf.write(']')
 
             # Daily memory
             mf.write(',\n"daily_memory":{')
