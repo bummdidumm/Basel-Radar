@@ -11,7 +11,7 @@
 
 ## APIs, IAM und PROJECT_ID-Konfiguration
 - **Apps Script** liest `PROJECT_ID` aus `PropertiesService` (`Script Properties`).
-- **deploy.sh** nutzt ausschließlich Environment Variablen (`PROJECT_ID`, `TARGET_FOLDER_ID`, `ARCHIVE_FOLDER_ID`, `INDEX_FOLDER_ID`, `CONTROL_SHEET_ID`, `GEMINI_API_KEY`).
+- **deploy.sh** nutzt ausschließlich Environment Variablen (`PROJECT_ID`, `TARGET_FOLDER_ID`, `ARCHIVE_FOLDER_ID`, `INDEX_FOLDER_ID`, `CONTROL_SHEET_ID`, `GEMINI_API_KEY`, `SA_EMAIL`, `BRAIN_INDEX_ROOT`).
 - `TARGET_FOLDER_ID` ist optional; leer bedeutet Scan vom Drive-Root aus.
 - Keine Hardcoded-Projekt-ID und keine Platzhalter wie `<keine_hardcoded_project_id>`.
 
@@ -19,7 +19,7 @@
 ```bash
 cd bummdidumm_os_v5_final_release
 chmod +x deploy.sh
-PROJECT_ID=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CONTROL_SHEET_ID=... GEMINI_API_KEY=... ./deploy.sh
+PROJECT_ID=... SA_EMAIL=... BRAIN_INDEX_ROOT=... TARGET_FOLDER_ID=... ARCHIVE_FOLDER_ID=... INDEX_FOLDER_ID=... CONTROL_SHEET_ID=... GEMINI_API_KEY=... ./deploy.sh
 ```
 
 ## Laufmodi
