@@ -47,37 +47,45 @@ def run_safe_sort():
     known = state.load_known_hashes()
     known_file_ids = set(known.keys())
 
-    # Load semantic hints from personal_brain record index.
-    # Only collect hints for file_ids that are already in the known-hashes set
-    # to cap memory usage — the record index can be large on production deployments.
+    # Load semantic hints (file_id → primary topic) for sorting decisions.
+    # Prefer the compact file_topics.json written by Pass 2 writers; fall back to
+    # streaming the full record index for installations that predate this file.
     from pathlib import Path
     import json
     import logging
     semantic_hints: dict[str, str] = {}
     brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
     if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
-        log.warning("BRAIN_INDEX_ROOT is not set in Cloud Run. Semantic hints will not be available or persisted correctly.")
+        log.warning("BRAIN_INDEX_ROOT is not set in Cloud Run. Semantic hints will not be available.")
 
-    registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"
-    if registry_path.exists():
+    hint_path = brain_index_root / "20_index" / "published" / "file_topics.json"
+    if hint_path.exists():
         try:
-            with registry_path.open(encoding="utf-8") as rh:
-                for line in rh:
-                    if not line.strip():
-                        continue
-                    try:
-                        s_data = json.loads(line)
-                        f_id = s_data.get("file_id")
-                        # Skip file_ids not present in the known-hashes set to
-                        # avoid building a large hints dict from stale records.
-                        if f_id and (not known_file_ids or f_id in known_file_ids):
-                            topics = s_data.get("topics", [])
-                            if topics:
-                                semantic_hints[f_id] = topics[0]
-                    except Exception as e:
-                        logging.debug(f"Failed to parse line in record index: {e}")
+            loaded = json.loads(hint_path.read_text(encoding="utf-8"))
+            # Filter to known file_ids to keep the dict bounded.
+            semantic_hints = {k: v for k, v in loaded.items() if not known_file_ids or k in known_file_ids}
         except Exception as e:
-            logging.debug(f"Failed to read record index for semantic hints: {e}")
+            logging.debug(f"Failed to load topic hints file: {e}")
+    else:
+        # Fallback: stream record index (legacy path, before hints file was generated).
+        registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"
+        if registry_path.exists():
+            try:
+                with registry_path.open(encoding="utf-8") as rh:
+                    for line in rh:
+                        if not line.strip():
+                            continue
+                        try:
+                            s_data = json.loads(line)
+                            f_id = s_data.get("file_id")
+                            if f_id and (not known_file_ids or f_id in known_file_ids):
+                                topics = s_data.get("topics", [])
+                                if topics:
+                                    semantic_hints[f_id] = topics[0]
+                        except Exception as e:
+                            logging.debug(f"Failed to parse line in record index: {e}")
+            except Exception as e:
+                logging.debug(f"Failed to read record index for semantic hints: {e}")
 
     suggestions = []
     processed = 0
