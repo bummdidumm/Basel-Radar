@@ -126,7 +126,11 @@ def _extract_zip_sources(zip_bytes: bytes, parent_rec) -> list[dict]:
 
                     sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                     canonical_sub_path = f"{parent_rec.path_display or parent_rec.name}/{sanitized_name}"
-                    sub_file_id = f"{parent_rec.file_id}_{hashlib.sha256((parent_rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
+                    # Identity is based on (stable Drive ID of the archive, hash of the
+                    # inner file's content). Using parent_rec.sha256 here was wrong: it
+                    # caused sub_file_id to change whenever the outer ZIP was modified,
+                    # even if the inner file remained identical, producing index duplicates.
+                    sub_file_id = f"{parent_rec.file_id}_{sub_checksum}"
                     sources.append({
                         "file_id": sub_file_id,
                         "bundle_id": parent_rec.file_id,
@@ -298,6 +302,8 @@ def run_pass2():
     log.info("Pass 2 gestartet")
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
     ocr_calls_this_run = 0
+    if ENABLE_OCR and not ocr.client:
+        log.warning("OCR ist aktiviert (ENABLE_OCR=1), aber GEMINI_API_KEY fehlt – OCR wird in diesem Run übersprungen.")
 
     current_run_id = state.get_val("ready_for_pass2_run_id")
 
@@ -410,7 +416,10 @@ def run_pass2():
                         rec.ocr_language = ocr_data.get("language", "")
                         rec.ocr_currency = ocr_data.get("currency", "")
                         rec.ocr_reference_number = ocr_data.get("reference_number", "")
-                    else:
+                    elif ocr.client is not None:
+                        # ocr.client is set but returned no data — genuine API failure.
+                        # When ocr.client is None (no GEMINI_API_KEY), returning None is
+                        # expected behaviour; the upfront warning already covered that case.
                         errors += 1
                         state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")
                 except Exception as e:

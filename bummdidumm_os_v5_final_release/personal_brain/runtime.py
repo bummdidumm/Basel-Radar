@@ -44,6 +44,17 @@ class PersonalBrainRuntime:
             parser = self.registry.resolve(item, preview)
             md = parser.extract_source_metadata(item["source_path"], preview)
             source = self._build_source(item, parser, md)
+
+            # Tombstone: Drive deletions must be removed from the index, not updated.
+            # Mark the source as deleted so _write_jsonl suppresses the existing entry
+            # without writing a replacement row. Records, entities and relations are
+            # intentionally skipped — there is nothing to index for a deleted file.
+            _drive_deletion_statuses = {"DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS"}
+            if item.get("status", "") in _drive_deletion_statuses:
+                source["_deleted"] = True
+                source_rows[source["source_id"]] = source
+                continue
+
             source_rows[source["source_id"]] = source
 
             parsed_records = parser.parse_to_records(source, item.get("content", {}))

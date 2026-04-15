@@ -122,6 +122,11 @@ class JsonlWriter:
         Existing rows absent from `rows` are streamed directly to the temp file
         without being buffered in RAM. Only the incoming `rows` (O(m)) are held
         in memory, avoiding the previous O(n) full-load for large indices.
+
+        Tombstone support: if a row in `rows` carries ``_deleted: True``, the
+        existing entry with the same key is *removed* from the output and the
+        tombstone row itself is NOT written. This enables callers to explicitly
+        delete entries from the index without rebuilding it from scratch.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         new_lookup = {row[key]: row for row in rows}
@@ -153,7 +158,9 @@ class JsonlWriter:
                                 extra={"path": str(path), "line": line_num, "error": str(e)},
                             )
             for k in sorted(new_lookup):
-                out.write(json.dumps(new_lookup[k], ensure_ascii=False) + "\n")
+                row = new_lookup[k]
+                if not row.get("_deleted"):
+                    out.write(json.dumps(row, ensure_ascii=False) + "\n")
         tmp_path.replace(path)
 
     def _merge_entities(self, merged: dict, new_entity: dict) -> None:

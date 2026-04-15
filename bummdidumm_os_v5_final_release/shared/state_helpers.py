@@ -84,13 +84,18 @@ class StateTracker:
         _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
     def compact_reports(self):
-        """Compact Run_Log and Error_Report by retaining only the most recent rows."""
+        """Compact Run_Log, Error_Report and Dedupe_Report by retaining only the most recent rows."""
         RUN_LOG_MAX = int(os.environ.get("RUN_LOG_COMPACT_MAX", "500"))
         ERROR_REPORT_MAX = int(os.environ.get("ERROR_REPORT_COMPACT_MAX", "500"))
+        # Dedupe_Report grows with every run and has no upper bound — compact it
+        # proactively to avoid hitting the Google Sheets 10M-cell limit.
+        # Default of 2000 rows covers ~100 runs at 20 files/run with room to spare.
+        DEDUPE_REPORT_MAX = int(os.environ.get("DEDUPE_REPORT_COMPACT_MAX", "2000"))
 
         for sheet_name, max_rows, col_range in [
             ("Run_Log", RUN_LOG_MAX, "A:F"),
             ("Error_Report", ERROR_REPORT_MAX, "A:G"),
+            ("Dedupe_Report", DEDUPE_REPORT_MAX, "A:Q"),
         ]:
             rows = self.sheets.read_all_rows(sheet_name, col_range)
             if len(rows) <= max_rows + 1:  # +1 for header

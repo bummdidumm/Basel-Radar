@@ -64,8 +64,10 @@ def run_safe_sort():
             loaded = json.loads(hint_path.read_text(encoding="utf-8"))
             # Filter to known file_ids to keep the dict bounded.
             semantic_hints = {k: v for k, v in loaded.items() if not known_file_ids or k in known_file_ids}
-        except Exception as e:
-            logging.debug(f"Failed to load topic hints file: {e}")
+        except (json.JSONDecodeError, ValueError) as e:
+            logging.warning(f"file_topics.json ist korrupt oder ungültig – Safe Sort läuft ohne semantische Hinweise: {e}")
+        except OSError as e:
+            logging.warning(f"file_topics.json konnte nicht gelesen werden – Safe Sort läuft ohne semantische Hinweise: {e}")
     else:
         # Fallback: stream record index (legacy path, before hints file was generated).
         registry_path = brain_index_root / "20_index" / "published" / "01_record_index.jsonl"

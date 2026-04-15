@@ -35,12 +35,17 @@ class DriveManager:
             params["supportsAllDrives"] = True
         return params
 
-    def is_in_target_folder(self, file_id: str, parents: List[str]) -> bool:
+    def is_in_target_folder(self, file_id: str, parents: List[str], max_depth: int = 30) -> bool:
         """Return True if any ancestor of *parents* is target_folder_id.
 
         Iterative BFS over the Drive folder hierarchy — avoids recursion-depth
         limits on deep folder trees (Drive can nest 20+ levels) and handles
         cycles via a visited set.
+
+        ``max_depth`` caps the number of Drive API calls per invocation. If the
+        target folder is not found within that many ancestor levels the method
+        returns False conservatively, preventing excessive API quota consumption
+        on pathologically deep or misconfigured Drive structures.
         """
         if not self.target_folder_id:
             return True
@@ -49,12 +54,13 @@ class DriveManager:
         if self.target_folder_id in parents:
             return True
 
-        stack = list(parents)
+        # Stack entries are (folder_id, depth). Depth 0 = direct parent.
+        stack = [(p, 0) for p in parents]
         visited: set = set()
 
         while stack:
-            current = stack.pop()
-            if current in visited:
+            current, depth = stack.pop()
+            if current in visited or depth > max_depth:
                 continue
             visited.add(current)
 
@@ -75,7 +81,7 @@ class DriveManager:
                     return True
                 for gp in grandparents:
                     if gp not in visited:
-                        stack.append(gp)
+                        stack.append((gp, depth + 1))
             except Exception:
                 self.ancestor_cache[current] = False
 
