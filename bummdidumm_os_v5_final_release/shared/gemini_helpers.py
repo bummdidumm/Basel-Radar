@@ -13,9 +13,10 @@ _log = _get_logger("gemini", phase="SHARED")
 
 _gemini_call_times: list[float] = []
 _gemini_lock = Lock()
-_GEMINI_RPM_LIMIT = int(os.environ.get("GEMINI_RPM_LIMIT", "9"))
+_GEMINI_RPM_LIMIT = max(1, int(os.environ.get("GEMINI_RPM_LIMIT", "9")))
 # Default 9 = safe buffer below gemini-2.5-flash Free Tier (10 RPM official limit)
-# Adjust via env var if model or tier changes
+# Adjust via env var if model or tier changes. Clamped to >= 1 so the
+# rate-limit loop never attempts _gemini_call_times[0] on an empty list.
 
 
 def _rate_limit_gemini() -> None:

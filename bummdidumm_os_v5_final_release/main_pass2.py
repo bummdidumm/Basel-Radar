@@ -86,28 +86,6 @@ def _download_drive_file_to_tmp(drive_service, file_id: str, size_bytes: int, en
     return None
 
 
-def _download_file(file_id: str, drive_service, enable_shared_drives: bool) -> bytes | None:
-    """Download a Drive file and return its raw bytes, or None on failure.
-
-    Uses _download_drive_file_to_tmp internally and reads the temp file into
-    memory so callers receive a plain bytes object without managing temp files.
-    """
-    tmp_path = _download_drive_file_to_tmp(drive_service, file_id, _MAX_DOWNLOAD_BYTES, enable_shared_drives)
-    if not tmp_path:
-        return None
-    try:
-        return Path(tmp_path).read_bytes()
-    except Exception as e:
-        logging.debug(f"Failed to read downloaded temp file for {file_id}: {e}")
-        return None
-    finally:
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-
-
 def _extract_zip_sources(zip_bytes: bytes, parent_rec) -> list[dict]:
     """Parse parseable files inside a ZIP archive and return source dicts for each.
 
