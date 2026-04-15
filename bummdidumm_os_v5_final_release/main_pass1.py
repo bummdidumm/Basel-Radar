@@ -32,6 +32,91 @@ def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLU
     safe = name.replace(":", "-").strip()
     return f"{iso_date}_{project_slug}_{safe}"
 
+
+def _is_lease_stale(state, lease_timeout_sec: int) -> bool:
+    heartbeat_utc_str = (
+        state.get_val("lease_heartbeat_at")
+        or state.get_val("lease_acquired_at")
+        or state.get_val("last_run_utc")
+    )
+    if not heartbeat_utc_str:
+        return False
+    try:
+        last_t = datetime.fromisoformat(heartbeat_utc_str)
+    except ValueError:
+        return False
+    diff = (datetime.now(timezone.utc) - last_t).total_seconds()
+    return diff >= lease_timeout_sec
+
+
+def _claim_lease(state):
+    now_utc = datetime.now(timezone.utc).isoformat()
+    state.set_val("lease_owner_id", state.owner_id)
+    state.set_val("lease_acquired_at", now_utc)
+    state.set_val("lease_heartbeat_at", now_utc)
+    state.set_val("run_id", state.run_id)
+    state.flush_state()
+
+
+def _touch_lease(state) -> bool:
+    state.reload_state()
+    if state.get_val("lease_owner_id") != state.owner_id:
+        return False
+    now_utc = datetime.now(timezone.utc).isoformat()
+    state.set_val("lease_heartbeat_at", now_utc)
+    state.flush_state()
+    return True
+
+
+def _release_lease(state):
+    state.reload_state()
+    if state.get_val("lease_owner_id") != state.owner_id:
+        return
+    state.set_val("lease_owner_id", "")
+    state.set_val("lease_heartbeat_at", "")
+    state.set_val("lease_acquired_at", "")
+
+
+def _touch_lease_or_raise(state, context: str):
+    if not _touch_lease(state):
+        raise RuntimeError(f"Lease verloren während {context}")
+
+
+def _acquire_lease_or_abort(state, log, lease_timeout_sec: int) -> bool:
+    state.reload_state()
+    existing_owner = state.get_val("lease_owner_id")
+    existing_run_id = state.get_val("run_id")
+    existing_phase = state.get_val("current_phase")
+
+    if existing_owner and existing_owner != state.owner_id and not _is_lease_stale(state, lease_timeout_sec):
+        log.warning(
+            "Parallel-Run Guard: Aktiver Lease erkannt. Breche Start ab um Korruption zu vermeiden.",
+            extra={
+                "active_owner": existing_owner,
+                "active_run": existing_run_id,
+                "active_phase": existing_phase,
+                "my_owner": state.owner_id,
+                "my_run": state.run_id,
+            },
+        )
+        return False
+
+    if existing_run_id and (
+        (existing_owner and existing_owner != state.owner_id and _is_lease_stale(state, lease_timeout_sec))
+        or (not existing_owner and existing_phase in ["INITIAL_SCAN", "DELTA_FETCH"])
+    ):
+        state.run_id = existing_run_id
+
+    _claim_lease(state)
+    state.reload_state()
+    if state.get_val("lease_owner_id") != state.owner_id:
+        log.warning("Parallel-Run Guard: Lease-Konkurrenz erkannt, Start abgebrochen.")
+        return False
+    if state.get_val("run_id") != state.run_id:
+        log.warning("Parallel-Run Guard: run_id-Konkurrenz erkannt, Start abgebrochen.")
+        return False
+    return True
+
 def run_pass1():
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
@@ -49,32 +134,10 @@ def run_pass1():
 
     start_token = state.get_val("drive_start_page_token")
     in_progress_token = state.get_val("in_progress_page_token")
+    lease_timeout_sec = int(os.environ.get("RUN_LEASE_TIMEOUT_SEC", "3600"))
 
-    # GUARD: Prevent parallel runs overlapping logic
-    # Difference between legitimate resume vs competing start:
-    # A legitimate resume occurs if state.run_id matches state.get_val("run_id").
-    # If not, another instance might still be processing. We must abort to prevent state corruption.
-    current_phase = state.get_val("current_phase")
-    existing_run_id = state.get_val("run_id")
-
-    if current_phase in ["INITIAL_SCAN", "DELTA_FETCH"] and existing_run_id and existing_run_id != state.run_id:
-        # check if it is stale > 1 hours, then we take over.
-        last_utc_str = state.get_val("last_run_utc")
-        is_stale = False
-        if last_utc_str:
-            try:
-                last_t = datetime.fromisoformat(last_utc_str)
-                diff = (datetime.now(timezone.utc) - last_t).total_seconds()
-                if diff >= 3600:
-                    is_stale = True
-            except ValueError:
-                pass
-
-        if not is_stale:
-            log.warning("Parallel-Run Guard: Es läuft bereits ein aktiver Pass 1 Lauf. Breche Start ab um Korruption zu vermeiden.", extra={"active_run": existing_run_id, "my_run": state.run_id})
-            return
-        else:
-            log.warning("Parallel-Run Guard: Stale Run erkannt (> 1h alt). Übernehme Ausführung.", extra={"stale_run": existing_run_id, "my_run": state.run_id})
+    if not _acquire_lease_or_abort(state, log, lease_timeout_sec):
+        return
 
     # 1. Load known state for heuristics
     known_file_details = state.load_known_hashes()
@@ -116,7 +179,11 @@ def run_pass1():
             }
 
             processed = drive_mgr.walk_recursive_chunked(
-                TARGET_FOLDER_ID, state, _process_file_batch_wrapper, kwargs
+                TARGET_FOLDER_ID,
+                state,
+                _process_file_batch_wrapper,
+                kwargs,
+                lease_touch_callback=lambda: _touch_lease_or_raise(state, "Initial-Scan"),
             )
 
             state.set_val("drive_start_page_token", new_start_page_token)
@@ -132,6 +199,7 @@ def run_pass1():
             new_start_page_token = None
 
             while active_token:
+                _touch_lease_or_raise(state, "Delta-Fetch")
                 log.debug("Delta Chunk", extra={"token": active_token})
                 changes, next_token, new_start = drive_mgr.fetch_delta_chunk(active_token)
                 files = [f for f in changes if f.get("mimeType") != "application/vnd.google-apps.folder"]
@@ -166,12 +234,17 @@ def run_pass1():
         # Pass 2 should only pick up this run_id when explicitly signaled.
         state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
+        _release_lease(state)
+        state.flush_state()
         state.compact_hash_index()
         state.compact_reports()
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
     except Exception as e:
         state.set_val("current_phase", "PASS1_FAILED")
+        state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
+        _release_lease(state)
+        state.flush_state()
         state.log_error("PASS_1", "SYSTEM", "", "Fatal", str(e))
         state.log_run("PASS_1", "FAILED", processed, errors + 1)
         raise e

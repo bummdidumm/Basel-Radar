@@ -27,9 +27,12 @@ def run_apply_sort():
     log.info("Apply Sort gestartet")
 
     state.set_val("current_phase", "APPLY_SORT")
+    state.flush_state()
     current_run_id = state.get_val("last_successful_run_id")
     if not current_run_id:
         state.log_error("APPLY_SORT", "SYSTEM", "", "NoRunID", "Kein aktueller Run_ID gefunden.")
+        state.set_val("current_phase", "IDLE")
+        state.flush_state()
         return
 
     processed = 0
@@ -109,6 +112,7 @@ def run_apply_sort():
 
     state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")
+    state.flush_state()
     log.info("Apply Sort beendet", extra={"processed": processed, "errors": errors})
 
 

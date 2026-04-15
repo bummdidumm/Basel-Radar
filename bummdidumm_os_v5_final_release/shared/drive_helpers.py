@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable
 from shared.log import get_logger as _get_logger
 _log = _get_logger("drive", phase="SHARED")
 
@@ -83,8 +83,6 @@ class DriveManager:
 
     def get_initial_token(self) -> str:
         params = self._base_params()
-        if self.enable_shared_drives:
-            params["driveId"] = None
         res = self.drive.changes().getStartPageToken(**params).execute()
         return res.get("startPageToken")
 
@@ -104,7 +102,14 @@ class DriveManager:
             "Use walk_recursive_chunked() for all production code paths."
         )
 
-    def walk_recursive_chunked(self, folder_id: str, state, process_batch_callback, batch_kwargs: dict):
+    def walk_recursive_chunked(
+        self,
+        folder_id: str,
+        state,
+        process_batch_callback,
+        batch_kwargs: dict,
+        lease_touch_callback: Optional[Callable[[], None]] = None,
+    ):
         """Performs initial recursive scan in bounded chunks to prevent timeout endloops."""
         queue = state.get_val("initial_scan_queue")
         if queue:
@@ -158,6 +163,8 @@ class DriveManager:
                 # We do not strictly need to save the new start token here as it's fetched at the start of walk
                 # but if we wanted to, we could. The queue saves the progress anyway.
                 state.flush_state()
+                if lease_touch_callback:
+                    lease_touch_callback()
 
                 if not page_token:
                     break
@@ -175,7 +182,9 @@ class DriveManager:
         params["spaces"] = "drive"
         params["fields"] = "nextPageToken, newStartPageToken, changes(fileId, removed, file(id,name,mimeType,size,md5Checksum,parents,createdTime,modifiedTime,trashed,webViewLink,description,starred,owners(emailAddress,displayName),lastModifyingUser(emailAddress,displayName),capabilities(canEdit,canShare,canDownload)))"
 
-        res = self.drive.changes().list(**params).execute()
+        def _do_delta_list():
+            return self.drive.changes().list(**params).execute()
+        res = self.execute_with_backoff(_do_delta_list)
 
         changes = []
         for change in res.get("changes", []):

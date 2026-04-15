@@ -77,6 +77,7 @@ class SheetManager:
                     ))
         except Exception as e:
             _log.error("Sheets init fehlgeschlagen", extra={"error": str(e)})
+            raise
 
     def append_rows(self, tab: str, rows: List[List[Any]]):
         if not rows:

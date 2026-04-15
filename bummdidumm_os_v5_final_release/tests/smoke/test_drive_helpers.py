@@ -6,9 +6,7 @@ Covers:
 """
 import sys
 import os
-import time
-import types
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from shared.drive_helpers import DriveManager
@@ -137,3 +135,18 @@ class TestExecuteWithBackoff:
 
         with pytest.raises(HttpError):
             mgr.execute_with_backoff(forbidden)
+
+
+class TestFetchDeltaChunk:
+    def test_fetch_delta_chunk_uses_backoff_wrapper(self):
+        mgr = _make_manager()
+        mgr.execute_with_backoff = MagicMock(
+            return_value={"changes": [], "nextPageToken": "nxt", "newStartPageToken": "new"}
+        )
+
+        changes, next_token, new_start = mgr.fetch_delta_chunk("token_1")
+
+        assert changes == []
+        assert next_token == "nxt"
+        assert new_start == "new"
+        assert mgr.execute_with_backoff.call_count == 1

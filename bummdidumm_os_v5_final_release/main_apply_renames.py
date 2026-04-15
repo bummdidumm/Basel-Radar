@@ -26,11 +26,14 @@ def run_apply_renames():
     log.info("Rename Job gestartet")
 
     state.set_val("current_phase", "APPLY_RENAMES")
+    state.flush_state()
 
     current_run_id = state.get_val("last_successful_run_id")
 
     if not current_run_id:
         state.log_error("RENAME", "SYSTEM", "", "NoRunID", "Kein aktueller Run_ID gefunden.")
+        state.set_val("current_phase", "IDLE")
+        state.flush_state()
         return
 
     processed = 0
@@ -64,6 +67,7 @@ def run_apply_renames():
 
     state.log_run("RENAME", "SUCCESS", processed, errors)
     state.set_val("current_phase", "IDLE")
+    state.flush_state()
 
 if __name__ == "__main__":
     run_apply_renames()

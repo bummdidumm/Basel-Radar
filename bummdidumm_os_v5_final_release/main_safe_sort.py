@@ -106,8 +106,6 @@ def run_safe_sort():
             meta = known.get(file_id, {})
             if meta.get("parent_ids_sorted"):
                 current_parent_id = meta["parent_ids_sorted"].split(",")[0]
-            elif "/" in current_path:
-                current_parent_id = current_path.split("/", 1)[0]
 
             if not current_parent_id:
                 current_parent_id = "N/A"

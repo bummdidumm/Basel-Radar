@@ -10,6 +10,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from shared.sheets_helpers import SheetManager
 from shared.state_helpers import StateTracker
+from shared.drive_helpers import DriveManager
 from shared.gemini_helpers import GeminiOCR
 from shared.models import FileRecord
 from personal_brain.runtime import PersonalBrainRuntime
@@ -294,6 +295,7 @@ def run_pass2():
 
     sheet_mgr = SheetManager(sheets_service, CONTROL_SHEET_ID)
     state = StateTracker(sheet_mgr)
+    drive_mgr = DriveManager(drive_service, "", ENABLE_SHARED_DRIVES)
     log = get_logger("pass2", run_id=state.run_id, phase="PASS_2")
     log.info("Pass 2 gestartet")
     ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
@@ -303,10 +305,12 @@ def run_pass2():
 
     if not current_run_id:
         state.set_val("current_phase", "PASS2_BLOCKED_NO_HANDOVER")
+        state.flush_state()
         state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
         return
 
     state.set_val("current_phase", "PASS2_OCR_INDEXING")
+    state.flush_state()
 
     # Load Knowledge Exclusions
     exclusions = {}
@@ -426,6 +430,9 @@ def run_pass2():
             processed += 1
 
     if not records_to_index:
+        state.set_val("current_phase", "PASS2_DONE")
+        state.set_val("ready_for_pass2_run_id", "")
+        state.flush_state()
         state.log_run("PASS_2", "NO_FILES", 0, errors)
         return
 
@@ -475,12 +482,14 @@ def run_pass2():
         media = MediaFileUpload(filename, mimetype="application/x-ndjson")
         params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
 
-        drive_service.files().create(
-            body={"name": filename, "parents": [INDEX_FOLDER_ID]},
-            media_body=media,
-            fields="id",
-            **params
-        ).execute()
+        def _upload_delta():
+            return drive_service.files().create(
+                body={"name": filename, "parents": [INDEX_FOLDER_ID]},
+                media_body=media,
+                fields="id",
+                **params
+            ).execute()
+        drive_mgr.execute_with_backoff(_upload_delta)
 
         BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
         runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=BRAIN_INDEX_ROOT)
@@ -492,10 +501,12 @@ def run_pass2():
         state.set_val("current_phase", "PASS2_DONE")
         # Clear coordination key indicating successful processing
         state.set_val("ready_for_pass2_run_id", "")
+        state.flush_state()
         state.log_run("PASS_2", "SUCCESS", processed, errors)
 
     except Exception as e:
         state.set_val("current_phase", "PASS2_FAILED")
+        state.flush_state()
         state.log_error("PASS_2", "SYSTEM", "ExportJSONL", "Fatal", str(e))
         state.log_run("PASS_2", "FAILED", processed, errors + 1)
         raise e
