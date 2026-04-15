@@ -431,6 +431,7 @@ def run_pass2():
 
     if not records_to_index:
         state.set_val("current_phase", "PASS2_DONE")
+        state.set_val("ready_for_pass2_run_id", "")
         state.flush_state()
         state.log_run("PASS_2", "NO_FILES", 0, errors)
         return
