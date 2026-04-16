@@ -598,8 +598,8 @@ class TestPurgedSourceCascade(unittest.TestCase):
             runtime.process_sources([item])
 
             # Confirm it was indexed
-            lines_after_index = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-            file_ids_after_index = [json.loads(l).get("file_id") for l in lines_after_index]
+            lines_after_index = [ln for ln in source_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            file_ids_after_index = [json.loads(ln).get("file_id") for ln in lines_after_index]
             self.assertIn("purge_me_file_id", file_ids_after_index,
                           "source must appear in registry after initial indexing")
 
@@ -607,8 +607,8 @@ class TestPurgedSourceCascade(unittest.TestCase):
             runtime.process_sources([], exclusions={"purge_me_file_id": "PURGED"})
 
             # The PURGED entry must no longer appear in the source registry
-            lines_after_purge = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-            file_ids_after_purge = [json.loads(l).get("file_id") for l in lines_after_purge]
+            lines_after_purge = [ln for ln in source_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            file_ids_after_purge = [json.loads(ln).get("file_id") for ln in lines_after_purge]
             self.assertNotIn("purge_me_file_id", file_ids_after_purge,
                              "PURGED source must be removed from 00_source_registry.jsonl")
 
@@ -629,15 +629,15 @@ class TestPurgedSourceCascade(unittest.TestCase):
             }
             runtime.process_sources([item])
 
-            lines_before = [l for l in record_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-            file_ids_before = [json.loads(l).get("file_id") for l in lines_before]
+            lines_before = [ln for ln in record_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            file_ids_before = [json.loads(ln).get("file_id") for ln in lines_before]
             self.assertIn("purge_record_target", file_ids_before,
                           "record must appear in index after initial indexing")
 
             runtime.process_sources([], exclusions={"purge_record_target": "PURGED"})
 
-            lines_after = [l for l in record_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-            file_ids_after = [json.loads(l).get("file_id") for l in lines_after]
+            lines_after = [ln for ln in record_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            file_ids_after = [json.loads(ln).get("file_id") for ln in lines_after]
             self.assertNotIn("purge_record_target", file_ids_after,
                              "PURGED source records must be removed from 01_record_index.jsonl")
 
@@ -661,8 +661,8 @@ class TestPurgedSourceCascade(unittest.TestCase):
             # EXCLUDED — should not be tombstoned (just not re-ingested)
             runtime.process_sources([], exclusions={"excluded_file_id": "EXCLUDED"})
 
-            lines = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-            file_ids = [json.loads(l).get("file_id") for l in lines]
+            lines = [ln for ln in source_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            file_ids = [json.loads(ln).get("file_id") for ln in lines]
             self.assertIn("excluded_file_id", file_ids,
                           "EXCLUDED source must remain in the registry (only PURGED is tombstoned)")
 
