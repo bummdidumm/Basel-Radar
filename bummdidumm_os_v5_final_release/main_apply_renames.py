@@ -96,28 +96,30 @@ def run_apply_renames():
 
                 # Flush periodically to bound memory
                 if len(update_requests) >= 50:
-                    def _batch():
-                        return sheets_service.spreadsheets().values().batchUpdate(
+                    sheet_mgr._execute_with_backoff(
+                        sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
                             body={"valueInputOption": "RAW", "data": update_requests}
-                        ).execute()
-                    sheet_mgr._execute_with_backoff(_batch())
+                        )
+                    )
                     update_requests = []
 
         if update_requests:
-            def _batch_final():
-                return sheets_service.spreadsheets().values().batchUpdate(
+            sheet_mgr._execute_with_backoff(
+                sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
                     body={"valueInputOption": "RAW", "data": update_requests}
-                ).execute()
-            sheet_mgr._execute_with_backoff(_batch_final())
+                )
+            )
 
         state.log_run("RENAME", "SUCCESS", processed, errors)
 
     finally:
         state.set_val("current_phase", "IDLE")
-        state.flush_state()
-        state.release_job_lock("apply_renames")
+        try:
+            state.flush_state()
+        finally:
+            state.release_job_lock("apply_renames")
 
 if __name__ == "__main__":
     run_apply_renames()

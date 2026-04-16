@@ -105,6 +105,14 @@ class StateTracker:
         self.set_val(owner_key, self.owner_id)
         self.set_val(at_key, datetime.now(timezone.utc).isoformat())
         self.flush_state()
+        # Post-claim verify: reload to detect a concurrent takeover that wrote after us.
+        self.reload_state()
+        if self.get_val(owner_key) != self.owner_id:
+            _log.warning(
+                "Job lock claim lost after flush — concurrent takeover",
+                extra={"job": job_name},
+            )
+            return False
         return True
 
     def release_job_lock(self, job_name: str) -> None:

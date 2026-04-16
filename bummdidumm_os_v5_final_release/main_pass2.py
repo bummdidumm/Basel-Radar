@@ -139,6 +139,7 @@ def _extract_zip_sources(zip_bytes: bytes, parent_rec) -> list[dict]:
                         "checksum_sha256": sub_checksum,
                         "raw_ref": f"{parent_rec.web_link or parent_rec.path_display or parent_rec.name}/{sanitized_name}",
                         "status": parent_rec.status,
+                        "change_type": parent_rec.change_type,
                         "sot_status": "derived",
                         "canonical_format": "text" if sub_mime.startswith("text/") else "json" if "json" in sub_mime else "unknown",
                         "preview": {
@@ -251,6 +252,7 @@ def _build_source_from_record(rec, drive_service, enable_shared_drives: bool) ->
         "checksum_sha256": rec.sha256 or "",
         "raw_ref": rec.web_link or rec.path_display or rec.name,
         "status": rec.status,
+        "change_type": rec.change_type,
         "sot_status": "derived",
         "canonical_format": "binary" if mime == "application/octet-stream" else "text" if mime.startswith("text/") else "json" if "json" in mime else "unknown",
         "preview": {
@@ -288,6 +290,17 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
 def run_pass2():
     if not all([CONTROL_SHEET_ID, INDEX_FOLDER_ID]):
         raise ValueError("Missing CONTROL_SHEET_ID or INDEX_FOLDER_ID")
+
+    _probe = BRAIN_INDEX_ROOT / ".write_probe"
+    try:
+        BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
+        _probe.write_text("ok")
+        _probe.unlink()
+    except Exception as _e:
+        raise RuntimeError(
+            f"BRAIN_INDEX_ROOT '{BRAIN_INDEX_ROOT}' is not writable — "
+            f"ensure a persistent volume is mounted: {_e}"
+        )
 
     credentials = get_user_credentials()
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
