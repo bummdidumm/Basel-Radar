@@ -116,12 +116,15 @@ class JsonlWriter:
     # Write helpers
     # ------------------------------------------------------------------
 
-    def _write_jsonl(self, path: Path, rows: list[dict], key: str) -> None:
+    def _write_jsonl(self, path: Path, rows: list[dict], key: str, purged_file_ids: set | None = None) -> None:
         """Streaming-Merge-Write: new rows overwrite existing rows by stable ID.
 
         Existing rows absent from `rows` are streamed directly to the temp file
         without being buffered in RAM. Only the incoming `rows` (O(m)) are held
         in memory, avoiding the previous O(n) full-load for large indices.
+
+        purged_file_ids: if provided, existing rows whose ``file_id`` field is in
+        this set are tombstone-deleted (BUG-4 fix for PURGED sources persisting).
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         new_lookup = {row[key]: row for row in rows}
@@ -146,6 +149,8 @@ class JsonlWriter:
                             row = json.loads(stripped)
                             k = row.get(key)
                             if k not in new_lookup:
+                                if purged_file_ids and row.get("file_id") in purged_file_ids:
+                                    continue  # BUG-4 fix: tombstone-delete PURGED entry
                                 out.write(stripped + "\n")
                         except Exception as e:
                             _log.warning(
@@ -222,9 +227,11 @@ class JsonlWriter:
         records: list[dict],
         entities: list[dict],
         relations: list[dict],
+        purged_file_ids: set | None = None,
     ) -> None:
-        self._write_jsonl(self.published / "00_source_registry.jsonl", sources, "source_id")
-        self._write_jsonl(self.published / "01_record_index.jsonl", records, "record_id")
+        pf = purged_file_ids or set()
+        self._write_jsonl(self.published / "00_source_registry.jsonl", sources, "source_id", purged_file_ids=pf)
+        self._write_jsonl(self.published / "01_record_index.jsonl", records, "record_id", purged_file_ids=pf)
 
         # Custom merge logic for entities — single-pass streaming to keep RAM at O(m).
         # Existing entities that match an incoming entity_id are merged in place and

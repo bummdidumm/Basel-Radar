@@ -96,7 +96,10 @@ class StateTracker:
             compacted = ([header] if header else []) + keep
             _log.info(f"{sheet_name} Kompaktierung gestartet",
                       extra={"before": len(rows), "after": len(compacted)})
-            # Clear first to avoid stale trailing rows, then rewrite
+            # RISK-4 fix: buffer locally so we can restore if update fails after clear
+            buffered_compacted = list(compacted)
+            original_rows = list(rows)
+
             self.sheets._execute_with_backoff(
                 self.sheets.sheets.spreadsheets().values().clear(
                     spreadsheetId=self.sheets.spreadsheet_id,
@@ -104,14 +107,37 @@ class StateTracker:
                     body={}
                 )
             )
-            self.sheets._execute_with_backoff(
-                self.sheets.sheets.spreadsheets().values().update(
-                    spreadsheetId=self.sheets.spreadsheet_id,
-                    range=f"{sheet_name}!A1",
-                    valueInputOption="RAW",
-                    body={"values": compacted}
+            # If clear succeeded but update fails, restore original data (best-effort)
+            try:
+                self.sheets._execute_with_backoff(
+                    self.sheets.sheets.spreadsheets().values().update(
+                        spreadsheetId=self.sheets.spreadsheet_id,
+                        range=f"{sheet_name}!A1",
+                        valueInputOption="RAW",
+                        body={"values": buffered_compacted}
+                    )
                 )
-            )
+            except Exception as update_exc:
+                _log.error(
+                    f"{sheet_name} Kompaktierung Update fehlgeschlagen — versuche Wiederherstellung",
+                    extra={"error": str(update_exc)}
+                )
+                try:
+                    self.sheets._execute_with_backoff(
+                        self.sheets.sheets.spreadsheets().values().update(
+                            spreadsheetId=self.sheets.spreadsheet_id,
+                            range=f"{sheet_name}!A1",
+                            valueInputOption="RAW",
+                            body={"values": original_rows}
+                        )
+                    )
+                    _log.info(f"{sheet_name} Wiederherstellung nach fehlgeschlagenem Update erfolgreich")
+                except Exception as restore_exc:
+                    _log.error(
+                        f"{sheet_name} Wiederherstellung fehlgeschlagen — Sheet möglicherweise leer!",
+                        extra={"restore_error": str(restore_exc)}
+                    )
+                raise update_exc
             _log.info(f"{sheet_name} kompaktiert", extra={"kept": len(keep)})
 
     def load_known_hashes(self) -> Dict[str, dict]:
@@ -216,7 +242,7 @@ class StateTracker:
             # 2. Build index of existing shas to row_index (1-based)
             existing_index: dict[str, dict[str, Any]] = {}
             for i, row in enumerate(rows):
-                if len(row) >= 3:
+                if len(row) >= 3 and row[0] != "sha256":  # M-2 fix: skip header row
                     existing_index[row[0]] = {
                         "row_idx": i + 1,
                         "original": row[1],

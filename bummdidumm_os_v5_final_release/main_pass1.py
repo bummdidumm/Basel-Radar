@@ -1,4 +1,5 @@
 import os
+import time
 from shared.oauth_user_credentials import get_user_credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
@@ -43,7 +44,7 @@ def _is_lease_stale(state, lease_timeout_sec: int) -> bool:
         return False
     try:
         last_t = datetime.fromisoformat(heartbeat_utc_str)
-    except ValueError:
+    except (ValueError, TypeError):  # M-1 fix: fromisoformat raises TypeError on non-string input
         return False
     diff = (datetime.now(timezone.utc) - last_t).total_seconds()
     return diff >= lease_timeout_sec
@@ -108,6 +109,7 @@ def _acquire_lease_or_abort(state, log, lease_timeout_sec: int) -> bool:
         state.run_id = existing_run_id
 
     _claim_lease(state)
+    time.sleep(0.5)  # RISK-1 fix: 500ms fence reduces TOCTOU window before verification read
     state.reload_state()
     if state.get_val("lease_owner_id") != state.owner_id:
         log.warning("Parallel-Run Guard: Lease-Konkurrenz erkannt, Start abgebrochen.")
@@ -227,6 +229,7 @@ def run_pass1():
             if new_start_page_token:
                 state.set_val("drive_start_page_token", new_start_page_token)
                 state.set_val("in_progress_page_token", "")
+                state.flush_state()  # BUG-2 fix: checkpoint token advancement before success block
 
         state.set_val("current_phase", "PASS1_DONE")
         state.set_val("last_successful_run_id", state.run_id)
@@ -234,17 +237,19 @@ def run_pass1():
         # Pass 2 should only pick up this run_id when explicitly signaled.
         state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
-        _release_lease(state)
-        state.flush_state()
-        state.compact_hash_index()
+        state.flush_state()       # BUG-1 fix: persist before reload_state() inside _release_lease
+        state.compact_hash_index()  # compact while lease is still held to prevent race on clear+update
         state.compact_reports()
+        _release_lease(state)
+        state.flush_state()       # persist lease release (owner_id="")
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
     except Exception as e:
         state.set_val("current_phase", "PASS1_FAILED")
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
+        state.flush_state()       # BUG-1 fix: persist before reload_state() inside _release_lease
         _release_lease(state)
-        state.flush_state()
+        state.flush_state()       # persist lease release
         state.log_error("PASS_1", "SYSTEM", "", "Fatal", str(e))
         state.log_run("PASS_1", "FAILED", processed, errors + 1)
         raise e
@@ -281,7 +286,7 @@ def _build_file_record(f: dict, drive_mgr, known_file_details: dict, is_initial:
     change_type = determine_change_type(f, known_file_details, is_initial)
     suggested_name = (
         suggest_rename(name, f.get("createdTime", ""))
-        if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]
+        if change_type not in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED", "MOVED_OUT_OF_SCOPE"]
         else ""
     )
 
@@ -417,6 +422,10 @@ def _process_file_batch(
             rec.status = "ORIGINAL_RESUMED" if duplicate_of_id == rec.file_id else "DUPLICATE"
             if rec.status == "DUPLICATE":
                 rec.duplicate_of = duplicate_of_id
+            else:
+                # DM-3 fix: ORIGINAL_RESUMED must refresh its cache entry so subsequent
+                # delta runs detect metadata changes (name, path, updated_at) correctly.
+                known_file_details[rec.file_id] = _make_cache_entry(rec)
         else:
             rec.status = "ORIGINAL"
             sha_to_primary_file_id[rec.sha256] = rec.file_id
@@ -444,7 +453,7 @@ def _process_file_batch(
         )
         change_type = rec.change_type
 
-        if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED"]:
+        if change_type in ["REMOVED_OR_NO_ACCESS", "TRASHED", "DELETED", "MOVED_OUT_OF_SCOPE"]:
             _handle_removed(rec)
         elif change_type == "UNCHANGED_CONTENT_METADATA_ONLY" or (
             not is_initial and check_md5_size_prefilter(f, known_file_details)

@@ -65,19 +65,20 @@ def run_apply_sort():
                     drive_mgr.execute_with_backoff(_trash)
                     result_val = "SUCCESS_TRASHED"
                 else:
-                    def _get_parents():
-                        return drive_service.files().get(fileId=file_id, fields="parents", **params).execute()
-                    file_meta = drive_mgr.execute_with_backoff(_get_parents)
-                    previous_parents = ",".join(file_meta.get("parents", []))
-
-                    def _update_parents():
+                    # M-3 fix: fetch parents inside the retry closure so each retry uses
+                    # fresh parent data rather than a value captured before the first attempt.
+                    def _move_file():
+                        meta = drive_service.files().get(
+                            fileId=file_id, fields="parents", **params
+                        ).execute()
+                        prev = ",".join(meta.get("parents", []))
                         return drive_service.files().update(
                             fileId=file_id,
                             addParents=target_folder_id,
-                            removeParents=previous_parents,
+                            removeParents=prev,
                             **params
                         ).execute()
-                    drive_mgr.execute_with_backoff(_update_parents)
+                    drive_mgr.execute_with_backoff(_move_file)
                     result_val = "SUCCESS"
 
                 processed += 1

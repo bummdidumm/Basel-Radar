@@ -91,12 +91,21 @@ def run_safe_sort():
     processed = 0
     errors = 0
 
+    # DM-2 fix: load already-written suggestions for this run to prevent duplicates
+    # when safe_sort is restarted mid-run (crash recovery).
+    existing_suggestion_file_ids: set = set()
+    for ex_row in sheet_mgr.read_all_rows("Sorting_Suggestions", "A:B"):
+        if len(ex_row) >= 2 and ex_row[0] == current_run_id:
+            existing_suggestion_file_ids.add(ex_row[1])
+
     for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
         for row in chunk_rows:
             if len(row) < len(sheet_mgr.headers["Dedupe_Report"]) or row[0] == "run_utc" or row[1] != current_run_id:
                 continue
 
             file_id = row[sheet_mgr.DEDUPE_COL["file_id"]]
+            if file_id in existing_suggestion_file_ids:
+                continue  # DM-2 fix: already suggested for this run
             name = row[sheet_mgr.DEDUPE_COL["name"]]
             mime_type = row[sheet_mgr.DEDUPE_COL["mime_type"]]
             status = row[sheet_mgr.DEDUPE_COL["status"]]

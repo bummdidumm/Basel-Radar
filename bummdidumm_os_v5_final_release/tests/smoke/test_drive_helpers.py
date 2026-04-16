@@ -150,3 +150,40 @@ class TestFetchDeltaChunk:
         assert next_token == "nxt"
         assert new_start == "new"
         assert mgr.execute_with_backoff.call_count == 1
+
+    def test_file_moved_outside_target_produces_scope_exit_event(self):
+        """T-4: BUG-3 fix — a file that moves out of the target folder tree must produce
+        a synthetic removed+scope_exit event instead of being silently dropped."""
+        from unittest.mock import patch as _patch
+        from shared.change_type_logic import determine_change_type
+
+        mgr = _make_manager(target_folder_id="TARGET")
+        # File has parents only outside the target tree
+        change_event = {
+            "fileId": "file_moved_out",
+            "removed": False,
+            "file": {
+                "id": "file_moved_out",
+                "name": "moved.pdf",
+                "mimeType": "application/pdf",
+                "parents": ["outside_folder"],
+                "trashed": False,
+            },
+        }
+        api_response = {
+            "changes": [change_event],
+            "newStartPageToken": "tok_new",
+        }
+
+        with _patch.object(mgr, "is_in_target_folder", return_value=False), \
+             _patch.object(mgr, "execute_with_backoff", return_value=api_response):
+            changes, _next, _new_start = mgr.fetch_delta_chunk("tok_old")
+
+        assert len(changes) == 1, "moved-out-of-scope file must appear as a change event"
+        c = changes[0]
+        assert c.get("removed") is True, "scope-exit event must have removed=True"
+        assert c.get("scope_exit") is True, "scope-exit event must have scope_exit=True"
+
+        # change_type_logic must classify it as MOVED_OUT_OF_SCOPE, not REMOVED_OR_NO_ACCESS
+        ct = determine_change_type(c, known_file_details={}, is_initial=False)
+        assert ct == "MOVED_OUT_OF_SCOPE", f"expected MOVED_OUT_OF_SCOPE, got {ct}"
