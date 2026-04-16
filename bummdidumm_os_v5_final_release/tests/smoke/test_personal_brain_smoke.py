@@ -576,5 +576,96 @@ class PersonalBrainSmokeTest(unittest.TestCase):
             )
 
 
+class TestPurgedSourceCascade(unittest.TestCase):
+    """T-3: BUG-4 fix — PURGED sources must be tombstone-deleted from the Brain index."""
+
+    def test_purged_file_id_removed_from_source_registry(self):
+        """Index a source, then PURGE it. The JSONL entry must vanish on the next run."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test", out_root=Path(td))
+            source_path = Path(td) / "20_index" / "published" / "00_source_registry.jsonl"
+
+            # --- Run 1: index the file ---
+            item = {
+                "file_id": "purge_me_file_id",
+                "source_path": "/fake/invoice.pdf",
+                "source_path_rel": "invoice.pdf",
+                "original_filename": "invoice.pdf",
+                "mime": "application/pdf",
+                "ext": ".pdf",
+                "content": {"title": "invoice.pdf"},
+            }
+            runtime.process_sources([item])
+
+            # Confirm it was indexed
+            lines_after_index = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            file_ids_after_index = [json.loads(l).get("file_id") for l in lines_after_index]
+            self.assertIn("purge_me_file_id", file_ids_after_index,
+                          "source must appear in registry after initial indexing")
+
+            # --- Run 2: PURGE the source (pass empty sources list + PURGED exclusion) ---
+            runtime.process_sources([], exclusions={"purge_me_file_id": "PURGED"})
+
+            # The PURGED entry must no longer appear in the source registry
+            lines_after_purge = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            file_ids_after_purge = [json.loads(l).get("file_id") for l in lines_after_purge]
+            self.assertNotIn("purge_me_file_id", file_ids_after_purge,
+                             "PURGED source must be removed from 00_source_registry.jsonl")
+
+    def test_purged_file_id_removed_from_record_index(self):
+        """Index a source with records, then PURGE it. Records must also vanish."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test", out_root=Path(td))
+            record_path = Path(td) / "20_index" / "published" / "01_record_index.jsonl"
+
+            item = {
+                "file_id": "purge_record_target",
+                "source_path": "/fake/notes.txt",
+                "source_path_rel": "notes.txt",
+                "original_filename": "notes.txt",
+                "mime": "text/plain",
+                "ext": ".txt",
+                "content": {"title": "notes.txt", "raw_text": "hello world"},
+            }
+            runtime.process_sources([item])
+
+            lines_before = [l for l in record_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            file_ids_before = [json.loads(l).get("file_id") for l in lines_before]
+            self.assertIn("purge_record_target", file_ids_before,
+                          "record must appear in index after initial indexing")
+
+            runtime.process_sources([], exclusions={"purge_record_target": "PURGED"})
+
+            lines_after = [l for l in record_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            file_ids_after = [json.loads(l).get("file_id") for l in lines_after]
+            self.assertNotIn("purge_record_target", file_ids_after,
+                             "PURGED source records must be removed from 01_record_index.jsonl")
+
+    def test_excluded_source_is_not_deleted(self):
+        """EXCLUDED sources must NOT be removed — only PURGED ones are tombstoned."""
+        with tempfile.TemporaryDirectory() as td:
+            runtime = PersonalBrainRuntime(project_id="test", out_root=Path(td))
+            source_path = Path(td) / "20_index" / "published" / "00_source_registry.jsonl"
+
+            item = {
+                "file_id": "excluded_file_id",
+                "source_path": "/fake/doc.pdf",
+                "source_path_rel": "doc.pdf",
+                "original_filename": "doc.pdf",
+                "mime": "application/pdf",
+                "ext": ".pdf",
+                "content": {"title": "doc.pdf"},
+            }
+            runtime.process_sources([item])
+
+            # EXCLUDED — should not be tombstoned (just not re-ingested)
+            runtime.process_sources([], exclusions={"excluded_file_id": "EXCLUDED"})
+
+            lines = [l for l in source_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+            file_ids = [json.loads(l).get("file_id") for l in lines]
+            self.assertIn("excluded_file_id", file_ids,
+                          "EXCLUDED source must remain in the registry (only PURGED is tombstoned)")
+
+
 if __name__ == "__main__":
     unittest.main()

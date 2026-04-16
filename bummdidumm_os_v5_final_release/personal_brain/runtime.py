@@ -19,6 +19,12 @@ class PersonalBrainRuntime:
     def process_sources(self, sources: list[dict[str, Any]], exclusions: dict | None = None) -> dict[str, int]:
         if exclusions is None:
             exclusions = {}
+        # BUG-4 fix: collect file_ids whose Brain-index entries must be tombstone-deleted.
+        # PURGED sources are skipped below (continue), so they never appear in source_rows.
+        # Without this set the old JSONL entries stream through _write_jsonl unchanged.
+        purged_file_ids: set[str] = {
+            fid for fid, status in exclusions.items() if status == "PURGED"
+        }
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}
@@ -87,7 +93,10 @@ class PersonalBrainRuntime:
         entity_list = list(entity_rows.values())
         relation_list = list(relation_rows.values())
 
-        self.writer.write_source_record_entity_relation(source_list, record_list, entity_list, relation_list)
+        self.writer.write_source_record_entity_relation(
+            source_list, record_list, entity_list, relation_list,
+            purged_file_ids=purged_file_ids,
+        )
         self.writer.write_daily_memory(record_list)
         self.writer.write_weekly_memory(record_list)
         views = self.writer.write_search_views(record_list)

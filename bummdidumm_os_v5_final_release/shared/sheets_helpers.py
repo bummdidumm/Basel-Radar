@@ -13,7 +13,7 @@ class SheetManager:
         self.headers = {
             "State": ["key", "value"],
             "Hash_Index": ["sha256", "file_id", "name", "parent_ids_sorted", "path_display", "updated_at", "size_bytes", "md5", "effective_mime_type"],
-            "Dedupe_Report": ["run_utc", "run_id", "path", "name", "file_id", "mime_type", "effective_mime_type", "size_bytes", "md5", "sha256", "status", "change_type", "duplicate_of", "archive_result", "suggested_name", "web_link", "notes"],
+            "Dedupe_Report": ["run_utc", "run_id", "path", "name", "file_id", "mime_type", "effective_mime_type", "size_bytes", "md5", "sha256", "status", "change_type", "duplicate_of", "archive_result", "suggested_name", "web_link", "notes", "rename_result"],
             "Duplicate_Groups": ["sha256", "original_file_id", "duplicate_file_ids", "count"],
             "Error_Report": ["run_utc", "run_id", "phase", "file_id", "path", "error_type", "error_message"],
             "Run_Log": ["run_utc", "run_id", "phase", "status", "files_processed", "errors"],

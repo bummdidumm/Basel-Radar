@@ -218,6 +218,13 @@ class DriveManager:
                 if f.get("parents") and self.is_in_target_folder(f["id"], f["parents"]):
                     f["removed"] = False
                     changes.append(f)
+            else:
+                # BUG-3 fix: file exists in Drive but has moved outside the target folder tree.
+                # Without this branch the change was silently dropped, leaving Hash_Index and
+                # Dedupe_Report permanently stale for this file.
+                f["removed"] = True
+                f["scope_exit"] = True
+                changes.append(f)
 
         return changes, res.get("nextPageToken"), res.get("newStartPageToken")
 
