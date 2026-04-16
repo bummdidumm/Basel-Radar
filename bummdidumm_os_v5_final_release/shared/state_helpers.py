@@ -60,6 +60,68 @@ class StateTracker:
             _log.error("State flush fehlgeschlagen", extra={"error": str(e)})
             raise e
 
+    # ------------------------------------------------------------------
+    # Job-level locking for downstream jobs (safe_sort, apply_sort,
+    # apply_renames).  Simpler than the Pass-1 lease — no heartbeat
+    # required for short-lived jobs.
+    # ------------------------------------------------------------------
+
+    def acquire_job_lock(self, job_name: str, timeout_sec: int = 600) -> bool:
+        """Acquire a short-lived job-level lock stored in the State sheet.
+
+        Returns True when the lock is successfully acquired.  Returns False if
+        another instance holds a non-stale lock for the same job.
+
+        State keys used:
+          {job_name}_lock_owner  — owner_id of the lock holder
+          {job_name}_lock_at     — ISO-UTC timestamp of acquisition
+
+        A lock is stale when its age exceeds ``timeout_sec`` and may be
+        taken over by any new caller.
+        """
+        owner_key = f"{job_name}_lock_owner"
+        at_key = f"{job_name}_lock_at"
+
+        self.reload_state()
+        existing_owner = self.get_val(owner_key)
+        lock_at_str = self.get_val(at_key)
+
+        if existing_owner and existing_owner != self.owner_id:
+            stale = False
+            if lock_at_str:
+                try:
+                    lock_t = datetime.fromisoformat(lock_at_str)
+                    diff = (datetime.now(timezone.utc) - lock_t).total_seconds()
+                    stale = diff >= timeout_sec
+                except (ValueError, TypeError):
+                    stale = True  # unreadable timestamp → treat as stale
+            if not stale:
+                _log.warning(
+                    "Job lock held by another instance — aborting",
+                    extra={"job": job_name, "holder": existing_owner, "lock_at": lock_at_str},
+                )
+                return False
+
+        self.set_val(owner_key, self.owner_id)
+        self.set_val(at_key, datetime.now(timezone.utc).isoformat())
+        self.flush_state()
+        return True
+
+    def release_job_lock(self, job_name: str) -> None:
+        """Release a job-level lock if this instance still owns it.
+
+        Does nothing when another instance has already taken over the lock
+        (e.g. after a timeout), preventing accidental invalidation of an
+        active successor's lock.
+        """
+        owner_key = f"{job_name}_lock_owner"
+        at_key = f"{job_name}_lock_at"
+        self.reload_state()
+        if self.get_val(owner_key) == self.owner_id:
+            self.set_val(owner_key, "")
+            self.set_val(at_key, "")
+            self.flush_state()
+
     def compact_hash_index(self):
         COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
         known = self.load_known_hashes()

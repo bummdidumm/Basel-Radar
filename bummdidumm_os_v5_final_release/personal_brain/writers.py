@@ -116,15 +116,24 @@ class JsonlWriter:
     # Write helpers
     # ------------------------------------------------------------------
 
-    def _write_jsonl(self, path: Path, rows: list[dict], key: str, purged_file_ids: set | None = None) -> None:
+    def _write_jsonl(
+        self,
+        path: Path,
+        rows: list[dict],
+        key: str,
+        purged_file_ids: set | None = None,
+        purged_source_ids: set | None = None,
+    ) -> None:
         """Streaming-Merge-Write: new rows overwrite existing rows by stable ID.
 
         Existing rows absent from `rows` are streamed directly to the temp file
         without being buffered in RAM. Only the incoming `rows` (O(m)) are held
         in memory, avoiding the previous O(n) full-load for large indices.
 
-        purged_file_ids: if provided, existing rows whose ``file_id`` field is in
-        this set are tombstone-deleted (BUG-4 fix for PURGED sources persisting).
+        purged_file_ids: existing rows whose ``file_id`` field is in this set are
+        tombstone-deleted (sources / records).
+        purged_source_ids: existing rows whose ``source_ids`` list is a subset of
+        this set are tombstone-deleted (relations).
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         new_lookup = {row[key]: row for row in rows}
@@ -151,6 +160,10 @@ class JsonlWriter:
                             if k not in new_lookup:
                                 if purged_file_ids and row.get("file_id") in purged_file_ids:
                                     continue  # BUG-4 fix: tombstone-delete PURGED entry
+                                if purged_source_ids:
+                                    row_sids = row.get("source_ids", [])
+                                    if row_sids and all(sid in purged_source_ids for sid in row_sids):
+                                        continue  # tombstone: all contributing sources are purged
                                 out.write(stripped + "\n")
                         except Exception as e:
                             _log.warning(
@@ -230,6 +243,19 @@ class JsonlWriter:
         purged_file_ids: set | None = None,
     ) -> None:
         pf = purged_file_ids or set()
+
+        # Build source_id → file_id mapping from the EXISTING on-disk source registry
+        # BEFORE tombstoning it, so we know which source_ids belong to purged files.
+        # This allows entity / relation tombstoning keyed on source_ids rather than file_id.
+        purged_source_ids: set[str] = set()
+        if pf:
+            src_reg_path = self.published / "00_source_registry.jsonl"
+            for _existing_src in self._stream_jsonl(src_reg_path):
+                if _existing_src.get("file_id") in pf:
+                    _sid = _existing_src.get("source_id", "")
+                    if _sid:
+                        purged_source_ids.add(_sid)
+
         self._write_jsonl(self.published / "00_source_registry.jsonl", sources, "source_id", purged_file_ids=pf)
         self._write_jsonl(self.published / "01_record_index.jsonl", records, "record_id", purged_file_ids=pf)
 
@@ -257,6 +283,11 @@ class JsonlWriter:
                                          if not ek.startswith("_") or ek == "_counts_by_source"}
                                 out.write(json.dumps(clean, ensure_ascii=False) + "\n")
                             else:
+                                # Tombstone entity if ALL its source_ids map to purged files.
+                                if purged_source_ids:
+                                    ent_sids = existing_ent.get("source_ids", [])
+                                    if ent_sids and all(sid in purged_source_ids for sid in ent_sids):
+                                        continue  # tombstone: no surviving sources
                                 out.write(stripped + "\n")
                         except Exception as e:
                             _log.warning(
@@ -269,13 +300,18 @@ class JsonlWriter:
                 out.write(json.dumps(clean, ensure_ascii=False) + "\n")
         tmp_entity_path.replace(entity_path)
 
-        self._write_jsonl(self.published / "03_relation_index.jsonl", relations, "relation_id")
-        self._write_topic_hints(records)
+        self._write_jsonl(
+            self.published / "03_relation_index.jsonl", relations, "relation_id",
+            purged_source_ids=purged_source_ids,
+        )
+        self._write_topic_hints(records, purged_file_ids=pf)
 
-    def _write_topic_hints(self, records: list[dict]) -> None:
+    def _write_topic_hints(self, records: list[dict], purged_file_ids: set | None = None) -> None:
         """Maintain a compact file_id→topic lookup used by main_safe_sort.py.
 
         Merges with existing hints so partial re-runs don't erase previous data.
+        Entries for purged_file_ids are removed so stale topics don't drive
+        sorting decisions after a file is purged.
         The resulting file_topics.json is orders of magnitude smaller than the
         full record index, making Safe Sort startup much faster.
         """
@@ -286,6 +322,9 @@ class JsonlWriter:
                 existing = json.loads(hint_path.read_text(encoding="utf-8"))
             except Exception as e:
                 _log.warning("Could not load existing topic hints", extra={"error": str(e)})
+        if purged_file_ids:
+            for _fid in purged_file_ids:
+                existing.pop(_fid, None)
         for rec in records:
             fid = rec.get("file_id")
             topics = rec.get("topics", [])
@@ -312,6 +351,19 @@ class JsonlWriter:
             with tmp_path.open("w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
             tmp_path.replace(target_path)
+        # Delete stale day files whose records were all tombstoned.
+        # build_daily_memory() returns no entry for days with zero surviving records,
+        # so any on-disk file absent from `daily` must be removed explicitly.
+        rebuilt_days = set(daily.keys())
+        if self.daily_dir.exists():
+            for _stale in self.daily_dir.glob("*.json"):
+                if _stale.stem not in rebuilt_days:
+                    try:
+                        _stale.unlink()
+                        _log.info("Deleted stale daily memory file", extra={"day": _stale.stem})
+                    except OSError as _e:
+                        _log.warning("Failed to delete stale daily memory file",
+                                     extra={"day": _stale.stem, "error": str(_e)})
         return daily
 
     def write_weekly_memory(self, _records: list[dict]) -> dict[str, dict]:
@@ -337,6 +389,17 @@ class JsonlWriter:
             with tmp.open("w", encoding="utf-8") as wf:
                 _json.dump(payload, wf, ensure_ascii=False, indent=2)
             tmp.replace(target)
+        # Delete stale weekly files whose days were all removed.
+        rebuilt_weeks = set(weekly.keys())
+        if weekly_dir.exists():
+            for _stale in weekly_dir.glob("*.json"):
+                if _stale.stem not in rebuilt_weeks:
+                    try:
+                        _stale.unlink()
+                        _log.info("Deleted stale weekly memory file", extra={"week": _stale.stem})
+                    except OSError as _e:
+                        _log.warning("Failed to delete stale weekly memory file",
+                                     extra={"week": _stale.stem, "error": str(_e)})
         return weekly
 
     def write_search_views(self, _records: list[dict]) -> dict[str, list[dict]]:

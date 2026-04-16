@@ -150,5 +150,82 @@ Pass 2 erweitert den klassischen Delta-Export um export-aware Parsing nach `20_i
 Einstiegspunkt: `personal_brain/runtime.py`, aufgerufen aus `main_pass2.py`.
 
 ### Knowledge Lifecycle / Exclusions
-- Tab `Knowledge_Exclusions` steuert `ACTIVE`, `EXCLUDED`, `PURGED` pro `file_id`.
-- Exclusions gelten auch für abgeleitete Archive-Subeinträge (ZIP-Inhalte via `bundle_id`).
+
+Tab `Knowledge_Exclusions` steuert `ACTIVE`, `EXCLUDED`, `PURGED` pro `file_id`.
+Exclusions gelten auch für abgeleitete Archive-Subeinträge (ZIP-Inhalte via `bundle_id`).
+
+#### Finale Lifecycle-Semantik (bindend)
+
+| Status | Bedeutung | Brain-Records | Re-Ingest |
+|--------|-----------|---------------|-----------|
+| `ACTIVE` | Quelle ist aktiv im Scope und wird indiziert | Indiziert + aktualisiert | Ja |
+| `EXCLUDED` | Quelle wird übersprungen (manuell oder auto bei gelöschten/scope-exited) | **Erhalten** | Nein |
+| `PURGED` | Quelle vollständig aus publizierten Indizes entfernt | **Tombstoned** | Nein |
+
+**Auto-Exclusion-Regel:** Quellen mit `change_type` in `{DELETED, TRASHED, REMOVED_OR_NO_ACCESS, MOVED_OUT_OF_SCOPE}` werden im Brain-Runtime automatisch als `EXCLUDED` behandelt — bestehende Brain-Records bleiben erhalten, neuer Ingest wird gestoppt. Explizite `Knowledge_Exclusions`-Einträge haben immer Vorrang.
+
+#### PURGED — was konkret passiert
+
+Wenn eine Datei auf `PURGED` gesetzt ist (oder `EXCLUDED` + manuell auf PURGED hochgestuft), entfernt der nächste Pass-2-Lauf folgendes aus den publizierten Artefakten:
+
+| Artefakt | Entfernungslogik |
+|----------|-----------------|
+| `00_source_registry.jsonl` | Einträge mit `file_id` in purged_file_ids → gelöscht |
+| `01_record_index.jsonl` | Einträge mit `file_id` in purged_file_ids → gelöscht |
+| `02_entity_index.jsonl` | Entitäten, deren **alle** `source_ids` zu purged file_ids gehören → gelöscht |
+| `03_relation_index.jsonl` | Relationen, deren **alle** `source_ids` zu purged file_ids gehören → gelöscht |
+| `04_daily_memory/*.json` | Tagesdateien ohne verbleibende Records → automatisch gelöscht |
+| `04_weekly_memory/*.json` | Wochendateien ohne verbleibende Tage → automatisch gelöscht |
+| `file_topics.json` | Einträge für purged `file_id`s → entfernt |
+
+**Partieller Purge:** Entities/Relations, die auch auf nicht-gepurgten Quellen basieren, werden NICHT tombstoned — sie konvergieren beim nächsten Re-Index der überlebenden Quellen.
+
+#### Scope Exit — was passiert wenn eine Datei den Scope verlässt
+
+1. **Pass 1 / Drive-Level:** `drive_helpers.py` erkennt Dateien außerhalb des `TARGET_FOLDER_ID`-Baums und setzt synthetisch `scope_exit=True` → `change_type = MOVED_OUT_OF_SCOPE` in Dedupe_Report.
+2. **Pass 2 / JSONL-Delta:** `MOVED_OUT_OF_SCOPE` wird in die `valid_statuses` aufgenommen und als `event_only_no_content_processing` weitergeleitet.
+3. **Brain-Runtime:** Auto-EXCLUDED → Parser wird nicht aufgerufen, bestehende Records bleiben erhalten.
+4. **Vollständige Entfernung:** Nur durch manuelles Setzen von `PURGED` in `Knowledge_Exclusions`.
+
+### Parallelität / Job Locks
+
+**Pass 1** schützt sich über ein vollständiges Lease-System mit Heartbeat
+(`lease_owner_id`, `lease_heartbeat_at`, `lease_acquired_at`) inkl. TOCTOU-Fence (500ms).
+
+**Downstream Jobs** (Safe Sort, Apply Sort, Apply Renames) nutzen einfache Job-Level Locks
+ohne Heartbeat (kürzere Laufzeit). Implementiert via `StateTracker.acquire_job_lock()` /
+`release_job_lock()` in `shared/state_helpers.py`.
+
+| State-Key | Bedeutung |
+|-----------|-----------|
+| `{job_name}_lock_owner` | `owner_id` des Lock-Inhabers |
+| `{job_name}_lock_at` | ISO-UTC Zeitstempel der Übernahme |
+
+Stale Locks (älter als Timeout, Default: 600s) werden automatisch übernommen.
+
+**Konfiguration via Env-Variablen:**
+
+| Variable | Default | Gilt für |
+|----------|---------|----------|
+| `SAFE_SORT_LOCK_TIMEOUT_SEC` | 600 | Safe Sort |
+| `APPLY_SORT_LOCK_TIMEOUT_SEC` | 600 | Apply Sort |
+| `APPLY_RENAMES_LOCK_TIMEOUT_SEC` | 600 | Apply Renames |
+
+Wenn ein Job geblockt wird, loggt er eine Warning und beendet sich ohne Fehler. Ein nachfolgender Cron-Lauf kann ihn erneut starten.
+
+**Bekannte Restgrenzen:** Die Sheets-API ist eventual-consistent. Concurrent Sheets-API-Calls mit <500ms Abstand können nicht vollständig verhindert werden. Der Job-Lock bietet Schutz im Sekunden-Bereich, nicht im Millisekunden-Bereich.
+
+### Operatives Runbook
+
+**Datei manuell purgen:**
+1. `Knowledge_Exclusions` Tab öffnen
+2. `file_id` der Datei in Spalte A eintragen, Status `PURGED` in Spalte C setzen
+3. Nächsten Pass-2-Lauf abwarten → Artefakte werden bereinigt
+
+**Stale Lock manuell löschen:**
+Im State-Tab die Schlüssel `{job_name}_lock_owner` und `{job_name}_lock_at` auf leer setzen.
+Alternativ wartet das System nach `{JOB}_LOCK_TIMEOUT_SEC` Sekunden automatisch auf Takeover.
+
+**Tages-Memory-Datei neu bauen:**
+Pass 2 erneut ausführen. `write_daily_memory()` rebuildet immer aus dem aktuellen
+`01_record_index.jsonl` und löscht dabei Tagesdateien ohne verbleibende Records.
