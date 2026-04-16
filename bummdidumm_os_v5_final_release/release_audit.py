@@ -106,6 +106,61 @@ def run_audit() -> bool:
     if "compact_hash_index()" not in p1 or "compact_reports()" not in p1:
         errors.append("Compaction ist nicht im Hauptpfad von Pass 1 verdrahtet")
 
+    # -----------------------------------------------------------------------
+    # Hardening checks (lifecycle + parallelism fixes)
+    # -----------------------------------------------------------------------
+    w = _read(ROOT / "personal_brain" / "writers.py")
+    rt = _read(ROOT / "personal_brain" / "runtime.py")
+    sh_state = _read(ROOT / "shared" / "state_helpers.py")
+    ar = _read(ROOT / "main_apply_renames.py")
+
+    # Gap-C: entity merge loop must have purged_source_ids guard
+    if "purged_source_ids" not in w:
+        errors.append("Gap-C fehlt: entity loop in writers.py hat keinen purged_source_ids Guard")
+    if "all(sid in purged_source_ids" not in w:
+        errors.append("Gap-C fehlt: entity tombstone nutzt kein all(sid in purged_source_ids)")
+
+    # Gap-D: relation writer must receive purged_source_ids
+    if "03_relation_index.jsonl" in w and "purged_source_ids=purged_source_ids" not in w:
+        errors.append("Gap-D fehlt: relation _write_jsonl hat kein purged_source_ids Argument")
+
+    # Gap-E: topic hints must filter purged file_ids
+    if "_write_topic_hints" in w:
+        hints_tail = w.split("_write_topic_hints")[1][:300]
+        if "purged_file_ids" not in hints_tail:
+            errors.append("Gap-E fehlt: _write_topic_hints filtert keine purged_file_ids")
+
+    # Gap-F: write_daily_memory must delete stale day files
+    if "unlink" not in w or "rebuilt_days" not in w:
+        errors.append("Gap-F fehlt: write_daily_memory löscht keine veralteten Tagesdateien")
+
+    # Gap-A: Pass 2 must include MOVED_OUT_OF_SCOPE in valid_statuses
+    if "MOVED_OUT_OF_SCOPE" not in p2:
+        errors.append("Gap-A fehlt: MOVED_OUT_OF_SCOPE nicht in main_pass2.py valid_statuses")
+
+    # Gap-B: runtime.py must auto-exclude removal events
+    if "_REMOVAL_CHANGE_TYPES" not in rt:
+        errors.append("Gap-B fehlt: runtime.py _REMOVAL_CHANGE_TYPES fehlt (auto-exclude logic)")
+    if "effective_exclusions" not in rt:
+        errors.append("Gap-B fehlt: runtime.py nutzt keine effective_exclusions")
+
+    # Gap-G: state_helpers.py must expose job lock helpers
+    if "acquire_job_lock" not in sh_state:
+        errors.append("Gap-G fehlt: acquire_job_lock fehlt in state_helpers.py")
+    if "release_job_lock" not in sh_state:
+        errors.append("Gap-G fehlt: release_job_lock fehlt in state_helpers.py")
+
+    # Gap-G: all downstream scripts must wire the job lock
+    for job_script, job_label in [
+        (ss, "main_safe_sort.py"),
+        (aps, "main_apply_sort.py"),
+        (ar, "main_apply_renames.py"),
+    ]:
+        if "acquire_job_lock" not in job_script:
+            errors.append(f"Gap-G fehlt: {job_label} ruft acquire_job_lock nicht auf")
+        if "release_job_lock" not in job_script:
+            errors.append(f"Gap-G fehlt: {job_label} ruft release_job_lock nicht auf")
+
     summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
     (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")

@@ -356,7 +356,9 @@ def run_pass2():
 
             # Validiere, welche Records wir überhaupt an das AI-OS im JSONL weiterleiten.
             # Wir lassen "DUPLICATE" und "SKIPPED_SIZE" weg.
-            valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS")
+            # MOVED_OUT_OF_SCOPE wird eingeschlossen, damit der Brain-Index scope-exits
+            # als event_only empfängt und abgeleitete Einträge bereinigen kann.
+            valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE")
             if not status.startswith(valid_statuses):
                 continue
 
@@ -422,7 +424,9 @@ def run_pass2():
                     state.log_error("PASS_2", file_id, rec.name, "OCRError", f"Fehler bei der OCR-Extraktion: {str(e)}")
 
             # Pfad B: Statusereignisse ohne OCR
-            elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] or status == "UNCHANGED_CONTENT":
+            elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE",
+                                  "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] \
+                    or status in ("UNCHANGED_CONTENT", "MOVED_OUT_OF_SCOPE"):
                 # Kein OCR, wir signalisieren dem nachgelagerten System nur die Bestandsänderung
                 rec.notes = "event_only_no_content_processing"
 

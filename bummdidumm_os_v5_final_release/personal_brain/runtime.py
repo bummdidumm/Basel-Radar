@@ -25,6 +25,27 @@ class PersonalBrainRuntime:
         purged_file_ids: set[str] = {
             fid for fid, status in exclusions.items() if status == "PURGED"
         }
+
+        # Auto-exclude physically removed/unavailable sources so parsers are not
+        # called on inaccessible content.  Existing brain records are preserved
+        # (EXCLUDED semantics).  To fully remove brain records, set PURGED in
+        # Knowledge_Exclusions.  Explicit Knowledge_Exclusions entries always win.
+        _REMOVAL_CHANGE_TYPES = frozenset(
+            {"DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE"}
+        )
+        _dynamic_exclusions: dict[str, str] = {}
+        for _item in sources:
+            _fid = _item.get("file_id", "")
+            if (
+                _fid
+                and _item.get("change_type") in _REMOVAL_CHANGE_TYPES
+                and _fid not in exclusions
+            ):
+                _dynamic_exclusions[_fid] = "EXCLUDED"
+        effective_exclusions: dict[str, str] = (
+            {**_dynamic_exclusions, **exclusions} if _dynamic_exclusions else exclusions
+        )
+
         source_rows: dict[str, dict] = {}
         record_rows: dict[str, dict] = {}
         entity_rows: dict[str, dict] = {}
@@ -33,7 +54,7 @@ class PersonalBrainRuntime:
         for item in sources:
             file_id = item.get("file_id", "")
             parent_file_id = item.get("bundle_id", "")
-            knowledge_status = exclusions.get(file_id, exclusions.get(parent_file_id, "ACTIVE"))
+            knowledge_status = effective_exclusions.get(file_id, effective_exclusions.get(parent_file_id, "ACTIVE"))
             item["knowledge_status"] = knowledge_status
 
             if knowledge_status in ["EXCLUDED", "PURGED"]:
