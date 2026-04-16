@@ -238,10 +238,10 @@ def run_pass1():
         state.set_val("ready_for_pass2_run_id", state.run_id)
         state.set_val("last_run_utc", datetime.now(timezone.utc).isoformat())
         state.flush_state()       # BUG-1 fix: persist before reload_state() inside _release_lease
+        state.compact_hash_index()  # compact while lease is still held to prevent race on clear+update
+        state.compact_reports()
         _release_lease(state)
         state.flush_state()       # persist lease release (owner_id="")
-        state.compact_hash_index()
-        state.compact_reports()
         state.log_run("PASS_1", "SUCCESS", processed, errors)
 
     except Exception as e:

@@ -41,7 +41,16 @@ def run_apply_renames():
     update_requests = []
 
     rename_result_col = sheet_mgr.DEDUPE_COL.get("rename_result", 17)
-    col_letter = chr(ord("A") + rename_result_col)  # "R" for index 17
+
+    def _col_letter(n: int) -> str:
+        """Convert 0-based column index to Sheets A1 column letter (handles AA, AB, …)."""
+        res = ""
+        while n >= 0:
+            res = chr(ord("A") + (n % 26)) + res
+            n = (n // 26) - 1
+        return res
+
+    col_letter = _col_letter(rename_result_col)
 
     for row_idx, row in sheet_mgr.read_rows_chunked_with_row_numbers("Dedupe_Report", chunk_size=1000):
         if len(row) < len(sheet_mgr.headers["Dedupe_Report"]) - 1 or row[0] == "run_utc":
