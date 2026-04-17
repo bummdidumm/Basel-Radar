@@ -30,6 +30,14 @@ class TestSafeSortWiring(unittest.TestCase):
                 if key == "last_successful_run_id":
                     return "r1"
                 return None
+            def set_val(self, key, val):
+                pass
+            def flush_state(self):
+                pass
+            def acquire_job_lock(self, job_name, timeout_sec=600):
+                return True
+            def release_job_lock(self, job_name):
+                pass
             def load_known_hashes(self):
                 return {}
             def log_error(self, *args):

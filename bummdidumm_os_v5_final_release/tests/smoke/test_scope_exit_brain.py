@@ -58,7 +58,7 @@ class TestAutoExcludeRemovedSources(unittest.TestCase):
             runtime.process_sources([_minimal_source("file_x")])
             source_ids_before = _jsonl_file_ids(pub / "00_source_registry.jsonl")
             self.assertIn("file_x", source_ids_before, "File must be indexed in run 1")
-            record_ids_before = _jsonl_file_ids(pub / "01_record_index.jsonl")
+            _record_ids_before = _jsonl_file_ids(pub / "01_record_index.jsonl")
             # Records may or may not exist depending on parser — we just verify source exists.
 
             # Run 2: file exits scope / is deleted.
