@@ -58,37 +58,68 @@ def run_apply_sort():
             move_result = row[sheet_mgr.SORT_COL["move_result"]]
 
             if action_mode in ["SAFE", "SWEEP_TRASH"] and (target_folder_id or action_mode == "SWEEP_TRASH") and move_result == "PENDING":
+                result_val = None
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
 
-                    if action_mode == "SWEEP_TRASH":
-                        # Mark explicitly as trashed
-                        def _trash():
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                body={"trashed": True},
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_trash)
-                        result_val = "SUCCESS_TRASHED"
-                    else:
-                        # M-3 fix: fetch parents inside the retry closure so each retry uses
-                        # fresh parent data rather than a value captured before the first attempt.
-                        def _move_file():
-                            meta = drive_service.files().get(
-                                fileId=file_id, fields="parents", **params
-                            ).execute()
-                            prev = ",".join(meta.get("parents", []))
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                addParents=target_folder_id,
-                                removeParents=prev,
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_move_file)
-                        result_val = "SUCCESS"
+                    # Stale-suggestion guard: fetch current Drive state before any
+                    # destructive action so we never blindly repeat a completed move
+                    # or act on a suggestion whose source state no longer matches.
+                    def _fetch_live():
+                        return drive_service.files().get(
+                            fileId=file_id, fields="id,parents,trashed", **params
+                        ).execute()
+                    live = drive_mgr.execute_with_backoff(_fetch_live)
+                    live_parents = live.get("parents", [])
+                    is_trashed = live.get("trashed", False)
 
-                    processed += 1
+                    if action_mode == "SWEEP_TRASH":
+                        if is_trashed:
+                            result_val = "SUCCESS_ALREADY_TRASHED"
+                            processed += 1
+                        else:
+                            def _trash():
+                                return drive_service.files().update(
+                                    fileId=file_id,
+                                    body={"trashed": True},
+                                    **params
+                                ).execute()
+                            drive_mgr.execute_with_backoff(_trash)
+                            result_val = "SUCCESS_TRASHED"
+                            processed += 1
+                    else:
+                        if target_folder_id in live_parents:
+                            result_val = "SUCCESS_ALREADY_IN_TARGET"
+                            processed += 1
+                        else:
+                            expected_parent_id = (
+                                row[sheet_mgr.SORT_COL["current_parent_id"]]
+                                if len(row) > sheet_mgr.SORT_COL["current_parent_id"]
+                                else ""
+                            )
+                            if expected_parent_id and expected_parent_id not in live_parents:
+                                result_val = "STALE_SOURCE_STATE"
+                                state.log_error(
+                                    "APPLY_SORT", file_id, current_name, "StaleSuggestion",
+                                    f"Expected parent {expected_parent_id!r} not in "
+                                    f"current parents {live_parents}"
+                                )
+                            else:
+                                def _move_file():
+                                    meta = drive_service.files().get(
+                                        fileId=file_id, fields="parents", **params
+                                    ).execute()
+                                    prev = ",".join(meta.get("parents", []))
+                                    return drive_service.files().update(
+                                        fileId=file_id,
+                                        addParents=target_folder_id,
+                                        removeParents=prev,
+                                        **params
+                                    ).execute()
+                                drive_mgr.execute_with_backoff(_move_file)
+                                result_val = "SUCCESS"
+                                processed += 1
+
                 except Exception as e:
                     errors += 1
                     state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
