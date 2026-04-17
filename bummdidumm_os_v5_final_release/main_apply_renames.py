@@ -75,15 +75,22 @@ def run_apply_renames():
                 result_val = None
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
-                    def _update_name():
-                        return drive_service.files().update(
-                            fileId=file_id,
-                            body={"name": suggested_name},
-                            **params
-                        ).execute()
-                    drive_mgr.execute_with_backoff(_update_name)
-                    result_val = "SUCCESS"
-                    processed += 1
+                    live_name = drive_service.files().get(
+                        fileId=file_id, fields="name", **params
+                    ).execute().get("name", "")
+
+                    if live_name == suggested_name:
+                        result_val = "SUCCESS_ALREADY_RENAMED"
+                    elif live_name != current_name:
+                        result_val = "STALE_NAME_MISMATCH"
+                    else:
+                        def _update_name(fid=file_id, sn=suggested_name, p=params):
+                            return drive_service.files().update(
+                                fileId=fid, body={"name": sn}, **p
+                            ).execute()
+                        drive_mgr.execute_with_backoff(_update_name)
+                        result_val = "SUCCESS"
+                        processed += 1
                 except Exception as e:
                     errors += 1
                     result_val = f"FAILED: {str(e)[:80]}"

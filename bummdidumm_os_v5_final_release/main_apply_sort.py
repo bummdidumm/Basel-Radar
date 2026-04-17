@@ -58,32 +58,35 @@ def run_apply_sort():
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
 
+                    meta = drive_service.files().get(
+                        fileId=file_id, fields="parents,trashed", **params
+                    ).execute()
+                    current_parents = meta.get("parents", [])
+                    is_trashed = meta.get("trashed", False)
+
                     if action_mode == "SWEEP_TRASH":
-                        # Mark explicitly as trashed
-                        def _trash():
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                body={"trashed": True},
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_trash)
-                        result_val = "SUCCESS_TRASHED"
+                        if is_trashed:
+                            result_val = "SUCCESS_ALREADY_TRASHED"
+                        else:
+                            def _trash(fid=file_id, p=params):
+                                return drive_service.files().update(
+                                    fileId=fid, body={"trashed": True}, **p
+                                ).execute()
+                            drive_mgr.execute_with_backoff(_trash)
+                            result_val = "SUCCESS_TRASHED"
                     else:
-                        # M-3 fix: fetch parents inside the retry closure so each retry uses
-                        # fresh parent data rather than a value captured before the first attempt.
-                        def _move_file():
-                            meta = drive_service.files().get(
-                                fileId=file_id, fields="parents", **params
-                            ).execute()
-                            prev = ",".join(meta.get("parents", []))
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                addParents=target_folder_id,
-                                removeParents=prev,
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_move_file)
-                        result_val = "SUCCESS"
+                        if target_folder_id in current_parents:
+                            result_val = "SUCCESS_ALREADY_IN_TARGET"
+                        elif is_trashed:
+                            result_val = "STALE_SOURCE_STATE"
+                        else:
+                            prev = ",".join(current_parents)
+                            def _move_file(fid=file_id, tid=target_folder_id, rp=prev, p=params):
+                                return drive_service.files().update(
+                                    fileId=fid, addParents=tid, removeParents=rp, **p
+                                ).execute()
+                            drive_mgr.execute_with_backoff(_move_file)
+                            result_val = "SUCCESS"
 
                     processed += 1
                 except Exception as e:
