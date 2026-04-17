@@ -14,35 +14,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-# ---------------------------------------------------------------------------
-# Pre-stub google auth / oauth modules so main_pass2 can be imported in
-# environments where the native cryptography backend is unavailable.
-# This matches the approach used throughout this test suite for modules that
-# have real API credentials at the top level.
-# ---------------------------------------------------------------------------
-def _stub_google_auth():
-    # Stub modules that transitively import google.auth.crypt / cryptography, which
-    # has a broken native (Rust/cffi) backend in this environment. We stub at the
-    # shared-helper and googleapiclient.discovery level so that main_pass2's
-    # pure-Python helper functions (_build_source_from_record, _extract_zip_sources)
-    # can be imported and tested without touching real API credentials.
-    stubs = {
-        "shared.oauth_user_credentials": {"get_user_credentials": MagicMock(return_value=MagicMock())},
-        "shared.gemini_helpers": {"GeminiOCR": MagicMock()},
-        # googleapiclient.discovery imports google.oauth2.service_account which
-        # triggers the same broken crypto chain as oauth_user_credentials.
-        "googleapiclient.discovery": {"build": MagicMock()},
-    }
-    for mod, attrs in stubs.items():
-        if mod not in sys.modules:
-            stub = MagicMock()
-            for k, v in attrs.items():
-                setattr(stub, k, v)
-            sys.modules[mod] = stub
-
-_stub_google_auth()
-
-from shared.models import FileRecord  # noqa: E402  (after stubs)
+from shared.models import FileRecord  # noqa: E402
 
 
 _MINIMAL_INSPECT_RESULT = {
@@ -53,6 +25,30 @@ _MINIMAL_INSPECT_RESULT = {
     "is_bundle": False,
     "is_archive": False,
 }
+
+
+def _make_pass2_stubs() -> dict:
+    """Return sys.modules stubs for modules not yet imported that block main_pass2 import.
+
+    Only stubs entries that are currently absent so patch.dict restores the original
+    state (absent) on exit — preventing permanent pollution of sys.modules for other
+    test files (e.g. test_gemini_helpers.py) collected in the same pytest session.
+    """
+    candidates = {
+        "shared.oauth_user_credentials": {"get_user_credentials": MagicMock(return_value=MagicMock())},
+        "shared.gemini_helpers": {"GeminiOCR": MagicMock()},
+        # googleapiclient.discovery imports google.oauth2.service_account which triggers
+        # the same broken crypto chain as oauth_user_credentials.
+        "googleapiclient.discovery": {"build": MagicMock()},
+    }
+    stubs = {}
+    for mod, attrs in candidates.items():
+        if mod not in sys.modules:
+            stub = MagicMock()
+            for k, v in attrs.items():
+                setattr(stub, k, v)
+            stubs[mod] = stub
+    return stubs
 
 
 def _make_record(change_type: str = "UNCHANGED", file_id: str = "fid_test") -> FileRecord:
@@ -72,10 +68,10 @@ def _make_record(change_type: str = "UNCHANGED", file_id: str = "fid_test") -> F
 
 def _call_build_source(rec: FileRecord) -> list[dict]:
     """Call _build_source_from_record with mocked inspect_source and no real Drive calls."""
-    with patch("main_pass2.inspect_source", return_value=_MINIMAL_INSPECT_RESULT):
-        from main_pass2 import _build_source_from_record  # imported lazily after stubs
-        drive_service = MagicMock()
-        return _build_source_from_record(rec, drive_service, enable_shared_drives=False)
+    with patch.dict(sys.modules, _make_pass2_stubs()):
+        with patch("main_pass2.inspect_source", return_value=_MINIMAL_INSPECT_RESULT):
+            from main_pass2 import _build_source_from_record
+            return _build_source_from_record(rec, MagicMock(), enable_shared_drives=False)
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +117,6 @@ def test_change_type_in_zip_sub_source():
     import io
     import zipfile
 
-    from main_pass2 import _extract_zip_sources
-
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("inner.txt", "hello")
@@ -130,8 +124,10 @@ def test_change_type_in_zip_sub_source():
 
     parent_rec = _make_record(change_type="DELETED")
 
-    with patch("main_pass2.inspect_source", return_value=_MINIMAL_INSPECT_RESULT):
-        sub_sources = _extract_zip_sources(zip_bytes, parent_rec)
+    with patch.dict(sys.modules, _make_pass2_stubs()):
+        with patch("main_pass2.inspect_source", return_value=_MINIMAL_INSPECT_RESULT):
+            from main_pass2 import _extract_zip_sources
+            sub_sources = _extract_zip_sources(zip_bytes, parent_rec)
 
     assert sub_sources, "Expected sub-sources from ZIP"
     for src in sub_sources:

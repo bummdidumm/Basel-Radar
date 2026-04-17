@@ -10,14 +10,13 @@ from __future__ import annotations
 import ast
 import sys
 import unittest
-from datetime import datetime, timezone
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from shared.state_helpers import StateTracker
+from shared.state_helpers import StateTracker  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
