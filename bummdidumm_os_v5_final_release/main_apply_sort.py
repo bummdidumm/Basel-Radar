@@ -30,6 +30,9 @@ def run_apply_sort():
         log.warning("Apply Sort abgebrochen: anderer Prozess hält den Lock")
         return
 
+    # BUG-K: track whether the job completed without exception so the finally block
+    # can set the correct phase (IDLE on success, APPLY_SORT_FAILED on exception).
+    _failed = False
     try:
         log.info("Apply Sort gestartet")
         state.set_val("current_phase", "APPLY_SORT")
@@ -96,30 +99,35 @@ def run_apply_sort():
                     "values": [[result_val]]
                 })
 
-                # Flush periodically to not build up a massive array in memory,
-                # but still benefit from batched update performance.
+                # BUG-P0: use drive_mgr.execute_with_backoff so the lambda rebuilds
+                # the request on each retry and 500/503 errors are also retried.
                 if len(update_requests) >= 50:
-                    sheet_mgr._execute_with_backoff(
-                        sheets_service.spreadsheets().values().batchUpdate(
+                    _batch = update_requests
+                    drive_mgr.execute_with_backoff(
+                        lambda: sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
-                            body={"valueInputOption": "RAW", "data": update_requests}
-                        )
+                            body={"valueInputOption": "RAW", "data": _batch}
+                        ).execute()
                     )
                     update_requests = []
 
         if update_requests:
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
+            _batch = update_requests
+            drive_mgr.execute_with_backoff(
+                lambda: sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": update_requests}
-                )
+                    body={"valueInputOption": "RAW", "data": _batch}
+                ).execute()
             )
 
         state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
         log.info("Apply Sort beendet", extra={"processed": processed, "errors": errors})
 
+    except Exception:
+        _failed = True
+        raise
     finally:
-        state.set_val("current_phase", "IDLE")
+        state.set_val("current_phase", "APPLY_SORT_FAILED" if _failed else "IDLE")
         try:
             state.flush_state()
         finally:

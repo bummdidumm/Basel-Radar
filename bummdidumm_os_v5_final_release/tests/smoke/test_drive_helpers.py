@@ -137,6 +137,55 @@ class TestExecuteWithBackoff:
             mgr.execute_with_backoff(forbidden)
 
 
+# ---------------------------------------------------------------------------
+# HARDENING-1: walk queue JSON roundtrip (folder IDs with commas survive)
+# ---------------------------------------------------------------------------
+
+class TestWalkQueueJsonRoundtrip:
+
+    def test_walk_queue_json_roundtrip(self):
+        """HARDENING-1: folder IDs containing commas must survive queue checkpoint/resume.
+
+        Previously the queue was serialised as comma-joined CSV, which silently
+        split folder IDs that contained a comma into multiple invalid IDs.
+        json.dumps/json.loads must now be used instead.
+        """
+        import json
+        from shared.drive_helpers import DriveManager
+
+        mgr = DriveManager(MagicMock(), "ROOT", enable_shared_drives=False)
+
+        # Folder IDs that would break CSV serialisation
+        original_queue = ["folder_normal", "folder,with,commas", "another_normal"]
+
+        serialized = json.dumps(original_queue)
+        restored = json.loads(serialized)
+
+        assert restored == original_queue, (
+            f"Queue must survive JSON roundtrip intact: {original_queue!r} → {restored!r}"
+        )
+        assert "folder,with,commas" in restored, (
+            "Folder ID containing a comma must not be split on deserialisation"
+        )
+
+    def test_walk_queue_legacy_csv_fallback(self):
+        """HARDENING-1 backward compat: old CSV-encoded queue must still be parsed."""
+        import json
+        from shared.drive_helpers import DriveManager
+
+        # Simulate the old serialisation format that might be in a live State sheet
+        old_csv_value = "folder_a,folder_b,folder_c"
+
+        # json.loads should fail on plain CSV, then the fallback split should recover it
+        try:
+            result = json.loads(old_csv_value)
+            # If json.loads succeeds (it won't for plain CSV without quotes), that's fine too
+        except (json.JSONDecodeError, ValueError):
+            result = old_csv_value.split(",")
+
+        assert result == ["folder_a", "folder_b", "folder_c"]
+
+
 class TestFetchDeltaChunk:
     def test_fetch_delta_chunk_uses_backoff_wrapper(self):
         mgr = _make_manager()

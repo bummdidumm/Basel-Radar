@@ -29,6 +29,9 @@ def run_apply_renames():
         log.warning("Apply Renames abgebrochen: anderer Prozess hält den Lock")
         return
 
+    # BUG-K: track whether the job completed without exception so the finally block
+    # can set the correct phase (IDLE on success, APPLY_RENAMES_FAILED on exception).
+    _failed = False
     try:
         log.info("Rename Job gestartet")
         state.set_val("current_phase", "APPLY_RENAMES")
@@ -94,28 +97,34 @@ def run_apply_renames():
                     "values": [[result_val]]
                 })
 
-                # Flush periodically to bound memory
+                # BUG-P0: use drive_mgr.execute_with_backoff so the lambda rebuilds
+                # the request on each retry and 500/503 errors are also retried.
                 if len(update_requests) >= 50:
-                    sheet_mgr._execute_with_backoff(
-                        sheets_service.spreadsheets().values().batchUpdate(
+                    _batch = update_requests
+                    drive_mgr.execute_with_backoff(
+                        lambda: sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
-                            body={"valueInputOption": "RAW", "data": update_requests}
-                        )
+                            body={"valueInputOption": "RAW", "data": _batch}
+                        ).execute()
                     )
                     update_requests = []
 
         if update_requests:
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
+            _batch = update_requests
+            drive_mgr.execute_with_backoff(
+                lambda: sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": update_requests}
-                )
+                    body={"valueInputOption": "RAW", "data": _batch}
+                ).execute()
             )
 
         state.log_run("RENAME", "SUCCESS", processed, errors)
 
+    except Exception:
+        _failed = True
+        raise
     finally:
-        state.set_val("current_phase", "IDLE")
+        state.set_val("current_phase", "APPLY_RENAMES_FAILED" if _failed else "IDLE")
         try:
             state.flush_state()
         finally:

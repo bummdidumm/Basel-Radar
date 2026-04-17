@@ -127,7 +127,9 @@ def _extract_zip_sources(zip_bytes: bytes, parent_rec) -> list[dict]:
 
                     sub_checksum = hashlib.sha256(Path(sub_local_path).read_bytes()).hexdigest()
                     canonical_sub_path = f"{parent_rec.path_display or parent_rec.name}/{sanitized_name}"
-                    sub_file_id = f"{parent_rec.file_id}_{hashlib.sha256((parent_rec.sha256 + sanitized_name).encode('utf-8')).hexdigest()}"
+                    # HARDENING-4: use file_id as entropy fallback when sha256 is empty (HASH_ERROR)
+                    _entropy = parent_rec.sha256 if parent_rec.sha256 else parent_rec.file_id
+                    sub_file_id = f"{parent_rec.file_id}_{hashlib.sha256((_entropy + sanitized_name).encode('utf-8')).hexdigest()}"
                     sources.append({
                         "file_id": sub_file_id,
                         "bundle_id": parent_rec.file_id,
@@ -287,6 +289,45 @@ def _build_personal_brain_sources(records_to_index, drive_service, enable_shared
     return sources
 
 
+def _build_jsonl_record(r) -> dict:
+    """Build the JSONL dict for a single FileRecord."""
+    return {
+        "run_utc": r.run_utc,
+        "run_id": r.run_id,
+        "path": r.path_display,
+        "name": r.name,
+        "file_id": r.file_id,
+        "mime_type": r.mime_type,
+        "effective_mime_type": r.effective_mime_type,
+        "size_bytes": r.size_bytes,
+        "md5": r.md5,
+        "sha256": r.sha256,
+        "status": r.status,
+        "change_type": r.change_type,
+        "duplicate_of": r.duplicate_of,
+        "archive_result": r.archive_result,
+        "suggested_name": r.suggested_name,
+        "current_parent_id": r.current_parent_id,
+        "current_path": r.current_path,
+        "target_parent_id": r.target_parent_id,
+        "target_path": r.target_path,
+        "folder_rule": r.folder_rule,
+        "folder_rule_reason": r.folder_rule_reason,
+        "sort_mode": r.sort_mode,
+        "move_result": r.move_result,
+        "ocr": {
+            "doc_type": r.ocr_doc_type,
+            "amount": r.ocr_amount,
+            "date": r.ocr_date,
+            "vendor": r.ocr_vendor,
+            "summary": r.ocr_summary,
+            "full_text": r.ocr_full_text
+        } if r.notes != "event_only_no_content_processing" else None,
+        "web_link": r.web_link,
+        "notes": r.notes,
+    }
+
+
 def run_pass2():
     if not all([CONTROL_SHEET_ID, INDEX_FOLDER_ID]):
         raise ValueError("Missing CONTROL_SHEET_ID or INDEX_FOLDER_ID")
@@ -311,225 +352,224 @@ def run_pass2():
     drive_mgr = DriveManager(drive_service, "", ENABLE_SHARED_DRIVES)
     log = get_logger("pass2", run_id=state.run_id, phase="PASS_2")
     log.info("Pass 2 gestartet")
-    ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
-    ocr_calls_this_run = 0
 
-    current_run_id = state.get_val("ready_for_pass2_run_id")
-
-    if not current_run_id:
-        state.set_val("current_phase", "PASS2_BLOCKED_NO_HANDOVER")
-        state.flush_state()
-        state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
+    # BUG-E fix: Pass 2 now holds a job lock to prevent concurrent invocations from
+    # racing on Brain JSONL files and Sheets state.
+    _lock_timeout = int(os.environ.get("PASS2_LOCK_TIMEOUT_SEC", "3600"))
+    if not state.acquire_job_lock("pass2", timeout_sec=_lock_timeout):
+        log.warning("Pass 2 abgebrochen: anderer Prozess hält den Lock")
         return
 
-    state.set_val("current_phase", "PASS2_OCR_INDEXING")
-    state.flush_state()
-
-    # Load Knowledge Exclusions
-    exclusions = {}
-    for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:D"):
-        if len(row) >= 3 and row[0] != "file_id":
-            exclusions[row[0]] = row[2]  # file_id -> status (EXCLUDED/PURGED)
-
-    # Lese Folder-Aware Indexing Daten chunkweise aus Sorting_Suggestions ein, um OOM bei >100k Files zu verhindern.
-    # Wir projizieren nur die absolut notwendigen Felder des AKTUELLEN Runs in ein lokales Dict.
-    # Da dies nur die Deltas eines Runs sind, bleibt der RAM-Footprint auch bei Millionen historischer Einträge im Sheet minimal (<50MB) und locker im 2GiB Limit.
-    # Schema: ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule", "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"]
-    sorting_data = {}
-    for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
-        for s_row in sort_chunk:
-            # FIX: Off-by-one-Grenze bei Sorting-Zeilen -> Zugriff auf Index 12 nur noch ab 13 Spalten.
-            if len(s_row) >= 13 and s_row[0] == current_run_id:
-                sorting_data[s_row[1]] = {
-                    "current_parent_id": s_row[5],
-                    "folder_rule": s_row[6],
-                    "folder_rule_reason": s_row[7],
-                    "target_parent_id": s_row[9],
-                    "target_path": s_row[10],
-                    "sort_mode": s_row[11],
-                    "move_result": s_row[12]
-                }
-
-    records_to_index = []
-    processed = 0
-    errors = 0
-
-    # Cap Pass 2 RAM load: Chunkweises Auslesen
-    for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
-        for row in chunk_rows:
-            if len(row) < 17 or row[0] == "run_utc":
-                continue
-            if row[1] != current_run_id:
-                continue # Nur Dateien des letzten Laufs
-
-            status = row[10]
-            change_type = row[11]
-            file_id = row[4]
-            mime_type = row[5]
-
-            # Validiere, welche Records wir überhaupt an das AI-OS im JSONL weiterleiten.
-            # Wir lassen "DUPLICATE" und "SKIPPED_SIZE" weg.
-            # MOVED_OUT_OF_SCOPE wird eingeschlossen, damit der Brain-Index scope-exits
-            # als event_only empfängt und abgeleitete Einträge bereinigen kann.
-            valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE")
-            if not status.startswith(valid_statuses):
-                continue
-
-            rec = FileRecord(
-                run_utc=row[0],
-                run_id=row[1],
-                path_display=row[2],
-                name=row[3],
-                file_id=file_id,
-                mime_type=mime_type,
-                effective_mime_type=row[6],
-                size_bytes=int(row[7]) if str(row[7]).isdigit() else 0,
-                md5=row[8],
-                sha256=row[9],
-                status=status,
-                change_type=change_type,
-                duplicate_of=row[12],
-                archive_result=row[13],
-                suggested_name=row[14],
-                web_link=row[15],
-                notes=row[16]
-            )
-
-            # Folder-Aware Indexing anreichern
-            rec.current_path = rec.path_display
-            s_data = sorting_data.get(file_id, {})
-            if s_data:
-                rec.current_parent_id = s_data.get("current_parent_id", "")
-                rec.current_path = rec.path_display
-                rec.target_parent_id = s_data.get("target_parent_id", "")
-                rec.target_path = s_data.get("target_path", "")
-                rec.folder_rule = s_data.get("folder_rule", "")
-                rec.folder_rule_reason = s_data.get("folder_rule_reason", "")
-                rec.sort_mode = s_data.get("sort_mode", "")
-                rec.move_result = s_data.get("move_result", "")
-
-            # ZWEI-PFADE ORCHESTRIERUNG FÜR PASS 2
-            # Pfad A: OCR-pflichtige Originale
-            if ENABLE_OCR and ocr.is_ocr_worthy(mime_type) and status == "ORIGINAL" and change_type in ["NEW", "UPDATED"] and ocr_calls_this_run < OCR_BUDGET_PER_RUN:
-                try:
-                    ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
-                    if ocr_data:
-                        ocr_calls_this_run += 1
-                        rec.ocr_doc_type = ocr_data.get("doc_type", "")
-                        rec.ocr_amount = str(ocr_data.get("amount", "") or "")
-                        rec.ocr_date = ocr_data.get("date", "")
-                        rec.ocr_vendor = ocr_data.get("vendor", "")
-                        rec.ocr_summary = ocr_data.get("summary", "")
-                        rec.ocr_full_text = ocr_data.get("full_text", "")
-                        rec.effective_mime_type = effective_mime
-                        rec.ocr_people = ocr_data.get("people_mentioned", [])
-                        rec.ocr_organizations = ocr_data.get("organizations_mentioned", [])
-                        rec.ocr_sensitivity = ocr_data.get("sensitivity", "low")
-                        rec.ocr_is_readable = ocr_data.get("is_readable", True)
-                        rec.ocr_language = ocr_data.get("language", "")
-                        rec.ocr_currency = ocr_data.get("currency", "")
-                        rec.ocr_reference_number = ocr_data.get("reference_number", "")
-                    else:
-                        errors += 1
-                        state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")
-                except Exception as e:
-                    errors += 1
-                    state.log_error("PASS_2", file_id, rec.name, "OCRError", f"Fehler bei der OCR-Extraktion: {str(e)}")
-
-            # Pfad B: Statusereignisse ohne OCR
-            elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE",
-                                  "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] \
-                    or status in ("UNCHANGED_CONTENT", "MOVED_OUT_OF_SCOPE"):
-                # Kein OCR, wir signalisieren dem nachgelagerten System nur die Bestandsänderung
-                rec.notes = "event_only_no_content_processing"
-
-            records_to_index.append(rec)
-            processed += 1
-
-    if not records_to_index:
-        state.set_val("current_phase", "PASS2_DONE")
-        state.set_val("ready_for_pass2_run_id", "")
-        state.flush_state()
-        state.log_run("PASS_2", "NO_FILES", 0, errors)
-        return
-
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"{date_str}_{PROJECT_SLUG}_delta.jsonl"
-
+    jsonl_path = None
     try:
-        with open(filename, "w", encoding="utf-8") as f:
-            for r in records_to_index:
-                j_dict = {
-                    "run_utc": r.run_utc,
-                    "run_id": r.run_id,
-                    "path": r.path_display,
-                    "name": r.name,
-                    "file_id": r.file_id,
-                    "mime_type": r.mime_type,
-                    "effective_mime_type": r.effective_mime_type,
-                    "size_bytes": r.size_bytes,
-                    "md5": r.md5,
-                    "sha256": r.sha256,
-                    "status": r.status,
-                    "change_type": r.change_type,
-                    "duplicate_of": r.duplicate_of,
-                    "archive_result": r.archive_result,
-                    "suggested_name": r.suggested_name,
-                    "current_parent_id": r.current_parent_id,
-                    "current_path": r.current_path,
-                    "target_parent_id": r.target_parent_id,
-                    "target_path": r.target_path,
-                    "folder_rule": r.folder_rule,
-                    "folder_rule_reason": r.folder_rule_reason,
-                    "sort_mode": r.sort_mode,
-                    "move_result": r.move_result,
-                    "ocr": {
-                        "doc_type": r.ocr_doc_type,
-                        "amount": r.ocr_amount,
-                        "date": r.ocr_date,
-                        "vendor": r.ocr_vendor,
-                        "summary": r.ocr_summary,
-                        "full_text": r.ocr_full_text
-                    } if r.notes != "event_only_no_content_processing" else None,
-                    "web_link": r.web_link,
-                    "notes": r.notes
-                }
-                f.write(json.dumps(j_dict, ensure_ascii=False) + "\n")
+        ocr = GeminiOCR(drive_service, ENABLE_SHARED_DRIVES)
+        ocr_calls_this_run = 0
 
-        media = MediaFileUpload(filename, mimetype="application/x-ndjson")
-        params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
+        current_run_id = state.get_val("ready_for_pass2_run_id")
 
-        def _upload_delta():
-            return drive_service.files().create(
-                body={"name": filename, "parents": [INDEX_FOLDER_ID]},
-                media_body=media,
-                fields="id",
-                **params
-            ).execute()
-        drive_mgr.execute_with_backoff(_upload_delta)
+        if not current_run_id:
+            state.set_val("current_phase", "PASS2_BLOCKED_NO_HANDOVER")
+            state.flush_state()
+            state.log_error("PASS_2", "SYSTEM", "", "NoRunID", "Keine explizite Pass 1 Übergabe (ready_for_pass2_run_id) gefunden.")
+            return
 
-        BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
-        runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=BRAIN_INDEX_ROOT)
-        runtime.process_sources(
-            _build_personal_brain_sources(records_to_index, drive_service, ENABLE_SHARED_DRIVES),
-            exclusions
-        )
+        state.set_val("current_phase", "PASS2_OCR_INDEXING")
+        state.flush_state()
 
+        # Load Knowledge Exclusions
+        exclusions = {}
+        for row in sheet_mgr.read_all_rows("Knowledge_Exclusions", "A:D"):
+            if len(row) >= 3 and row[0] != "file_id":
+                exclusions[row[0]] = row[2]  # file_id -> status (EXCLUDED/PURGED)
+
+        # Lese Folder-Aware Indexing Daten chunkweise aus Sorting_Suggestions ein, um OOM bei >100k Files zu verhindern.
+        # Schema: ["run_id", "file_id", "name", "mime_type", "current_location", "current_parent_id", "folder_rule",
+        #          "folder_rule_reason", "suggested_target_folder", "suggested_target_folder_id", "target_path", "action_mode", "move_result"]
+        sorting_data = {}
+        for sort_chunk in sheet_mgr.read_rows_chunked("Sorting_Suggestions", chunk_size=2000):
+            for s_row in sort_chunk:
+                if len(s_row) >= 13 and s_row[0] == current_run_id:
+                    sorting_data[s_row[1]] = {
+                        "current_parent_id": s_row[5],
+                        "folder_rule": s_row[6],
+                        "folder_rule_reason": s_row[7],
+                        "target_parent_id": s_row[9],
+                        "target_path": s_row[10],
+                        "sort_mode": s_row[11],
+                        "move_result": s_row[12]
+                    }
+
+        # BUG-F fix: Write JSONL to BRAIN_INDEX_ROOT (persistent volume) instead of CWD
+        # (ephemeral in Cloud Run). This ensures the file survives a crash between write
+        # and upload so a retry can re-upload without re-generating.
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename = f"{date_str}_{PROJECT_SLUG}_delta.jsonl"
+        jsonl_path = BRAIN_INDEX_ROOT / filename
+
+        processed = 0
+        errors = 0
+        records_to_index = []
+
+        # BUG-M fix: Write JSONL line-by-line inside the chunked read loop instead of
+        # materializing all records in memory first. Also collect records_to_index list
+        # for the Brain runtime call (full streaming refactor of PersonalBrainRuntime
+        # is out of scope for this pass). Warn if list grows very large.
+        with open(jsonl_path, "w", encoding="utf-8") as jf:
+            for chunk_rows in sheet_mgr.read_rows_chunked("Dedupe_Report", chunk_size=1000):
+                for row in chunk_rows:
+                    if len(row) < 17 or row[0] == "run_utc":
+                        continue
+                    if row[1] != current_run_id:
+                        continue
+
+                    status = row[10]
+                    change_type = row[11]
+                    file_id = row[4]
+                    mime_type = row[5]
+
+                    valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE")
+                    if not status.startswith(valid_statuses):
+                        continue
+
+                    rec = FileRecord(
+                        run_utc=row[0],
+                        run_id=row[1],
+                        path_display=row[2],
+                        name=row[3],
+                        file_id=file_id,
+                        mime_type=mime_type,
+                        effective_mime_type=row[6],
+                        size_bytes=int(row[7]) if str(row[7]).isdigit() else 0,
+                        md5=row[8],
+                        sha256=row[9],
+                        status=status,
+                        change_type=change_type,
+                        duplicate_of=row[12],
+                        archive_result=row[13],
+                        suggested_name=row[14],
+                        web_link=row[15],
+                        notes=row[16]
+                    )
+
+                    rec.current_path = rec.path_display
+                    s_data = sorting_data.get(file_id, {})
+                    if s_data:
+                        rec.current_parent_id = s_data.get("current_parent_id", "")
+                        rec.current_path = rec.path_display
+                        rec.target_parent_id = s_data.get("target_parent_id", "")
+                        rec.target_path = s_data.get("target_path", "")
+                        rec.folder_rule = s_data.get("folder_rule", "")
+                        rec.folder_rule_reason = s_data.get("folder_rule_reason", "")
+                        rec.sort_mode = s_data.get("sort_mode", "")
+                        rec.move_result = s_data.get("move_result", "")
+
+                    # Pfad A: OCR-pflichtige Originale
+                    if ENABLE_OCR and ocr.is_ocr_worthy(mime_type) and status == "ORIGINAL" and change_type in ["NEW", "UPDATED"] and ocr_calls_this_run < OCR_BUDGET_PER_RUN:
+                        try:
+                            ocr_data, effective_mime = ocr.extract_structured_data(file_id, mime_type)
+                            if ocr_data:
+                                ocr_calls_this_run += 1
+                                rec.ocr_doc_type = ocr_data.get("doc_type", "")
+                                rec.ocr_amount = str(ocr_data.get("amount", "") or "")
+                                rec.ocr_date = ocr_data.get("date", "")
+                                rec.ocr_vendor = ocr_data.get("vendor", "")
+                                rec.ocr_summary = ocr_data.get("summary", "")
+                                rec.ocr_full_text = ocr_data.get("full_text", "")
+                                rec.effective_mime_type = effective_mime
+                                rec.ocr_people = ocr_data.get("people_mentioned", [])
+                                rec.ocr_organizations = ocr_data.get("organizations_mentioned", [])
+                                rec.ocr_sensitivity = ocr_data.get("sensitivity", "low")
+                                rec.ocr_is_readable = ocr_data.get("is_readable", True)
+                                rec.ocr_language = ocr_data.get("language", "")
+                                rec.ocr_currency = ocr_data.get("currency", "")
+                                rec.ocr_reference_number = ocr_data.get("reference_number", "")
+                            else:
+                                errors += 1
+                                state.log_error("PASS_2", file_id, rec.name, "OCRError", "Fehler bei der OCR-Extraktion (Kein Resultat)")
+                        except Exception as e:
+                            errors += 1
+                            state.log_error("PASS_2", file_id, rec.name, "OCRError", f"Fehler bei der OCR-Extraktion: {str(e)}")
+
+                    # Pfad B: Statusereignisse ohne OCR
+                    elif change_type in ["DELETED", "TRASHED", "REMOVED_OR_NO_ACCESS", "MOVED_OUT_OF_SCOPE",
+                                          "MOVED", "RENAMED", "UNCHANGED_CONTENT_METADATA_ONLY"] \
+                            or status in ("UNCHANGED_CONTENT", "MOVED_OUT_OF_SCOPE"):
+                        rec.notes = "event_only_no_content_processing"
+
+                    jf.write(json.dumps(_build_jsonl_record(rec), ensure_ascii=False) + "\n")
+                    records_to_index.append(rec)
+                    processed += 1
+
+        if len(records_to_index) > 50_000:
+            log.warning("Pass 2 records_to_index sehr groß — RAM-Druck möglich im Brain-Runtime-Aufruf",
+                        extra={"count": len(records_to_index)})
+
+        if not records_to_index:
+            jsonl_path.unlink(missing_ok=True)
+            state.set_val("current_phase", "PASS2_DONE")
+            state.set_val("ready_for_pass2_run_id", "")
+            state.flush_state()
+            state.log_run("PASS_2", "NO_FILES", 0, errors)
+            return
+
+        # BUG-L fix: Separate upload and Brain runtime into distinct phases, each with
+        # its own error handling. A state marker (pass2_jsonl_upload_done) prevents
+        # re-uploading a duplicate JSONL when only the Brain runtime fails on retry.
+        already_uploaded = state.get_val("pass2_jsonl_upload_done") == state.run_id
+        if not already_uploaded:
+            try:
+                media = MediaFileUpload(str(jsonl_path), mimetype="application/x-ndjson")
+                params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
+
+                def _upload_delta():
+                    return drive_service.files().create(
+                        body={"name": filename, "parents": [INDEX_FOLDER_ID]},
+                        media_body=media,
+                        fields="id",
+                        **params
+                    ).execute()
+                drive_mgr.execute_with_backoff(_upload_delta)
+                state.set_val("pass2_jsonl_upload_done", state.run_id)
+                state.flush_state()
+            except Exception as upload_exc:
+                state.set_val("current_phase", "PASS2_FAILED")
+                state.flush_state()
+                state.log_error("PASS_2", "SYSTEM", "UploadJSONL", "UploadFatal", str(upload_exc))
+                state.log_run("PASS_2", "FAILED", processed, errors + 1)
+                raise upload_exc
+        else:
+            log.info("JSONL-Upload übersprungen (bereits erfolgreich in diesem Run)", extra={"run_id": state.run_id})
+
+        try:
+            BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)
+            runtime = PersonalBrainRuntime(project_id=PROJECT_SLUG, out_root=BRAIN_INDEX_ROOT)
+            runtime.process_sources(
+                _build_personal_brain_sources(records_to_index, drive_service, ENABLE_SHARED_DRIVES),
+                exclusions
+            )
+        except Exception as brain_exc:
+            state.set_val("current_phase", "PASS2_FAILED")
+            state.flush_state()
+            state.log_error("PASS_2", "SYSTEM", "BrainRuntime", "BrainFatal", str(brain_exc))
+            state.log_run("PASS_2", "FAILED", processed, errors + 1)
+            raise brain_exc
+
+        # Full success: clear the upload marker and mark done
+        state.set_val("pass2_jsonl_upload_done", "")
         state.set_val("current_phase", "PASS2_DONE")
-        # Clear coordination key indicating successful processing
         state.set_val("ready_for_pass2_run_id", "")
         state.flush_state()
         state.log_run("PASS_2", "SUCCESS", processed, errors)
 
-    except Exception as e:
-        state.set_val("current_phase", "PASS2_FAILED")
-        state.flush_state()
-        state.log_error("PASS_2", "SYSTEM", "ExportJSONL", "Fatal", str(e))
-        state.log_run("PASS_2", "FAILED", processed, errors + 1)
-        raise e
     finally:
-        if os.path.exists(filename):
-            os.remove(filename)
+        state.release_job_lock("pass2")
+        # Remove the local JSONL only on success so failed runs leave the file for
+        # debugging. jsonl_path is None if we exited before the file was created.
+        if jsonl_path is not None and state.get_val("current_phase") == "PASS2_DONE":
+            try:
+                jsonl_path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     run_pass2()

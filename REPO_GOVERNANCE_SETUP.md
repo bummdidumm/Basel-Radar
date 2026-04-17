@@ -15,10 +15,11 @@ Navigate to **Settings > Branches** and add a new rule for `main`.
 ### 2. Require Status Checks to Pass Before Merging
 Enable this setting to require CI pipelines to complete successfully before allowing a merge.
 
-**Recommended Required Status Checks:**
-- `lint-and-hooks`: Verifies code formatting and YAML schemas using `pre-commit`.
-- `personal-brain-tests`: Runs the automated `pytest` suite for the core extraction pipeline.
-- `finalization-protocol-check`: (If implemented) Validates the completion of the `release_audit.py` script.
+**Required Status Checks** (defined in `.github/workflows/personal-brain-gates.yml`):
+
+- `lint-and-hooks` — runs `pre-commit run --all-files` (ruff, mypy, trailing-whitespace, …).
+- `personal-brain-tests (3.11)` / `personal-brain-tests (3.12)` — installs deps from `requirements.lock`, runs `pip-audit` for known CVEs, executes `release_audit.py`, then the full `pytest` smoke suite under `PYTHONPATH=bummdidumm_os_v5_final_release`.
+- `finalization-protocol-check` — verifies that `AGENT_FINALIZATION_PROTOCOL.md`, `CODEOWNERS`, `.pre-commit-config.yaml`, and `REPO_GOVERNANCE_SETUP.md` all exist and that the protocol file contains the Personal Brain acceptance checklist.
 
 ### 3. Require Conversation Resolution Before Merging
 - Ensure all comments and review threads are resolved before the PR can be merged.
