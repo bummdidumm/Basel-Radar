@@ -154,8 +154,13 @@ class StateTracker:
                          meta.get("path_display",""), meta.get("updated_at",""), meta.get("size_bytes",""),
                          meta.get("md5",""), meta.get("effective_mime_type","")])
 
-        # Read original rows for rollback in case update fails after clear
-        original_rows = self.sheets.read_all_rows("Hash_Index", "A:I")
+        # Read original rows for rollback in case update fails after clear.
+        # raise_on_error=True: if this read fails we must not proceed to clear,
+        # as an empty rollback buffer would leave Hash_Index wiped on any write failure.
+        original_rows = self.sheets.read_all_rows("Hash_Index", "A:I", raise_on_error=True)
+        if not original_rows:
+            _log.warning("Hash_Index Kompaktierung abgebrochen — Rollback-Puffer leer nach Read")
+            return
 
         self.sheets._execute_with_backoff(
             self.sheets.sheets.spreadsheets().values().clear(

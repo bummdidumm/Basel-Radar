@@ -5,8 +5,7 @@ This repository contains the Basel-Radar / bummdidumm-OS V5 pipeline for Google 
 ## Quick Start (lokal testen — keine Cloud-Infrastruktur nötig)
 
 ```bash
-cd bummdidumm_os_v5_final_release
-pip install -r requirements.lock
+pip install -r bummdidumm_os_v5_final_release/requirements.lock
 PYTHONPATH=bummdidumm_os_v5_final_release python3 -m pytest bummdidumm_os_v5_final_release/tests/ -q
 python3 bummdidumm_os_v5_final_release/release_audit.py
 ```
@@ -39,7 +38,7 @@ Die Tests laufen vollständig lokal mit Mocks — kein Google-Account, kein Shee
 |----------|-------|
 | `PROJECT_ID` | Google Cloud Projekt-ID |
 | `SA_EMAIL` | Service-Account-E-Mail für Cloud Run Jobs |
-| `BRAIN_INDEX_ROOT` | Persistenter Pfad für den Brain-Index (z. B. gemountetes Volume) |
+| `BRAIN_INDEX_BUCKET` | GCS-Bucket-Name für den Brain-Index (FUSE-Mount via `deploy.sh`) |
 | `ARCHIVE_FOLDER_ID` | Drive-Ordner-ID für archivierte Duplikate |
 | `INDEX_FOLDER_ID` | Drive-Ordner-ID für Index-Ausgaben |
 | `GEMINI_API_KEY` | Gemini-API-Key für OCR |
@@ -54,9 +53,11 @@ Die Tests laufen vollständig lokal mit Mocks — kein Google-Account, kein Shee
 | `ENABLE_SHARED_DRIVES` | `true` | Shared-Drive-Support aktivieren |
 | `ENABLE_ARCHIVE` | `true` | Duplikate archivieren statt nur markieren |
 
-> **Hinweis für Cloud Run:** `BRAIN_INDEX_ROOT` muss explizit gesetzt werden und auf
-> ein persistentes Volume zeigen. Ohne diesen Pfad wirft `main_pass2.py` beim Start eine
-> `RuntimeError` — das ist bewusst, um Datenverlust durch ephemere Container zu verhindern.
+> **Hinweis für Cloud Run:** `deploy.sh` leitet `BRAIN_INDEX_ROOT` intern aus dem
+> GCS-FUSE-Mount ab (`/brain_index`) — du musst es **nicht** manuell setzen, wenn du
+> `deploy.sh` verwendest. Setze stattdessen `BRAIN_INDEX_BUCKET`. Wird `main_pass2.py`
+> direkt ohne `deploy.sh` aufgerufen, muss `BRAIN_INDEX_ROOT` explizit auf ein persistentes
+> Volume zeigen; sonst wirft der Start eine `RuntimeError`.
 
 ---
 
@@ -66,8 +67,8 @@ Die Tests laufen vollständig lokal mit Mocks — kein Google-Account, kein Shee
 cd bummdidumm_os_v5_final_release
 chmod +x deploy.sh
 export PROJECT_ID=...
-export SA_EMAIL=...           # Service Account, der die Jobs ausführt
-export BRAIN_INDEX_ROOT=...   # Persistenter Pfad oder Volume-Mount
+export SA_EMAIL=...              # Service Account, der die Jobs ausführt
+export BRAIN_INDEX_BUCKET=...    # GCS-Bucket für Brain-Index (deploy.sh setzt BRAIN_INDEX_ROOT intern)
 export ARCHIVE_FOLDER_ID=...
 export INDEX_FOLDER_ID=...
 export CONTROL_SHEET_ID=...
