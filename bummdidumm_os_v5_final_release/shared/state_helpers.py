@@ -49,12 +49,14 @@ class StateTracker:
             rows.append([k, v])
 
         try:
-            self.sheets.sheets.spreadsheets().values().update(
-                spreadsheetId=self.sheets.spreadsheet_id,
-                range="State!A1:B",
-                valueInputOption="RAW",
-                body={"values": rows}
-            ).execute()
+            self.sheets._execute_with_backoff(
+                self.sheets.sheets.spreadsheets().values().update(
+                    spreadsheetId=self.sheets.spreadsheet_id,
+                    range="State!A1:B",
+                    valueInputOption="RAW",
+                    body={"values": rows}
+                )
+            )
             self._dirty = False
         except Exception as e:
             _log.error("State flush fehlgeschlagen", extra={"error": str(e)})
@@ -131,22 +133,69 @@ class StateTracker:
             self.flush_state()
 
     def compact_hash_index(self):
+        """Compact the Hash_Index sheet by rewriting only the unique current entries.
+
+        Uses clear-then-chunked-write with a rollback buffer (RISK-4 pattern) so
+        that a crash after clear but before the write restores the original data.
+        Writes are chunked at _HASH_COMPACT_CHUNK_SIZE rows to stay within the
+        Sheets API payload limit for very large indices.
+        """
+        _HASH_COMPACT_CHUNK_SIZE = 10_000
         COMPACT_THRESHOLD = int(os.environ.get("HASH_INDEX_COMPACT_THRESHOLD", "50000"))
         known = self.load_known_hashes()
         if len(known) < COMPACT_THRESHOLD:
             return
         _log.info("Hash_Index Kompaktierung gestartet", extra={"entries": len(known)})
-        rows = [["sha256","file_id","name","parent_ids_sorted","path_display","updated_at","size_bytes","md5","effective_mime_type"]]
+
+        header = ["sha256","file_id","name","parent_ids_sorted","path_display","updated_at","size_bytes","md5","effective_mime_type"]
+        rows = [header]
         for fid, meta in known.items():
             rows.append([meta.get("sha",""), fid, meta.get("name",""), meta.get("parent_ids_sorted",""),
                          meta.get("path_display",""), meta.get("updated_at",""), meta.get("size_bytes",""),
                          meta.get("md5",""), meta.get("effective_mime_type","")])
+
+        # Read original rows for rollback in case update fails after clear
+        original_rows = self.sheets.read_all_rows("Hash_Index", "A:I")
+
         self.sheets._execute_with_backoff(
-            self.sheets.sheets.spreadsheets().values().update(
+            self.sheets.sheets.spreadsheets().values().clear(
                 spreadsheetId=self.sheets.spreadsheet_id,
-                range="Hash_Index!A1", valueInputOption="RAW", body={"values": rows}
+                range="Hash_Index!A:I",
+                body={}
             )
         )
+
+        try:
+            for chunk_start in range(0, len(rows), _HASH_COMPACT_CHUNK_SIZE):
+                chunk = rows[chunk_start:chunk_start + _HASH_COMPACT_CHUNK_SIZE]
+                self.sheets._execute_with_backoff(
+                    self.sheets.sheets.spreadsheets().values().update(
+                        spreadsheetId=self.sheets.spreadsheet_id,
+                        range=f"Hash_Index!A{chunk_start + 1}",
+                        valueInputOption="RAW",
+                        body={"values": chunk}
+                    )
+                )
+        except Exception as update_exc:
+            _log.error("Hash_Index Kompaktierung Update fehlgeschlagen — versuche Wiederherstellung",
+                       extra={"error": str(update_exc)})
+            try:
+                for chunk_start in range(0, len(original_rows), _HASH_COMPACT_CHUNK_SIZE):
+                    chunk = original_rows[chunk_start:chunk_start + _HASH_COMPACT_CHUNK_SIZE]
+                    self.sheets._execute_with_backoff(
+                        self.sheets.sheets.spreadsheets().values().update(
+                            spreadsheetId=self.sheets.spreadsheet_id,
+                            range=f"Hash_Index!A{chunk_start + 1}",
+                            valueInputOption="RAW",
+                            body={"values": chunk}
+                        )
+                    )
+                _log.info("Hash_Index Wiederherstellung nach fehlgeschlagenem Update erfolgreich")
+            except Exception as restore_exc:
+                _log.error("Hash_Index Wiederherstellung fehlgeschlagen — Sheet möglicherweise leer!",
+                           extra={"restore_error": str(restore_exc)})
+            raise update_exc
+
         _log.info("Hash_Index kompaktiert", extra={"entries": len(known)})
 
     def compact_reports(self):
@@ -211,12 +260,23 @@ class StateTracker:
             _log.info(f"{sheet_name} kompaktiert", extra={"kept": len(keep)})
 
     def load_known_hashes(self) -> Dict[str, dict]:
-        """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}."""
+        """Liest den Hash_Index vollständig aus und liefert ein Dictionary {file_id: {vollständiges Schema}}.
+
+        Hash_Index is content-addressed, not lifecycle-addressed: entries accumulate
+        over time and are keyed by file_id. Entries for deleted/removed files are
+        intentionally preserved — they act as a content fingerprint registry so that
+        re-uploaded files with the same content are correctly identified as duplicates.
+        Stale entries do not cause correctness issues because delta runs re-classify
+        files via change_type logic (DELETED/TRASHED/MOVED_OUT_OF_SCOPE).
+
+        Raises on API error (raise_on_error=True) to prevent a silent empty-return
+        from causing a full re-hash storm on the next run.
+        """
         if self._known_hashes is not None:
             return self._known_hashes
 
         self._known_hashes = {}
-        rows = self.sheets.read_all_rows("Hash_Index", "A:I")
+        rows = self.sheets.read_all_rows("Hash_Index", "A:I", raise_on_error=True)
         for row in rows:
             if len(row) >= 9 and row[0] != "sha256":
                 sha = row[0]
@@ -242,28 +302,44 @@ class StateTracker:
         return self._known_hashes
 
     def append_new_hashes(self, new_records: List[FileRecord]):
-        rows = []
-        valid_statuses = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "SKIPPED_SIZE")
-        for r in new_records:
+        """Append truly new Hash_Index entries and update the in-memory cache.
 
-            if r.sha256 and r.status.startswith(valid_statuses):
-                # Hash_Index: sha256, file_id, name, parent_ids_sorted, path_display, updated_at, size_bytes, md5, effective_mime_type
+        Only ORIGINAL and ORIGINAL_RESUMED records are written to the sheet —
+        these represent content seen for the first time (or resumed after a gap).
+        UNCHANGED_CONTENT and SKIPPED_SIZE records still update the in-memory cache
+        so subsequent batch processing has current metadata, but they are NOT
+        re-appended to the sheet on every run (which caused unbounded growth).
+        """
+        # Statuses that are written to the Hash_Index sheet (genuinely new entries)
+        _APPEND_STATUSES = ("ORIGINAL", "ORIGINAL_RESUMED")
+        # Statuses that refresh the in-memory cache only (already in sheet)
+        _CACHE_UPDATE_STATUSES = ("ORIGINAL", "ORIGINAL_RESUMED", "UNCHANGED_CONTENT", "SKIPPED_SIZE")
+
+        rows = []
+        for r in new_records:
+            if not (r.sha256 and r.status.startswith(_CACHE_UPDATE_STATUSES)):
+                continue
+
+            # Always refresh in-memory cache to keep metadata current within a run
+            if self._known_hashes is not None:
+                self._known_hashes[r.file_id] = {
+                    "sha": r.sha256,
+                    "name": r.name,
+                    "parent_ids_sorted": r.parent_ids_sorted,
+                    "path_display": r.path_display,
+                    "updated_at": r.updated_at,
+                    "size_bytes": r.size_bytes,
+                    "md5": r.md5,
+                    "effective_mime_type": r.effective_mime_type
+                }
+
+            # Only append to sheet for new/resumed originals (not already-tracked entries)
+            if r.status.startswith(_APPEND_STATUSES):
                 rows.append([
                     r.sha256, r.file_id, r.name, r.parent_ids_sorted, r.path_display,
                     r.updated_at, r.size_bytes, r.md5, r.effective_mime_type
                 ])
 
-                if self._known_hashes is not None:
-                    self._known_hashes[r.file_id] = {
-                        "sha": r.sha256,
-                        "name": r.name,
-                        "parent_ids_sorted": r.parent_ids_sorted,
-                        "path_display": r.path_display,
-                        "updated_at": r.updated_at,
-                        "size_bytes": r.size_bytes,
-                        "md5": r.md5,
-                        "effective_mime_type": r.effective_mime_type
-                    }
         self.sheets.append_rows("Hash_Index", rows)
 
     def log_run(self, phase: str, status: str, processed: int, errors: int):

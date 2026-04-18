@@ -30,6 +30,9 @@ def run_apply_sort():
         log.warning("Apply Sort abgebrochen: anderer Prozess hält den Lock")
         return
 
+    # BUG-K: track whether the job completed without exception so the finally block
+    # can set the correct phase (IDLE on success, APPLY_SORT_FAILED on exception).
+    _failed = False
     try:
         log.info("Apply Sort gestartet")
         state.set_val("current_phase", "APPLY_SORT")
@@ -55,37 +58,68 @@ def run_apply_sort():
             move_result = row[sheet_mgr.SORT_COL["move_result"]]
 
             if action_mode in ["SAFE", "SWEEP_TRASH"] and (target_folder_id or action_mode == "SWEEP_TRASH") and move_result == "PENDING":
+                result_val = None
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
 
-                    if action_mode == "SWEEP_TRASH":
-                        # Mark explicitly as trashed
-                        def _trash():
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                body={"trashed": True},
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_trash)
-                        result_val = "SUCCESS_TRASHED"
-                    else:
-                        # M-3 fix: fetch parents inside the retry closure so each retry uses
-                        # fresh parent data rather than a value captured before the first attempt.
-                        def _move_file():
-                            meta = drive_service.files().get(
-                                fileId=file_id, fields="parents", **params
-                            ).execute()
-                            prev = ",".join(meta.get("parents", []))
-                            return drive_service.files().update(
-                                fileId=file_id,
-                                addParents=target_folder_id,
-                                removeParents=prev,
-                                **params
-                            ).execute()
-                        drive_mgr.execute_with_backoff(_move_file)
-                        result_val = "SUCCESS"
+                    # Stale-suggestion guard: fetch current Drive state before any
+                    # destructive action so we never blindly repeat a completed move
+                    # or act on a suggestion whose source state no longer matches.
+                    def _fetch_live():
+                        return drive_service.files().get(
+                            fileId=file_id, fields="id,parents,trashed", **params
+                        ).execute()
+                    live = drive_mgr.execute_with_backoff(_fetch_live)
+                    live_parents = live.get("parents", [])
+                    is_trashed = live.get("trashed", False)
 
-                    processed += 1
+                    if action_mode == "SWEEP_TRASH":
+                        if is_trashed:
+                            result_val = "SUCCESS_ALREADY_TRASHED"
+                            processed += 1
+                        else:
+                            def _trash():
+                                return drive_service.files().update(
+                                    fileId=file_id,
+                                    body={"trashed": True},
+                                    **params
+                                ).execute()
+                            drive_mgr.execute_with_backoff(_trash)
+                            result_val = "SUCCESS_TRASHED"
+                            processed += 1
+                    else:
+                        if target_folder_id in live_parents:
+                            result_val = "SUCCESS_ALREADY_IN_TARGET"
+                            processed += 1
+                        else:
+                            expected_parent_id = (
+                                row[sheet_mgr.SORT_COL["current_parent_id"]]
+                                if len(row) > sheet_mgr.SORT_COL["current_parent_id"]
+                                else ""
+                            )
+                            if expected_parent_id and expected_parent_id not in live_parents:
+                                result_val = "STALE_SOURCE_STATE"
+                                state.log_error(
+                                    "APPLY_SORT", file_id, current_name, "StaleSuggestion",
+                                    f"Expected parent {expected_parent_id!r} not in "
+                                    f"current parents {live_parents}"
+                                )
+                            else:
+                                def _move_file():
+                                    meta = drive_service.files().get(
+                                        fileId=file_id, fields="parents", **params
+                                    ).execute()
+                                    prev = ",".join(meta.get("parents", []))
+                                    return drive_service.files().update(
+                                        fileId=file_id,
+                                        addParents=target_folder_id,
+                                        removeParents=prev,
+                                        **params
+                                    ).execute()
+                                drive_mgr.execute_with_backoff(_move_file)
+                                result_val = "SUCCESS"
+                                processed += 1
+
                 except Exception as e:
                     errors += 1
                     state.log_error("APPLY_SORT", file_id, current_name, "MoveError", str(e))
@@ -96,30 +130,35 @@ def run_apply_sort():
                     "values": [[result_val]]
                 })
 
-                # Flush periodically to not build up a massive array in memory,
-                # but still benefit from batched update performance.
+                # BUG-P0: use drive_mgr.execute_with_backoff so the lambda rebuilds
+                # the request on each retry and 500/503 errors are also retried.
                 if len(update_requests) >= 50:
-                    sheet_mgr._execute_with_backoff(
-                        sheets_service.spreadsheets().values().batchUpdate(
+                    _batch = update_requests
+                    drive_mgr.execute_with_backoff(
+                        lambda: sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
-                            body={"valueInputOption": "RAW", "data": update_requests}
-                        )
+                            body={"valueInputOption": "RAW", "data": _batch}
+                        ).execute()
                     )
                     update_requests = []
 
         if update_requests:
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
+            _batch = update_requests
+            drive_mgr.execute_with_backoff(
+                lambda: sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": update_requests}
-                )
+                    body={"valueInputOption": "RAW", "data": _batch}
+                ).execute()
             )
 
         state.log_run("APPLY_SORT", "SUCCESS", processed, errors)
         log.info("Apply Sort beendet", extra={"processed": processed, "errors": errors})
 
+    except Exception:
+        _failed = True
+        raise
     finally:
-        state.set_val("current_phase", "IDLE")
+        state.set_val("current_phase", "APPLY_SORT_FAILED" if _failed else "IDLE")
         try:
             state.flush_state()
         finally:

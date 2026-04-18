@@ -35,17 +35,24 @@ def suggest_rename(name: str, created_time: str, project_slug: str = PROJECT_SLU
 
 
 def _is_lease_stale(state, lease_timeout_sec: int) -> bool:
+    # BUG-J fix: last_run_utc is the time of the *previous successful run*, not the
+    # current lease heartbeat. Using it as a fallback incorrectly bases staleness on
+    # the previous run timestamp when no lease timestamps are present. Without lease
+    # timestamps there is no active lease to check, so we return False (not stale).
     heartbeat_utc_str = (
         state.get_val("lease_heartbeat_at")
         or state.get_val("lease_acquired_at")
-        or state.get_val("last_run_utc")
     )
     if not heartbeat_utc_str:
         return False
     try:
         last_t = datetime.fromisoformat(heartbeat_utc_str)
-    except (ValueError, TypeError):  # M-1 fix: fromisoformat raises TypeError on non-string input
-        return False
+    except (ValueError, TypeError):
+        # BUG-I fix: a corrupt/unparseable timestamp must be treated as stale so
+        # a new instance can take over. Returning False (not stale) here would cause
+        # a permanent deadlock — no new instance could ever acquire the lease.
+        # The displaced instance will fail its next _touch_lease_or_raise() cleanly.
+        return True
     diff = (datetime.now(timezone.utc) - last_t).total_seconds()
     return diff >= lease_timeout_sec
 
@@ -222,6 +229,9 @@ def run_pass1():
                 if next_token:
                     active_token = next_token
                     state.set_val("in_progress_page_token", active_token)
+                    # BUG-C fix: persist token advancement immediately so a crash
+                    # between delta chunks doesn't lose progress and cause re-processing.
+                    state.flush_state()
                 else:
                     new_start_page_token = new_start
                     break

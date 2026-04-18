@@ -18,7 +18,7 @@ def _make_tracker(state_rows=None, hash_rows=None):
     sheets = MagicMock()
 
     # State tab returns key=run_id so resume logic doesn't interfere
-    sheets.read_all_rows.side_effect = lambda tab, rng: {
+    sheets.read_all_rows.side_effect = lambda tab, rng, raise_on_error=False: {
         "State": state_rows or [["key", "value"], ["run_id", "run_test_001"]],
         "Hash_Index": hash_rows or [["sha256", "file_id", "name", "parent_ids_sorted",
                                      "path_display", "updated_at", "size_bytes", "md5",

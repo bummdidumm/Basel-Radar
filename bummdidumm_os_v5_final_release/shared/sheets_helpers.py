@@ -26,20 +26,30 @@ class SheetManager:
         self.SORT_COL = {col: i for i, col in enumerate(self.headers["Sorting_Suggestions"])}
 
     def _execute_with_backoff(self, request_op):
-        """Führt eine Request-Methode der Sheets-API aus und wendet Exponential Backoff bei 429 Fehlern an."""
+        """Führt eine Request-Methode der Sheets-API aus und wendet Exponential Backoff an.
+
+        Retries on 429 (quota), 500 (internal), and 503 (unavailable) — the three
+        transient error classes seen in production. 403 rateLimitExceeded is also
+        retried because it is functionally identical to 429 in the Sheets API.
+        """
         max_retries = 5
         for attempt in range(max_retries):
             try:
                 return request_op.execute()
             except HttpError as e:
-                # 429 ist Quota Exceeded/Rate Limit
-                if e.resp.status == 429 or (
-                    e.resp.status == 403 and
-                    any(d.get("reason", "") in ("rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded")
-                        for d in (e.error_details or []))
-                ):
+                retryable = (
+                    e.resp.status in (429, 500, 503)
+                    or (
+                        e.resp.status == 403
+                        and any(
+                            d.get("reason", "") in ("rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded")
+                            for d in (e.error_details or [])
+                        )
+                    )
+                )
+                if retryable:
                     sleep_time = (2 ** attempt) + 1  # 1, 3, 5, 9, 17 Sekunden
-                    _log.warning("Sheets API rate limit", extra={"sleep_sec": sleep_time, "attempt": attempt + 1, "max": max_retries})
+                    _log.warning("Sheets API transient error", extra={"status": e.resp.status, "sleep_sec": sleep_time, "attempt": attempt + 1, "max": max_retries})
                     time.sleep(sleep_time)
                 else:
                     raise
@@ -90,8 +100,13 @@ class SheetManager:
             body={"values": rows}
         ))
 
-    def read_all_rows(self, tab: str, columns: str = "A:Z") -> List[List[str]]:
-        """Liest alle Zeilen (kann RAM-lastig bei 100k+ Einträgen sein)."""
+    def read_all_rows(self, tab: str, columns: str = "A:Z", raise_on_error: bool = False) -> List[List[str]]:
+        """Liest alle Zeilen (kann RAM-lastig bei 100k+ Einträgen sein).
+
+        raise_on_error=True: re-raises API errors instead of returning []. Use for
+        critical reads (e.g. Hash_Index) where an empty result would silently corrupt
+        subsequent logic (all files appear un-hashed → full re-hash storm).
+        """
         try:
             res = self._execute_with_backoff(self.sheets.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id, range=f"{tab}!{columns}"
@@ -99,6 +114,8 @@ class SheetManager:
             return res.get("values", [])
         except Exception as e:
             _log.warning("read_all_rows fehlgeschlagen", extra={"tab": tab, "error": str(e)})
+            if raise_on_error:
+                raise
             return []
 
     def read_rows_chunked(self, tab: str, chunk_size: int = 1000):

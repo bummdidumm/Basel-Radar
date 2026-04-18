@@ -1,3 +1,4 @@
+import json
 from typing import List, Dict, Tuple, Optional, Callable
 from shared.log import get_logger as _get_logger
 _log = _get_logger("drive", phase="SHARED")
@@ -113,7 +114,11 @@ class DriveManager:
         """Performs initial recursive scan in bounded chunks to prevent timeout endloops."""
         queue = state.get_val("initial_scan_queue")
         if queue:
-            queue = queue.split(",")
+            # HARDENING-1: JSON serialization; fall back to legacy CSV split for old state
+            try:
+                queue = json.loads(queue)
+            except (json.JSONDecodeError, ValueError):
+                queue = queue.split(",")
         else:
             queue = [folder_id]
 
@@ -157,19 +162,20 @@ class DriveManager:
 
                 page_token = resp.get("nextPageToken")
 
-                # Checkpointing
-                state.set_val("initial_scan_queue", ",".join(queue))
+                # HARDENING-1: store queue as JSON (not CSV) so folder IDs with commas survive
+                # HARDENING-2: set_val on every page but flush_state only after folder completes
+                # to reduce Sheets write traffic. Trade-off: crash mid-folder re-scans that folder.
+                state.set_val("initial_scan_queue", json.dumps(queue))
                 state.set_val("initial_scan_page_token", page_token or "")
-                # We do not strictly need to save the new start token here as it's fetched at the start of walk
-                # but if we wanted to, we could. The queue saves the progress anyway.
-                state.flush_state()
                 if lease_touch_callback:
                     lease_touch_callback()
 
                 if not page_token:
                     break
 
-            active_page_token = None # Reset for next folder
+            # Checkpoint once per folder completion (not per page)
+            state.flush_state()
+            active_page_token = None  # Reset for next folder
 
         state.set_val("initial_scan_queue", "")
         state.set_val("initial_scan_page_token", "")

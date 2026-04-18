@@ -29,6 +29,9 @@ def run_apply_renames():
         log.warning("Apply Renames abgebrochen: anderer Prozess hält den Lock")
         return
 
+    # BUG-K: track whether the job completed without exception so the finally block
+    # can set the correct phase (IDLE on success, APPLY_RENAMES_FAILED on exception).
+    _failed = False
     try:
         log.info("Rename Job gestartet")
         state.set_val("current_phase", "APPLY_RENAMES")
@@ -62,9 +65,9 @@ def run_apply_renames():
             if row[sheet_mgr.DEDUPE_COL["run_id"]] != current_run_id:
                 continue
 
-            # RISK-3 fix: idempotency guard — skip rows already successfully renamed
+            # Skip already-handled rows (success or known stale/guard outcomes)
             existing_rename_result = row[rename_result_col] if len(row) > rename_result_col else ""
-            if existing_rename_result == "SUCCESS":
+            if existing_rename_result in ("SUCCESS", "SUCCESS_ALREADY_RENAMED", "STALE_NAME_MISMATCH"):
                 continue
 
             file_id = row[sheet_mgr.DEDUPE_COL["file_id"]]
@@ -75,15 +78,36 @@ def run_apply_renames():
                 result_val = None
                 try:
                     params = {"supportsAllDrives": True} if ENABLE_SHARED_DRIVES else {}
-                    def _update_name():
-                        return drive_service.files().update(
-                            fileId=file_id,
-                            body={"name": suggested_name},
-                            **params
+
+                    # Stale-suggestion guard: verify actual Drive name before renaming
+                    # so we never blindly overwrite an external change.
+                    def _fetch_live_name():
+                        return drive_service.files().get(
+                            fileId=file_id, fields="id,name", **params
                         ).execute()
-                    drive_mgr.execute_with_backoff(_update_name)
-                    result_val = "SUCCESS"
-                    processed += 1
+                    live = drive_mgr.execute_with_backoff(_fetch_live_name)
+                    live_name = live.get("name", "")
+
+                    if live_name == suggested_name:
+                        result_val = "SUCCESS_ALREADY_RENAMED"
+                        processed += 1
+                    elif live_name != current_name:
+                        result_val = "STALE_NAME_MISMATCH"
+                        state.log_error(
+                            "RENAME", file_id, current_name, "StaleSuggestion",
+                            f"Expected name {current_name!r} but Drive has {live_name!r}"
+                        )
+                    else:
+                        def _update_name():
+                            return drive_service.files().update(
+                                fileId=file_id,
+                                body={"name": suggested_name},
+                                **params
+                            ).execute()
+                        drive_mgr.execute_with_backoff(_update_name)
+                        result_val = "SUCCESS"
+                        processed += 1
+
                 except Exception as e:
                     errors += 1
                     result_val = f"FAILED: {str(e)[:80]}"
@@ -94,28 +118,34 @@ def run_apply_renames():
                     "values": [[result_val]]
                 })
 
-                # Flush periodically to bound memory
+                # BUG-P0: use drive_mgr.execute_with_backoff so the lambda rebuilds
+                # the request on each retry and 500/503 errors are also retried.
                 if len(update_requests) >= 50:
-                    sheet_mgr._execute_with_backoff(
-                        sheets_service.spreadsheets().values().batchUpdate(
+                    _batch = update_requests
+                    drive_mgr.execute_with_backoff(
+                        lambda: sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
-                            body={"valueInputOption": "RAW", "data": update_requests}
-                        )
+                            body={"valueInputOption": "RAW", "data": _batch}
+                        ).execute()
                     )
                     update_requests = []
 
         if update_requests:
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
+            _batch = update_requests
+            drive_mgr.execute_with_backoff(
+                lambda: sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": update_requests}
-                )
+                    body={"valueInputOption": "RAW", "data": _batch}
+                ).execute()
             )
 
         state.log_run("RENAME", "SUCCESS", processed, errors)
 
+    except Exception:
+        _failed = True
+        raise
     finally:
-        state.set_val("current_phase", "IDLE")
+        state.set_val("current_phase", "APPLY_RENAMES_FAILED" if _failed else "IDLE")
         try:
             state.flush_state()
         finally:
