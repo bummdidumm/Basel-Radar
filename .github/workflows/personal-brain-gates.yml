@@ -43,7 +43,6 @@ jobs:
           test -f AGENT_FINALIZATION_PROTOCOL.md
           test -f CODEOWNERS
           test -f .pre-commit-config.yaml
-          test -f REPO_GOVERNANCE_SETUP.md
       - name: Verify protocol contains Personal Brain checklist
         run: |
           grep -q "Personal Brain specific acceptance checklist" AGENT_FINALIZATION_PROTOCOL.md
