@@ -30,8 +30,9 @@ def run_apply_sort():
         log.warning("Apply Sort abgebrochen: anderer Prozess hält den Lock")
         return
 
-    # BUG-K: track whether the job completed without exception so the finally block
-    # can set the correct phase (IDLE on success, APPLY_SORT_FAILED on exception).
+    # BUG-K: errors tracks row-level failures caught by the inner except; _failed
+    # tracks outer exceptions.  Both cause APPLY_SORT_FAILED in the finally block.
+    errors = 0
     _failed = False
     try:
         log.info("Apply Sort gestartet")
@@ -160,7 +161,7 @@ def run_apply_sort():
         _failed = True
         raise
     finally:
-        state.set_val("current_phase", "APPLY_SORT_FAILED" if _failed else "IDLE")
+        state.set_val("current_phase", "APPLY_SORT_FAILED" if (_failed or errors > 0) else "IDLE")
         try:
             state.flush_state()
         finally:
