@@ -180,9 +180,11 @@ def run_audit() -> bool:
         print("RESULT: PASS")
 
     if os.environ.get("WRITE_AUDIT_ARTIFACTS") == "1":
+        artifacts_dir = ROOT / ".artifacts"
+        artifacts_dir.mkdir(exist_ok=True)
         summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
-        (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
+        (artifacts_dir / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        (artifacts_dir / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
 
     return not bool(errors)
 

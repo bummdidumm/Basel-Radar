@@ -3,7 +3,6 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
-from unittest import mock
 
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
 RELEASE_DIR = REPO_ROOT / "bummdidumm_os_v5_final_release"
@@ -29,12 +28,16 @@ class TestAuditNoArtifactsByDefault(unittest.TestCase):
         self.assertFalse(audit_json.exists(), "release_audit.json must not be written by default run")
         self.assertFalse(self_audit_md.exists(), "SELF_AUDIT.md must not be written by default run")
 
-    def test_explicit_flag_writes_files(self):
-        """WRITE_AUDIT_ARTIFACTS=1 must produce artifact files."""
-        audit_json = RELEASE_DIR / "release_audit.json"
-        self_audit_md = RELEASE_DIR / "SELF_AUDIT.md"
-        audit_json.unlink(missing_ok=True)
-        self_audit_md.unlink(missing_ok=True)
+    def test_explicit_flag_writes_files_in_artifacts_dir(self):
+        """WRITE_AUDIT_ARTIFACTS=1 must write artifacts into .artifacts/, not the release root."""
+        artifacts_dir = RELEASE_DIR / ".artifacts"
+        audit_json = artifacts_dir / "release_audit.json"
+        self_audit_md = artifacts_dir / "SELF_AUDIT.md"
+        # Also assert root-level files are NOT written
+        root_audit_json = RELEASE_DIR / "release_audit.json"
+        root_self_audit = RELEASE_DIR / "SELF_AUDIT.md"
+        for f in (audit_json, self_audit_md, root_audit_json, root_self_audit):
+            f.unlink(missing_ok=True)
 
         env = os.environ.copy()
         env["WRITE_AUDIT_ARTIFACTS"] = "1"
@@ -45,8 +48,10 @@ class TestAuditNoArtifactsByDefault(unittest.TestCase):
             check=False,
         )
 
-        self.assertTrue(audit_json.exists(), "release_audit.json must be written when WRITE_AUDIT_ARTIFACTS=1")
-        self.assertTrue(self_audit_md.exists(), "SELF_AUDIT.md must be written when WRITE_AUDIT_ARTIFACTS=1")
+        self.assertTrue(audit_json.exists(), "release_audit.json must be in .artifacts/ when WRITE_AUDIT_ARTIFACTS=1")
+        self.assertTrue(self_audit_md.exists(), "SELF_AUDIT.md must be in .artifacts/ when WRITE_AUDIT_ARTIFACTS=1")
+        self.assertFalse(root_audit_json.exists(), "release_audit.json must NOT be written to release root")
+        self.assertFalse(root_self_audit.exists(), "SELF_AUDIT.md must NOT be written to release root")
         # Cleanup
         audit_json.unlink(missing_ok=True)
         self_audit_md.unlink(missing_ok=True)
@@ -153,9 +158,8 @@ class TestGitignoreCoversArtifacts(unittest.TestCase):
     def test_brain_index_ignored(self):
         self.assertIn("brain_index/", self.gitignore)
 
-    def test_audit_artifacts_ignored(self):
-        self.assertIn("release_audit.json", self.gitignore)
-        self.assertIn("SELF_AUDIT.md", self.gitignore)
+    def test_audit_artifacts_dir_ignored(self):
+        self.assertIn("bummdidumm_os_v5_final_release/.artifacts/", self.gitignore)
 
     def test_tool_caches_ignored(self):
         self.assertIn(".pytest_cache/", self.gitignore)
