@@ -515,7 +515,11 @@ def run_pass2():
         # BUG-L fix: Separate upload and Brain runtime into distinct phases, each with
         # its own error handling. A state marker (pass2_jsonl_upload_done) prevents
         # re-uploading a duplicate JSONL when only the Brain runtime fails on retry.
-        already_uploaded = state.get_val("pass2_jsonl_upload_done") == state.run_id
+        # BUG-A fix: anchor the upload marker to the stable handover ID (current_run_id),
+        # not to the volatile per-process state.run_id. On retry after a Brain-runtime
+        # crash, the new process has a fresh state.run_id and would not recognise the
+        # marker — causing the same JSONL to be uploaded again as a duplicate.
+        already_uploaded = state.get_val("pass2_jsonl_upload_done") == current_run_id
         if not already_uploaded:
             try:
                 media = MediaFileUpload(str(jsonl_path), mimetype="application/x-ndjson")
@@ -529,7 +533,7 @@ def run_pass2():
                         **params
                     ).execute()
                 drive_mgr.execute_with_backoff(_upload_delta)
-                state.set_val("pass2_jsonl_upload_done", state.run_id)
+                state.set_val("pass2_jsonl_upload_done", current_run_id)
                 state.flush_state()
             except Exception as upload_exc:
                 state.set_val("current_phase", "PASS2_FAILED")
@@ -538,7 +542,7 @@ def run_pass2():
                 state.log_run("PASS_2", "FAILED", processed, errors + 1)
                 raise upload_exc
         else:
-            log.info("JSONL-Upload übersprungen (bereits erfolgreich in diesem Run)", extra={"run_id": state.run_id})
+            log.info("JSONL-Upload übersprungen (bereits erfolgreich in diesem Run)", extra={"run_id": current_run_id})
 
         try:
             BRAIN_INDEX_ROOT.mkdir(parents=True, exist_ok=True)

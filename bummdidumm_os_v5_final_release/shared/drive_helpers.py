@@ -163,18 +163,19 @@ class DriveManager:
                 page_token = resp.get("nextPageToken")
 
                 # HARDENING-1: store queue as JSON (not CSV) so folder IDs with commas survive
-                # HARDENING-2: set_val on every page but flush_state only after folder completes
-                # to reduce Sheets write traffic. Trade-off: crash mid-folder re-scans that folder.
+                # Flush per page (not per folder) to prevent Dedupe_Report duplication on
+                # mid-folder crash: without a per-page flush, a crash after pages N..M of a
+                # large folder are processed but before the folder-level checkpoint causes
+                # those pages to be re-processed on resume, duplicating appended report rows.
                 state.set_val("initial_scan_queue", json.dumps(queue))
                 state.set_val("initial_scan_page_token", page_token or "")
+                state.flush_state()
                 if lease_touch_callback:
                     lease_touch_callback()
 
                 if not page_token:
                     break
 
-            # Checkpoint once per folder completion (not per page)
-            state.flush_state()
             active_page_token = None  # Reset for next folder
 
         state.set_val("initial_scan_queue", "")

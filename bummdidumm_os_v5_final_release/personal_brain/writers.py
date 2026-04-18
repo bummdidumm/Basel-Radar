@@ -648,17 +648,27 @@ class JsonlWriter:
             if search_view_dir.exists():
                 for f in sorted(search_view_dir.glob("*.jsonl")):
                     if f.is_file():
-                        view_rows = []
-                        for line in f.read_text(encoding="utf-8").splitlines():
-                            if line.strip():
-                                try:
-                                    view_rows.append(json.loads(line))
-                                except Exception as e:
-                                    _log.debug("Skipping corrupt search view line", extra={"file": str(f), "error": str(e)})
                         if not first:
                             mf.write(",")
-                        mf.write(json.dumps(f.stem, ensure_ascii=False) + ":")
-                        json.dump(view_rows, mf, ensure_ascii=False)
+                        mf.write(json.dumps(f.stem, ensure_ascii=False) + ":[")
+                        view_first = True
+                        try:
+                            with f.open(encoding="utf-8") as svf:
+                                for sv_line in svf:
+                                    sv_line = sv_line.strip()
+                                    if not sv_line:
+                                        continue
+                                    try:
+                                        obj = json.loads(sv_line)
+                                        if not view_first:
+                                            mf.write(",")
+                                        mf.write(json.dumps(obj, ensure_ascii=False))
+                                        view_first = False
+                                    except Exception as e:
+                                        _log.debug("Skipping corrupt search view line", extra={"file": str(f), "error": str(e)})
+                        except Exception as e:
+                            _log.warning("Failed to read search view file", extra={"file": str(f), "error": str(e)})
+                        mf.write("]")
                         first = False
             mf.write("}\n}")
         master_tmp.replace(master_path)

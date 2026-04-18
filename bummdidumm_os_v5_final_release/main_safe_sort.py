@@ -27,8 +27,12 @@ def run_safe_sort():
         log.warning("Safe Sort abgebrochen: anderer Prozess hält den Lock")
         return
 
+    # BUG-G fix: track failure so the finally block sets the correct terminal phase.
+    _failed = False
     try:
         log.info("Safe Sort gestartet")
+        state.set_val("current_phase", "SAFE_SORT")
+        state.flush_state()
 
         folder_registry_rows = sheet_mgr.read_all_rows("Folder_Registry", "A:E")
         folder_registry = {}
@@ -166,8 +170,15 @@ def run_safe_sort():
         state.log_run("SAFE_SORT", "SUCCESS", processed, errors)
         log.info("Safe Sort beendet", extra={"processed": processed})
 
+    except Exception:
+        _failed = True
+        raise
     finally:
-        state.release_job_lock("safe_sort")
+        state.set_val("current_phase", "SAFE_SORT_FAILED" if _failed else "IDLE")
+        try:
+            state.flush_state()
+        finally:
+            state.release_job_lock("safe_sort")
 
 
 if __name__ == "__main__":
