@@ -7,7 +7,6 @@ TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 : "${ARCHIVE_FOLDER_ID:?Bitte ARCHIVE_FOLDER_ID setzen}"
 : "${INDEX_FOLDER_ID:?Bitte INDEX_FOLDER_ID setzen}"
 : "${CONTROL_SHEET_ID:?Bitte CONTROL_SHEET_ID setzen}"
-: "${GEMINI_API_KEY:?Bitte GEMINI_API_KEY setzen}"
 : "${SA_EMAIL:?Bitte SA_EMAIL setzen (z.B. runner@PROJECT_ID.iam.gserviceaccount.com)}"
 
 # BRAIN_INDEX_ROOT: der Pfad, unter dem Pass 2 und Safe Sort den Brain Index persistent speichern.
@@ -47,7 +46,8 @@ gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --source . \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-secrets="GEMINI_API_KEY=projects/${PROJECT_ID}/secrets/gemini-api-key:latest" \
   --add-volume="name=brain-index,type=cloud-storage,bucket=${BRAIN_INDEX_BUCKET}" \
   --add-volume-mount="volume=brain-index,mount-path=${BRAIN_INDEX_MOUNT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \

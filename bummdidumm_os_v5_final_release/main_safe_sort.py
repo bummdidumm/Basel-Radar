@@ -11,6 +11,12 @@ CONTROL_SHEET_ID = os.environ.get("CONTROL_SHEET_ID")
 
 
 def run_safe_sort():
+    if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
+        raise RuntimeError(
+            "BRAIN_INDEX_ROOT must be set explicitly when running in Cloud Run. "
+            "Safe Sort requires the same persistent Brain Index mount as Pass 2."
+        )
+
     if not CONTROL_SHEET_ID:
         raise ValueError("Missing CONTROL_SHEET_ID")
 
@@ -66,8 +72,6 @@ def run_safe_sort():
         import logging
         semantic_hints: dict[str, str] = {}
         brain_index_root = Path(os.environ.get("BRAIN_INDEX_ROOT", str(Path(__file__).parent / "brain_index")))
-        if "K_SERVICE" in os.environ and not os.environ.get("BRAIN_INDEX_ROOT"):
-            log.warning("BRAIN_INDEX_ROOT is not set in Cloud Run. Semantic hints will not be available.")
 
         hint_path = brain_index_root / "20_index" / "published" / "file_topics.json"
         if hint_path.exists():

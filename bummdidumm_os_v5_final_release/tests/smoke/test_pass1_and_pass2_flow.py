@@ -9,10 +9,8 @@ Covers:
 import ast
 import os
 import sys
-import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from shared.state_helpers import StateTracker
@@ -160,8 +158,6 @@ class TestPass2UploadIdempotency:
         Scenario: upload already succeeded in a prior attempt; Brain runtime then
         failed. On retry the upload block must be skipped to avoid duplicate JSONL.
         """
-        import main_pass2
-
         run_id = "run_test_idempotency_001"
 
         # Build a minimal state mock that reports the upload already done
@@ -170,7 +166,6 @@ class TestPass2UploadIdempotency:
         state.get_val.side_effect = lambda k: run_id if k == "pass2_jsonl_upload_done" else ""
 
         drive_service = MagicMock()
-        drive_mgr = MagicMock()
 
         already_uploaded = state.get_val("pass2_jsonl_upload_done") == state.run_id
         assert already_uploaded, "Test precondition: marker must match run_id"

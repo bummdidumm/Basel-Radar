@@ -26,7 +26,8 @@ gcloud services enable \
   sheets.googleapis.com \
   iam.googleapis.com \
   artifactregistry.googleapis.com \
-  storage.googleapis.com
+  storage.googleapis.com \
+  secretmanager.googleapis.com
 ```
 
 Gemini is accessed via the `google-genai` SDK using a `GEMINI_API_KEY`
@@ -63,7 +64,29 @@ Sheets) via domain-wide delegation or direct sharing. Grant the SA edit
 access to the Control Sheet and read/write access to the Google Drive folders
 it scans (`TARGET_FOLDER_ID`, `ARCHIVE_FOLDER_ID`, `INDEX_FOLDER_ID`).
 
-### 1.4 BRAIN_INDEX_ROOT — persistent volume setup
+### 1.4 GEMINI_API_KEY — Google Secret Manager setup
+
+`deploy.sh` passes `GEMINI_API_KEY` to the Pass 2 Cloud Run Job via
+`--set-secrets` (Google Secret Manager), not as a plaintext environment
+variable. Create the secret once and grant the service account read access:
+
+```bash
+# Create the secret (replace YOUR_API_KEY with the actual AI Studio key)
+echo -n "YOUR_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
+
+# Grant the SA Secret Manager accessor access
+gcloud secrets add-iam-policy-binding gemini-api-key \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+The secret path used by `deploy.sh` is:
+`projects/${PROJECT_ID}/secrets/gemini-api-key:latest`
+
+Do **not** set `GEMINI_API_KEY` as a shell export before running `deploy.sh` —
+it is not read as an env variable in Cloud Run. For local development see §2.4.
+
+### 1.5 BRAIN_INDEX_ROOT — persistent volume setup
 
 `BRAIN_INDEX_ROOT` must point to a directory that survives Cloud Run task
 restarts. The recommended approach is a Cloud Storage bucket mounted via
@@ -151,7 +174,7 @@ export CONTROL_SHEET_ID="your-sheet-id"
 export TARGET_FOLDER_ID="your-drive-folder-id"
 export ARCHIVE_FOLDER_ID="your-archive-folder-id"
 export INDEX_FOLDER_ID="your-index-folder-id"
-export GEMINI_API_KEY="your-ai-studio-key"
+export GEMINI_API_KEY="your-ai-studio-key"  # local dev only — in Cloud Run via Secret Manager (§1.4)
 export BRAIN_INDEX_ROOT="/tmp/brain_index_local"
 
 cd bummdidumm_os_v5_final_release
@@ -172,13 +195,14 @@ Follow these steps in order. Each step has a success criterion.
 |---|--------|-------------------|
 | 1 | Run `gcloud services enable` (section 1.2) | No errors; `gcloud services list` shows all APIs ENABLED |
 | 2 | Create service account and grant IAM roles (section 1.3) | `gcloud iam service-accounts describe ${SA_EMAIL}` returns HTTP 200 |
-| 3 | Share Drive folders and Control Sheet with the SA email | SA can list the target folder via Drive API |
-| 4 | Create brain-index bucket and grant access (section 1.4) | `gcloud storage ls gs://PROJECT_ID-brain-index` succeeds from SA |
-| 5 | Run `deploy.sh` with all env vars set | All five `gcloud run jobs deploy` commands exit 0 |
-| 6 | Add Cloud Storage FUSE volume mounts (section 1.4) | `gcloud run jobs describe bummdidumm-pass2-ocr-index` shows the volume |
-| 7 | Execute Pass 1 manually: `gcloud run jobs execute bummdidumm-pass1-delta-dedupe --region europe-west6` | Job status becomes SUCCEEDED; Control Sheet rows appear in `Dedupe_Report` |
-| 8 | Execute Pass 2 manually: `gcloud run jobs execute bummdidumm-pass2-ocr-index --region europe-west6` | Job status becomes SUCCEEDED; `CURRENT_personal_brain_stats.json` written to `BRAIN_INDEX_ROOT` |
-| 9 | Run tests locally against the deployed index | `pytest bummdidumm_os_v5_final_release/tests/ -q` passes 93 tests |
+| 3 | Create Secret Manager secret and grant SA access (section 1.4) | `gcloud secrets versions access latest --secret=gemini-api-key` returns the key |
+| 4 | Share Drive folders and Control Sheet with the SA email | SA can list the target folder via Drive API |
+| 5 | Create brain-index bucket and grant access (section 1.5) | `gcloud storage ls gs://PROJECT_ID-brain-index` succeeds from SA |
+| 6 | Run `deploy.sh` with all env vars set (no `GEMINI_API_KEY` export needed) | All five `gcloud run jobs deploy` commands exit 0 |
+| 7 | Add Cloud Storage FUSE volume mounts (section 1.5) | `gcloud run jobs describe bummdidumm-pass2-ocr-index` shows the volume |
+| 8 | Execute Pass 1 manually: `gcloud run jobs execute bummdidumm-pass1-delta-dedupe --region europe-west6` | Job status becomes SUCCEEDED; Control Sheet rows appear in `Dedupe_Report` |
+| 9 | Execute Pass 2 manually: `gcloud run jobs execute bummdidumm-pass2-ocr-index --region europe-west6` | Job status becomes SUCCEEDED; `CURRENT_personal_brain_stats.json` written to `BRAIN_INDEX_ROOT` |
+| 10 | Run tests locally against the deployed index | `pytest bummdidumm_os_v5_final_release/tests/ -q` passes |
 
 ---
 
@@ -186,16 +210,20 @@ Follow these steps in order. Each step has a success criterion.
 
 ### Missing `BRAIN_INDEX_ROOT`
 
-**Symptom:** Pass 2 fails immediately with:
+**Symptom:** Pass 2 or Safe Sort fails immediately with:
 ```
 RuntimeError: BRAIN_INDEX_ROOT must be set explicitly when running in Cloud Run
-to avoid index ephemeral destruction.
 ```
 
 **Fix:** Set the `BRAIN_INDEX_ROOT` env var on the Cloud Run Job and attach a
-persistent volume (see section 1.4). The error is intentional — omitting the
-variable on Cloud Run means the index would be written to the container
-filesystem and lost when the task exits.
+persistent volume (see section 1.5). The error is intentional — omitting the
+variable on Cloud Run means the index would be written to ephemeral container
+storage and lost when the task exits.
+
+Both `bummdidumm-pass2-ocr-index` and `bummdidumm-safe-sort` require the same
+persistent Brain Index mount. `deploy.sh` handles this automatically; if you
+deploy or update jobs manually, ensure both jobs have the FUSE volume attached
+and `BRAIN_INDEX_ROOT` set to `/brain_index`.
 
 ---
 
