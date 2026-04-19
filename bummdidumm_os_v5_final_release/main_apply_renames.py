@@ -119,27 +119,26 @@ def run_apply_renames():
                     "values": [[result_val]]
                 })
 
-                # BUG-E fix: use sheet_mgr._execute_with_backoff for Sheets batch writes
-                # so that transient Sheets 403 (rateLimitExceeded/userRateLimitExceeded/
-                # quotaExceeded) is retried — drive_mgr.execute_with_backoff only retries
-                # 429/500/503 and misses Sheets-specific 403 quota errors.
+                # BUG-E fix: batch Sheets writes use sheet_mgr._execute_with_backoff, which
+                # retries 403 rateLimitExceeded/userRateLimitExceeded/quotaExceeded in
+                # addition to 429/500/503 — drive_mgr.execute_with_backoff misses 403 quota.
                 if len(update_requests) >= 50:
                     _batch = update_requests
-                    drive_mgr.execute_with_backoff(
-                        lambda: sheets_service.spreadsheets().values().batchUpdate(
+                    sheet_mgr._execute_with_backoff(
+                        sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
                             body={"valueInputOption": "RAW", "data": _batch}
-                        ).execute()
+                        )
                     )
                     update_requests = []
 
         if update_requests:
             _batch = update_requests
-            drive_mgr.execute_with_backoff(
-                lambda: sheets_service.spreadsheets().values().batchUpdate(
+            sheet_mgr._execute_with_backoff(
+                sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
                     body={"valueInputOption": "RAW", "data": _batch}
-                ).execute()
+                )
             )
 
         state.log_run("RENAME", "SUCCESS", processed, errors)

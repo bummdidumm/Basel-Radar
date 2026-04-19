@@ -92,8 +92,12 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if ': "${BRAIN_INDEX_ROOT:?' not in deploy:
-        errors.append("deploy.sh: BRAIN_INDEX_ROOT hat kein fail-fast (:? Syntax) — wird bei fehlendem Mount nicht abgebrochen")
+    # BRAIN_INDEX_ROOT is derived from the GCS FUSE mount path inside deploy.sh;
+    # the real external dependency is BRAIN_INDEX_BUCKET and the volume mount config.
+    if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
+        errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax) — persistenter Brain-Index-Bucket nicht gesichert")
+    if "--add-volume" not in deploy or "--add-volume-mount" not in deploy:
+        errors.append("deploy.sh: GCS FUSE Volume Mount fehlt — Pass 2 und Safe Sort benötigen persistenten Brain-Index-Mount")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
@@ -171,6 +175,30 @@ def run_audit() -> bool:
             errors.append(f"Gap-G fehlt: {job_label} ruft acquire_job_lock nicht auf")
         if "release_job_lock" not in job_script:
             errors.append(f"Gap-G fehlt: {job_label} ruft release_job_lock nicht auf")
+
+    # BUG-E: rename batch Sheets writeback must use the Sheets-specific retry path
+    # (_execute_with_backoff retries 403 rateLimitExceeded/quotaExceeded;
+    #  drive_mgr.execute_with_backoff only retries 429/500/503).
+    if "_execute_with_backoff" not in ar:
+        errors.append("main_apply_renames.py: Rename-Batch-Writeback nutzt kein sheet_mgr._execute_with_backoff — 403-Quota-Retry für Sheets fehlt (BUG-E)")
+    import ast as _ast
+    try:
+        _ar_tree = _ast.parse(ar)
+        for _node in _ast.walk(_ar_tree):
+            if not isinstance(_node, _ast.Call):
+                continue
+            _func = _node.func
+            if not (isinstance(_func, _ast.Attribute) and _func.attr == "execute_with_backoff"):
+                continue
+            for _arg in _node.args:
+                _arg_src = _ast.unparse(_arg) if hasattr(_ast, "unparse") else ""
+                if "batchUpdate" in _arg_src:
+                    errors.append(
+                        "main_apply_renames.py: batchUpdate läuft über drive_mgr.execute_with_backoff "
+                        "statt sheet_mgr._execute_with_backoff — 403-Quota-Fehler werden nicht retried (BUG-E)"
+                    )
+    except SyntaxError:
+        errors.append("main_apply_renames.py: Syntaxfehler — AST-Analyse für BUG-E-Check nicht möglich")
 
     if errors:
         print("RESULT: FAIL")

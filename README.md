@@ -41,7 +41,7 @@ Die Tests laufen vollständig lokal mit Mocks — kein Google-Account, kein Shee
 | `BRAIN_INDEX_BUCKET` | GCS-Bucket-Name für den Brain-Index (FUSE-Mount via `deploy.sh`) |
 | `ARCHIVE_FOLDER_ID` | Drive-Ordner-ID für archivierte Duplikate |
 | `INDEX_FOLDER_ID` | Drive-Ordner-ID für Index-Ausgaben |
-| `GEMINI_API_KEY` | Gemini-API-Key für OCR — **wird in Cloud Run via Google Secret Manager übergeben** (nicht als Env-Variable setzen; siehe QUICKSTART.md §1.5) |
+| `GEMINI_API_KEY` | Gemini-API-Key für OCR — **wird in Cloud Run via Google Secret Manager übergeben** (nicht als Env-Variable setzen; siehe QUICKSTART.md §1.4) |
 
 **Optional:**
 | Variable | Default | Zweck |

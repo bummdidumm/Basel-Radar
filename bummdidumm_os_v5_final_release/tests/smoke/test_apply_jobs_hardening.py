@@ -2,7 +2,7 @@
 
 Covers:
 - BUG-K: current_phase set to APPLY_SORT_FAILED / APPLY_RENAMES_FAILED on exception
-- BUG-P0: batch flush uses drive_mgr.execute_with_backoff (retries 500/503)
+- BUG-E: batch Sheets flush uses sheet_mgr._execute_with_backoff (retries 403 quota/rate-limit)
 """
 import os
 import sys
@@ -139,17 +139,20 @@ class TestApplyRenamesFailedPhase:
 
 
 # ---------------------------------------------------------------------------
-# BUG-P0: batch flush retries on 500
+# BUG-E fix: batch Sheets writeback must use Sheets-specific retry path
 # ---------------------------------------------------------------------------
 
-class TestApplyRenamesBatchFlushRetries:
+class TestApplyRenamesSheetsRetry:
+    """Regression: rename batch Sheets writeback uses Sheets-specific retry, not Drive retry.
 
-    def test_apply_renames_batch_flush_retries_500(self):
-        """BUG-P0: batch flush via drive_mgr.execute_with_backoff must retry 500 errors.
+    drive_mgr.execute_with_backoff retries 429/500/503 only.
+    sheet_mgr._execute_with_backoff additionally retries 403 rateLimitExceeded /
+    userRateLimitExceeded / quotaExceeded, which are the dominant Sheets quota errors.
+    """
 
-        Verifies that drive_mgr.execute_with_backoff is used for the batch flush
-        (not sheet_mgr._execute_with_backoff which previously did not retry 500/503).
-        """
+    def test_batch_flush_uses_sheets_backoff_not_drive_backoff(self):
+        """Source-level: batchUpdate calls must route via sheet_mgr._execute_with_backoff."""
+        import ast
         from pathlib import Path
 
         for p in [Path("main_apply_renames.py"),
@@ -160,30 +163,70 @@ class TestApplyRenamesBatchFlushRetries:
         else:
             raise FileNotFoundError("main_apply_renames.py not found")
 
-        # The batch flush must use drive_mgr.execute_with_backoff (lambda-based),
-        # NOT sheet_mgr._execute_with_backoff (which received a pre-built request).
-        assert "drive_mgr.execute_with_backoff" in source, (
-            "Batch flush must use drive_mgr.execute_with_backoff so 500/503 errors "
-            "trigger a retry with a freshly-built request (BUG-P0 fix)"
+        assert "_execute_with_backoff" in source, (
+            "Batch Sheets flush must call sheet_mgr._execute_with_backoff "
+            "so that 403 rateLimitExceeded/quotaExceeded is retried"
         )
-        # The lambda pattern ensures a fresh request is built on each retry
-        assert "lambda" in source, (
-            "Batch flush lambda must be present so the Sheets request is rebuilt "
-            "on each retry attempt"
-        )
-        # The old pattern (sheet_mgr._execute_with_backoff with a pre-built request)
-        # must not be used for the batchUpdate calls
-        import ast
+
+        # drive_mgr.execute_with_backoff must NOT wrap any batchUpdate call
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "_execute_with_backoff":
-                # Check if any arg contains batchUpdate
-                for arg in node.args:
-                    arg_src = ast.unparse(arg) if hasattr(ast, "unparse") else ""
-                    assert "batchUpdate" not in arg_src, (
-                        "sheet_mgr._execute_with_backoff must NOT be called with a "
-                        "batchUpdate request — use drive_mgr.execute_with_backoff instead"
-                    )
+            if not (isinstance(func, ast.Attribute) and func.attr == "execute_with_backoff"):
+                continue
+            for arg in node.args:
+                arg_src = ast.unparse(arg) if hasattr(ast, "unparse") else ""
+                assert "batchUpdate" not in arg_src, (
+                    f"drive_mgr.execute_with_backoff must NOT wrap a batchUpdate call "
+                    f"(line {node.lineno}) — use sheet_mgr._execute_with_backoff instead "
+                    f"to handle Sheets 403 quota errors"
+                )
+
+    def test_sheets_403_quota_handled_in_batch_flush(self):
+        """Functional: sheet_mgr._execute_with_backoff is called for the Sheets batch flush."""
+        from unittest.mock import MagicMock, patch
+        import main_apply_renames
+
+        credentials = MagicMock()
+        drive_service = MagicMock()
+        sheets_service = MagicMock()
+        sheet_mgr = MagicMock()
+        state = MagicMock()
+        drive_mgr = MagicMock()
+
+        state.get_val.side_effect = lambda k: "run_001" if k == "last_successful_run_id" else ""
+        state.acquire_job_lock.return_value = True
+
+        dedupe_col = {"run_id": 1, "file_id": 2, "name": 3, "suggested_name": 4, "rename_result": 17}
+        sheet_mgr.DEDUPE_COL = dedupe_col
+        sheet_mgr.headers = {"Dedupe_Report": ["h"] * 18}
+
+        # Row: rename pending (live name matches current → rename proceeds)
+        test_row = ["2026-01-01", "run_001", "file_003", "old_name.pdf", "new_name.pdf"] + [""] * 13
+        sheet_mgr.read_rows_chunked_with_row_numbers.return_value = [(2, test_row)]
+
+        # Drive calls: get returns current name, update returns success
+        drive_mgr.execute_with_backoff.side_effect = [
+            {"name": "old_name.pdf"},
+            {"id": "file_003", "name": "new_name.pdf"},
+        ]
+
+        state.set_val.side_effect = lambda k, v: None
+
+        with (
+            patch("main_apply_renames.CONTROL_SHEET_ID", "test_sheet_id"),
+            patch("main_apply_renames.get_user_credentials", return_value=credentials),
+            patch("main_apply_renames.build", side_effect=[drive_service, sheets_service]),
+            patch("shared.drive_helpers.DriveManager", return_value=drive_mgr),
+            patch("main_apply_renames.SheetManager", return_value=sheet_mgr),
+            patch("main_apply_renames.StateTracker", return_value=state),
+            patch("shared.log.get_logger", return_value=MagicMock()),
+        ):
+            main_apply_renames.run_apply_renames()
+
+        assert sheet_mgr._execute_with_backoff.called, (
+            "sheet_mgr._execute_with_backoff must be called for the Sheets batch flush "
+            "— verifies 403 quota/rate-limit errors are retried by the Sheets-specific path"
+        )

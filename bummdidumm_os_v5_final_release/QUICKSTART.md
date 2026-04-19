@@ -102,18 +102,26 @@ gcloud storage buckets create gs://PROJECT_ID-brain-index \
 gcloud storage buckets add-iam-policy-binding gs://PROJECT_ID-brain-index \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/storage.objectAdmin"
+```
 
-# Mount the bucket in the Cloud Run Job (Pass 2 and Safe Sort)
+`deploy.sh` automatically configures the GCS FUSE volume mount (`/brain_index`) and
+sets `BRAIN_INDEX_ROOT` for both Pass 2 and Safe Sort when you run it in §3 step 6.
+You do **not** need to run `gcloud run jobs update` manually if you use `deploy.sh`.
+
+If you need to update an already-deployed job without re-running `deploy.sh`, use:
+
+```bash
+# Manual override only — not needed when using deploy.sh
 gcloud run jobs update bummdidumm-pass2-ocr-index \
   --add-volume=name=brain-index,type=cloud-storage,bucket=PROJECT_ID-brain-index \
-  --add-volume-mount=volume=brain-index,mount-path=/mnt/brain-index \
-  --update-env-vars=BRAIN_INDEX_ROOT=/mnt/brain-index \
+  --add-volume-mount=volume=brain-index,mount-path=/brain_index \
+  --update-env-vars=BRAIN_INDEX_ROOT=/brain_index \
   --region=europe-west6
 
 gcloud run jobs update bummdidumm-safe-sort \
   --add-volume=name=brain-index,type=cloud-storage,bucket=PROJECT_ID-brain-index \
-  --add-volume-mount=volume=brain-index,mount-path=/mnt/brain-index \
-  --update-env-vars=BRAIN_INDEX_ROOT=/mnt/brain-index \
+  --add-volume-mount=volume=brain-index,mount-path=/brain_index \
+  --update-env-vars=BRAIN_INDEX_ROOT=/brain_index \
   --region=europe-west6
 ```
 
@@ -198,8 +206,8 @@ Follow these steps in order. Each step has a success criterion.
 | 3 | Create Secret Manager secret and grant SA access (section 1.4) | `gcloud secrets versions access latest --secret=gemini-api-key` returns the key |
 | 4 | Share Drive folders and Control Sheet with the SA email | SA can list the target folder via Drive API |
 | 5 | Create brain-index bucket and grant access (section 1.5) | `gcloud storage ls gs://PROJECT_ID-brain-index` succeeds from SA |
-| 6 | Run `deploy.sh` with all env vars set (no `GEMINI_API_KEY` export needed) | All five `gcloud run jobs deploy` commands exit 0 |
-| 7 | Add Cloud Storage FUSE volume mounts (section 1.5) | `gcloud run jobs describe bummdidumm-pass2-ocr-index` shows the volume |
+| 6 | Run `deploy.sh` with all env vars set (no `GEMINI_API_KEY` export needed) | All five `gcloud run jobs deploy` commands exit 0; `gcloud run jobs describe bummdidumm-pass2-ocr-index` shows the `/brain_index` volume mount (deploy.sh sets this automatically) |
+| 7 | _(Handled by deploy.sh above)_ Volume mounts for Pass 2 and Safe Sort are included in `deploy.sh`. Only use the manual `gcloud run jobs update` commands from section 1.5 if updating an existing job without re-running `deploy.sh`. | No separate action required when using `deploy.sh` |
 | 8 | Execute Pass 1 manually: `gcloud run jobs execute bummdidumm-pass1-delta-dedupe --region europe-west6` | Job status becomes SUCCEEDED; Control Sheet rows appear in `Dedupe_Report` |
 | 9 | Execute Pass 2 manually: `gcloud run jobs execute bummdidumm-pass2-ocr-index --region europe-west6` | Job status becomes SUCCEEDED; `CURRENT_personal_brain_stats.json` written to `BRAIN_INDEX_ROOT` |
 | 10 | Run tests locally against the deployed index | `pytest bummdidumm_os_v5_final_release/tests/ -q` passes |
