@@ -41,7 +41,7 @@ Die Tests laufen vollständig lokal mit Mocks — kein Google-Account, kein Shee
 | `BRAIN_INDEX_BUCKET` | GCS-Bucket-Name für den Brain-Index (FUSE-Mount via `deploy.sh`) |
 | `ARCHIVE_FOLDER_ID` | Drive-Ordner-ID für archivierte Duplikate |
 | `INDEX_FOLDER_ID` | Drive-Ordner-ID für Index-Ausgaben |
-| `GEMINI_API_KEY` | Gemini-API-Key für OCR |
+| `GEMINI_API_KEY` | Gemini-API-Key für OCR — **wird in Cloud Run via Google Secret Manager übergeben** (nicht als Env-Variable setzen; siehe QUICKSTART.md §1.5) |
 
 **Optional:**
 | Variable | Default | Zweck |
@@ -72,7 +72,8 @@ export BRAIN_INDEX_BUCKET=...    # GCS-Bucket für Brain-Index (deploy.sh setzt 
 export ARCHIVE_FOLDER_ID=...
 export INDEX_FOLDER_ID=...
 export CONTROL_SHEET_ID=...
-export GEMINI_API_KEY=...
+# GEMINI_API_KEY wird NICHT als Env-Variable gesetzt — deploy.sh liest ihn via
+# Google Secret Manager (--set-secrets). Secret anlegen: siehe QUICKSTART.md §1.5.
 # Optional:
 # export TARGET_FOLDER_ID=...
 ./deploy.sh
@@ -112,7 +113,7 @@ export GEMINI_API_KEY=...
 - schreibt `folder_key, folder_name, folder_id, parent_folder_id, full_path`
 
 ## Safe Sort / Apply Sort
-- **Safe Sort (`main_safe_sort.py`)** erzeugt nur Vorschläge in `Sorting_Suggestions`.
+- **Safe Sort (`main_safe_sort.py`)** erzeugt nur Vorschläge in `Sorting_Suggestions`. Benötigt in Cloud Run denselben persistenten `BRAIN_INDEX_ROOT`-Mount wie Pass 2 — ohne ihn bricht der Start mit `RuntimeError` ab (kein Silent-Fallback).
 - **Apply Sort (`main_apply_sort.py`)** führt Bewegungen aus (ohne `rows.index(...)`).
 - `action_mode=SAFE` verschiebt Dateien in den Zielordner.
 - `action_mode=SWEEP_TRASH` markiert Inbox-Trash-Dateien als `trashed=true`.
@@ -134,7 +135,7 @@ Statusereignisse ohne OCR werden dennoch geschrieben (`DELETED`, `TRASHED`, `REM
 - Poll-Timeout beendet Full-Run Polling automatisch.
 
 ## Troubleshooting
-- `python3 release_audit.py` ausführen.
+- `python3 bummdidumm_os_v5_final_release/release_audit.py` ausführen (gibt PASS/FAIL auf stdout aus; schreibt standardmäßig **keine** Dateien in den Repo-Baum).
 - Bei Quota-Fehlern greifen Backoff/Retries (Sheets + Gemini).
 - Bei `PASS2_BLOCKED_NO_HANDOVER` im State: Pass 1 zuerst erfolgreich abschliessen, dann Pass 2 neu starten.
 - Bei fehlender `PROJECT_ID` in Apps Script: Script Property setzen.

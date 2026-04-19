@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 ROOT = Path("bummdidumm_os_v5_final_release")
@@ -95,6 +96,16 @@ def run_audit() -> bool:
         errors.append("deploy.sh: BRAIN_INDEX_ROOT hat kein fail-fast (:? Syntax) — wird bei fehlendem Mount nicht abgebrochen")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
+    for _line in deploy.splitlines():
+        if _line.strip().startswith("#"):
+            continue
+        if "--set-env-vars" in _line and "API_KEY" in _line:
+            errors.append("deploy.sh: API_KEY wird per --set-env-vars als Klartext übergeben — Secret Manager verwenden")
+            break
+    if "--set-secrets" not in deploy:
+        errors.append("deploy.sh: Secret Manager Integration fehlt — GEMINI_API_KEY muss via --set-secrets übergeben werden")
+    elif "GEMINI_API_KEY=projects/" not in deploy:
+        errors.append("deploy.sh: GEMINI_API_KEY Secret Manager Pfad fehlt oder nutzt keine projects/-Syntax")
 
     if not (ROOT / ".dockerignore").is_file():
         errors.append(".dockerignore fehlt im Release-Verzeichnis")
@@ -161,17 +172,21 @@ def run_audit() -> bool:
         if "release_job_lock" not in job_script:
             errors.append(f"Gap-G fehlt: {job_label} ruft release_job_lock nicht auf")
 
-    summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
-    (ROOT / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    (ROOT / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
-
     if errors:
         print("RESULT: FAIL")
         for e in errors:
             print("-", e)
-        return False
-    print("RESULT: PASS")
-    return True
+    else:
+        print("RESULT: PASS")
+
+    if os.environ.get("WRITE_AUDIT_ARTIFACTS") == "1":
+        artifacts_dir = ROOT / ".artifacts"
+        artifacts_dir.mkdir(exist_ok=True)
+        summary = {"result": "PASS" if not errors else "FAIL", "errors": errors}
+        (artifacts_dir / "release_audit.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        (artifacts_dir / "SELF_AUDIT.md").write_text("# Self Audit\n\n" + ("PASS ✅" if not errors else "FAIL ❌") + ("\n\n" + "\n".join(f"- {e}" for e in errors) if errors else "") + "\n", encoding="utf-8")
+
+    return not bool(errors)
 
 
 if __name__ == "__main__":

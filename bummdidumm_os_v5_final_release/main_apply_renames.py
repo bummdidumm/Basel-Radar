@@ -29,8 +29,9 @@ def run_apply_renames():
         log.warning("Apply Renames abgebrochen: anderer Prozess hält den Lock")
         return
 
-    # BUG-K: track whether the job completed without exception so the finally block
-    # can set the correct phase (IDLE on success, APPLY_RENAMES_FAILED on exception).
+    # BUG-K: errors tracks row-level failures caught by the inner except; _failed
+    # tracks outer exceptions.  Both cause APPLY_RENAMES_FAILED in the finally block.
+    errors = 0
     _failed = False
     try:
         log.info("Rename Job gestartet")
@@ -81,11 +82,11 @@ def run_apply_renames():
 
                     # Stale-suggestion guard: verify actual Drive name before renaming
                     # so we never blindly overwrite an external change.
-                    def _fetch_live_name():
-                        return drive_service.files().get(
+                    live = drive_mgr.execute_with_backoff(
+                        lambda: drive_service.files().get(
                             fileId=file_id, fields="id,name", **params
                         ).execute()
-                    live = drive_mgr.execute_with_backoff(_fetch_live_name)
+                    )
                     live_name = live.get("name", "")
 
                     if live_name == suggested_name:
@@ -98,13 +99,13 @@ def run_apply_renames():
                             f"Expected name {current_name!r} but Drive has {live_name!r}"
                         )
                     else:
-                        def _update_name():
-                            return drive_service.files().update(
+                        drive_mgr.execute_with_backoff(
+                            lambda: drive_service.files().update(
                                 fileId=file_id,
                                 body={"name": suggested_name},
                                 **params
                             ).execute()
-                        drive_mgr.execute_with_backoff(_update_name)
+                        )
                         result_val = "SUCCESS"
                         processed += 1
 
@@ -124,21 +125,21 @@ def run_apply_renames():
                 # 429/500/503 and misses Sheets-specific 403 quota errors.
                 if len(update_requests) >= 50:
                     _batch = update_requests
-                    sheet_mgr._execute_with_backoff(
-                        sheets_service.spreadsheets().values().batchUpdate(
+                    drive_mgr.execute_with_backoff(
+                        lambda: sheets_service.spreadsheets().values().batchUpdate(
                             spreadsheetId=CONTROL_SHEET_ID,
                             body={"valueInputOption": "RAW", "data": _batch}
-                        )
+                        ).execute()
                     )
                     update_requests = []
 
         if update_requests:
             _batch = update_requests
-            sheet_mgr._execute_with_backoff(
-                sheets_service.spreadsheets().values().batchUpdate(
+            drive_mgr.execute_with_backoff(
+                lambda: sheets_service.spreadsheets().values().batchUpdate(
                     spreadsheetId=CONTROL_SHEET_ID,
                     body={"valueInputOption": "RAW", "data": _batch}
-                )
+                ).execute()
             )
 
         state.log_run("RENAME", "SUCCESS", processed, errors)
@@ -147,7 +148,7 @@ def run_apply_renames():
         _failed = True
         raise
     finally:
-        state.set_val("current_phase", "APPLY_RENAMES_FAILED" if _failed else "IDLE")
+        state.set_val("current_phase", "APPLY_RENAMES_FAILED" if (_failed or errors > 0) else "IDLE")
         try:
             state.flush_state()
         finally:

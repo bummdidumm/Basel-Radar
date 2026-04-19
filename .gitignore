@@ -10,3 +10,9 @@ debug_gemini_day_scan/
 node_modules/
 release_audit.json
 SELF_AUDIT.md
+REVIEW_OUTPUT.md
+bummdidumm_os_v5_final_release/.artifacts/
+bummdidumm_os_v5_final_release/brain_index/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

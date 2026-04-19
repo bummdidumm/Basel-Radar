@@ -7,7 +7,7 @@ Covers:
 """
 import os
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from shared.state_helpers import StateTracker
@@ -51,7 +51,7 @@ class TestFlushStateBackoff:
 # BUG-I + BUG-J: _is_lease_stale
 # ---------------------------------------------------------------------------
 
-import main_pass1
+import main_pass1  # noqa: E402
 
 
 class TestLeaseStaleHardening:

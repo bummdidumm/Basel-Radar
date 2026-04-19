@@ -34,6 +34,15 @@ jobs:
       - run: python3 bummdidumm_os_v5_final_release/release_audit.py
       - run: PYTHONPATH=bummdidumm_os_v5_final_release pytest bummdidumm_os_v5_final_release/tests/ -q
 
+  deploy-shell-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deploy.sh shell syntax
+        run: bash -n bummdidumm_os_v5_final_release/deploy.sh
+      - name: Shellcheck deploy.sh
+        run: shellcheck bummdidumm_os_v5_final_release/deploy.sh
+
   finalization-protocol-check:
     runs-on: ubuntu-latest
     steps:

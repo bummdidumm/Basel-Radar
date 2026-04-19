@@ -6,7 +6,7 @@ Covers:
 """
 import os
 import sys
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -38,7 +38,7 @@ class TestApplySortFailedPhase:
         state.run_id = "run_001"
 
         # Simulate rows that trigger the move path but raise on execution
-        bad_row = [
+        _bad_row = [
             "run_001",          # run_id
             "file_001",         # file_id
             "bad_file.pdf",     # name

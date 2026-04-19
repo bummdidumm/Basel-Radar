@@ -151,9 +151,6 @@ class TestWalkQueueJsonRoundtrip:
         json.dumps/json.loads must now be used instead.
         """
         import json
-        from shared.drive_helpers import DriveManager
-
-        mgr = DriveManager(MagicMock(), "ROOT", enable_shared_drives=False)
 
         # Folder IDs that would break CSV serialisation
         original_queue = ["folder_normal", "folder,with,commas", "another_normal"]
@@ -171,7 +168,6 @@ class TestWalkQueueJsonRoundtrip:
     def test_walk_queue_legacy_csv_fallback(self):
         """HARDENING-1 backward compat: old CSV-encoded queue must still be parsed."""
         import json
-        from shared.drive_helpers import DriveManager
 
         # Simulate the old serialisation format that might be in a live State sheet
         old_csv_value = "folder_a,folder_b,folder_c"

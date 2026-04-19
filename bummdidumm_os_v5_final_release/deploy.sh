@@ -7,7 +7,6 @@ TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 : "${ARCHIVE_FOLDER_ID:?Bitte ARCHIVE_FOLDER_ID setzen}"
 : "${INDEX_FOLDER_ID:?Bitte INDEX_FOLDER_ID setzen}"
 : "${CONTROL_SHEET_ID:?Bitte CONTROL_SHEET_ID setzen}"
-: "${GEMINI_API_KEY:?Bitte GEMINI_API_KEY setzen}"
 : "${SA_EMAIL:?Bitte SA_EMAIL setzen (z.B. runner@PROJECT_ID.iam.gserviceaccount.com)}"
 
 # BRAIN_INDEX_ROOT: der Pfad, unter dem Pass 2 und Safe Sort den Brain Index persistent speichern.
@@ -40,24 +39,25 @@ gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
   --service-account "$SA_EMAIL" \
   --set-env-vars="TARGET_FOLDER_ID=${TARGET_FOLDER_ID},ARCHIVE_FOLDER_ID=${ARCHIVE_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},SKIP_OVER_MB=${SKIP_OVER_MB}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
-  --command="python","main_pass1.py"
+  --command=python,main_pass1.py
 
 # Pass 2 benoetigt persistenten Brain-Index-Mount — ohne diesen gehen alle Index-Daten nach jedem Run verloren.
 gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --source . \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},GEMINI_API_KEY=${GEMINI_API_KEY},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-secrets="GEMINI_API_KEY=projects/${PROJECT_ID}/secrets/gemini-api-key:latest" \
   --add-volume="name=brain-index,type=cloud-storage,bucket=${BRAIN_INDEX_BUCKET}" \
   --add-volume-mount="volume=brain-index,mount-path=${BRAIN_INDEX_MOUNT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
-  --command="python","main_pass2.py"
+  --command=python,main_pass2.py
 
 gcloud run jobs deploy bummdidumm-apply-renames \
   --source . --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=1800s \
-  --command="python","main_apply_renames.py"
+  --command=python,main_apply_renames.py
 
 # Safe Sort liest den Brain Index — braucht denselben persistenten Mount wie Pass 2.
 gcloud run jobs deploy bummdidumm-safe-sort \
@@ -66,12 +66,12 @@ gcloud run jobs deploy bummdidumm-safe-sort \
   --add-volume="name=brain-index,type=cloud-storage,bucket=${BRAIN_INDEX_BUCKET}" \
   --add-volume-mount="volume=brain-index,mount-path=${BRAIN_INDEX_MOUNT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
-  --command="python","main_safe_sort.py"
+  --command=python,main_safe_sort.py
 
 gcloud run jobs deploy bummdidumm-apply-sort \
   --source . --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
-  --command="python","main_apply_sort.py"
+  --command=python,main_apply_sort.py
 
 echo "Done!"
