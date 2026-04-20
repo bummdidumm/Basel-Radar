@@ -38,6 +38,14 @@ def _rename_batch_flush_uses_drive_backoff(path: Path) -> bool:
     except SyntaxError:
         return True
 
+    def _contains_batch_update(node: ast.AST) -> bool:
+        return any(
+            isinstance(sub, ast.Call)
+            and isinstance(sub.func, ast.Attribute)
+            and sub.func.attr == "batchUpdate"
+            for sub in ast.walk(node)
+        )
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -47,10 +55,8 @@ def _rename_batch_flush_uses_drive_backoff(path: Path) -> bool:
         owner = func.value
         if not (isinstance(owner, ast.Name) and owner.id == "drive_mgr"):
             continue
-        for arg in node.args:
-            text = ast.get_source_segment(source, arg) or ""
-            if "batchUpdate(" in text:
-                return True
+        if any(_contains_batch_update(arg) for arg in node.args):
+            return True
     return False
 
 def run_audit() -> bool:

@@ -159,24 +159,32 @@ class TestApplyRenamesBatchFlushWiring:
 
         tree = ast.parse(source)
         good_calls = 0
+        bad_calls = 0
+
+        def _contains_batch_update(node):
+            return any(
+                isinstance(sub, ast.Call)
+                and isinstance(sub.func, ast.Attribute)
+                and sub.func.attr == "batchUpdate"
+                for sub in ast.walk(node)
+            )
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            if not (isinstance(node.func, ast.Attribute) and node.func.attr == "_execute_with_backoff"):
-                continue
-            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "sheet_mgr":
-                continue
-            if not node.args:
-                continue
-            arg_src = ast.get_source_segment(source, node.args[0]) or ""
-            if "batchUpdate(" in arg_src:
-                good_calls += 1
+
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "_execute_with_backoff":
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == "sheet_mgr" and node.args:
+                    if _contains_batch_update(node.args[0]):
+                        good_calls += 1
+
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "execute_with_backoff":
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == "drive_mgr":
+                    if any(_contains_batch_update(arg) for arg in node.args):
+                        bad_calls += 1
 
         assert good_calls >= 2, "Expected both rename batch flushes to use sheet_mgr._execute_with_backoff(batchUpdate(...))"
-
-        assert "drive_mgr.execute_with_backoff" not in source[source.find("if len(update_requests) >= 50"):], (
-            "Rename batch flush must no longer use drive_mgr.execute_with_backoff"
-        )
+        assert bad_calls == 0, "Rename batch flush must not route batchUpdate via drive_mgr.execute_with_backoff"
 
     def test_apply_renames_runtime_flush_calls_sheet_mgr_backoff(self):
         """Functional contract: runtime flush passes the batchUpdate request to sheet_mgr._execute_with_backoff."""
