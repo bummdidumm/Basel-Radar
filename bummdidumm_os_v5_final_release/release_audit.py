@@ -29,14 +29,14 @@ def _read(path: Path) -> str:
 
 
 
-def _rename_batch_flush_uses_drive_backoff(path: Path) -> bool:
+def _rename_batch_flush_uses_drive_backoff(path: Path) -> tuple[bool, str | None]:
     source = _read(path)
     if not source:
-        return False
+        return False, f"{path}: Datei fehlt oder ist nicht lesbar"
     try:
         tree = ast.parse(source)
-    except SyntaxError:
-        return True
+    except SyntaxError as exc:
+        return False, f"{path}: SyntaxError beim AST-Parse ({exc.msg}, Zeile {exc.lineno})"
 
     def _contains_batch_update(node: ast.AST) -> bool:
         return any(
@@ -56,8 +56,37 @@ def _rename_batch_flush_uses_drive_backoff(path: Path) -> bool:
         if not (isinstance(owner, ast.Name) and owner.id == "drive_mgr"):
             continue
         if any(_contains_batch_update(arg) for arg in node.args):
-            return True
-    return False
+            return True, None
+    return False, None
+
+
+def _extract_deploy_blocks(deploy_source: str) -> dict[str, str]:
+    blocks: dict[str, list[str]] = {}
+    current_job = None
+    current_lines: list[str] = []
+
+    for raw_line in deploy_source.splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if current_job is None and stripped.startswith("gcloud run jobs deploy "):
+            parts = stripped.split()
+            if len(parts) >= 5:
+                current_job = parts[4]
+                current_lines = [stripped]
+            continue
+
+        if current_job is not None:
+            current_lines.append(stripped)
+            if not stripped.endswith("\\"):
+                blocks[current_job] = "\n".join(current_lines)
+                current_job = None
+                current_lines = []
+
+    if current_job is not None and current_lines:
+        blocks[current_job] = "\n".join(current_lines)
+
+    return blocks
 
 def run_audit() -> bool:
     errors = []
@@ -127,10 +156,16 @@ def run_audit() -> bool:
     deploy = _read(ROOT / "deploy.sh")
     if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
         errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax)")
-    if "--add-volume=" not in deploy:
-        errors.append("deploy.sh: --add-volume fehlt für den externen Brain-Index-Vertrag")
-    if "--add-volume-mount=" not in deploy:
-        errors.append("deploy.sh: --add-volume-mount fehlt für den externen Brain-Index-Vertrag")
+    deploy_blocks = _extract_deploy_blocks(deploy)
+    for job_name in ("bummdidumm-pass2-ocr-index", "bummdidumm-safe-sort"):
+        block = deploy_blocks.get(job_name)
+        if not block:
+            errors.append(f"deploy.sh: Deploy-Block für {job_name} fehlt")
+            continue
+        if "--add-volume=" not in block:
+            errors.append(f"deploy.sh: {job_name} ohne --add-volume")
+        if "--add-volume-mount=" not in block:
+            errors.append(f"deploy.sh: {job_name} ohne --add-volume-mount")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
@@ -161,7 +196,10 @@ def run_audit() -> bool:
     rt = _read(ROOT / "personal_brain" / "runtime.py")
     sh_state = _read(ROOT / "shared" / "state_helpers.py")
     ar = _read(ROOT / "main_apply_renames.py")
-    if _rename_batch_flush_uses_drive_backoff(ROOT / "main_apply_renames.py"):
+    has_wrong_backoff, analysis_error = _rename_batch_flush_uses_drive_backoff(ROOT / "main_apply_renames.py")
+    if analysis_error:
+        errors.append(analysis_error)
+    elif has_wrong_backoff:
         errors.append("main_apply_renames.py: batchUpdate darf nicht über drive_mgr.execute_with_backoff laufen")
 
     # Gap-C: entity merge loop must have purged_source_ids guard

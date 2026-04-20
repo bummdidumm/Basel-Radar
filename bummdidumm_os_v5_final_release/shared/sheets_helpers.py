@@ -100,6 +100,17 @@ class SheetManager:
             body={"values": rows}
         ))
 
+    def batch_update_values(self, data: List[dict], value_input_option: str = "RAW"):
+        """Executes spreadsheets.values.batchUpdate through the Sheets retry path."""
+        if not data:
+            return
+        self._execute_with_backoff(
+            self.sheets.spreadsheets().values().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body={"valueInputOption": value_input_option, "data": data}
+            )
+        )
+
     def read_all_rows(self, tab: str, columns: str = "A:Z", raise_on_error: bool = False) -> List[List[str]]:
         """Liest alle Zeilen (kann RAM-lastig bei 100k+ Einträgen sein).
 

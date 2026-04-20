@@ -2,7 +2,7 @@
 
 Covers:
 - BUG-K: current_phase set to APPLY_SORT_FAILED / APPLY_RENAMES_FAILED on exception
-- BUG-P0 (updated): rename batch flush uses sheet_mgr._execute_with_backoff
+- BUG-P0 (updated): rename batch flush uses SheetManager.batch_update_values
 """
 import os
 import sys
@@ -145,7 +145,7 @@ class TestApplyRenamesFailedPhase:
 class TestApplyRenamesBatchFlushWiring:
 
     def test_apply_renames_batch_flush_uses_sheet_mgr_backoff_in_source(self):
-        """Static contract: batchUpdate flushes must route via sheet_mgr._execute_with_backoff."""
+        """Static contract: batchUpdate flushes must route via sheet_mgr.batch_update_values."""
         from pathlib import Path
         import ast
 
@@ -161,33 +161,31 @@ class TestApplyRenamesBatchFlushWiring:
         good_calls = 0
         bad_calls = 0
 
-        def _contains_batch_update(node):
-            return any(
-                isinstance(sub, ast.Call)
-                and isinstance(sub.func, ast.Attribute)
-                and sub.func.attr == "batchUpdate"
-                for sub in ast.walk(node)
-            )
-
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
 
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "_execute_with_backoff":
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "batch_update_values":
                 if isinstance(node.func.value, ast.Name) and node.func.value.id == "sheet_mgr" and node.args:
-                    if _contains_batch_update(node.args[0]):
+                    if isinstance(node.args[0], ast.Name) and node.args[0].id == "_batch":
                         good_calls += 1
 
             if isinstance(node.func, ast.Attribute) and node.func.attr == "execute_with_backoff":
                 if isinstance(node.func.value, ast.Name) and node.func.value.id == "drive_mgr":
-                    if any(_contains_batch_update(arg) for arg in node.args):
+                    if any(
+                        isinstance(sub, ast.Call)
+                        and isinstance(sub.func, ast.Attribute)
+                        and sub.func.attr == "batchUpdate"
+                        for arg in node.args
+                        for sub in ast.walk(arg)
+                    ):
                         bad_calls += 1
 
-        assert good_calls >= 2, "Expected both rename batch flushes to use sheet_mgr._execute_with_backoff(batchUpdate(...))"
+        assert good_calls >= 2, "Expected both rename batch flushes to use sheet_mgr.batch_update_values(_batch)"
         assert bad_calls == 0, "Rename batch flush must not route batchUpdate via drive_mgr.execute_with_backoff"
 
     def test_apply_renames_runtime_flush_calls_sheet_mgr_backoff(self):
-        """Functional contract: runtime flush passes the batchUpdate request to sheet_mgr._execute_with_backoff."""
+        """Functional contract: runtime flush routes writes through sheet_mgr.batch_update_values."""
         import main_apply_renames
 
         credentials = MagicMock()
@@ -210,9 +208,7 @@ class TestApplyRenamesBatchFlushWiring:
             {"id": "file_002"},  # files().update
         ]
 
-        req_obj = MagicMock(name="batch_update_request")
-        sheets_service.spreadsheets.return_value.values.return_value.batchUpdate.return_value = req_obj
-        sheet_mgr._execute_with_backoff.side_effect = lambda req: req.execute()
+        sheet_mgr.batch_update_values = MagicMock()
 
         with (
             patch("main_apply_renames.CONTROL_SHEET_ID", "test_sheet_id"),
@@ -225,6 +221,6 @@ class TestApplyRenamesBatchFlushWiring:
         ):
             main_apply_renames.run_apply_renames()
 
-        sheet_mgr._execute_with_backoff.assert_called()
-        passed_request = sheet_mgr._execute_with_backoff.call_args[0][0]
-        assert passed_request is req_obj, "Batch flush must pass request object from batchUpdate(...)"
+        sheet_mgr.batch_update_values.assert_called_once()
+        passed_batch = sheet_mgr.batch_update_values.call_args[0][0]
+        assert isinstance(passed_batch, list) and passed_batch, "Batch flush must pass non-empty update list"
