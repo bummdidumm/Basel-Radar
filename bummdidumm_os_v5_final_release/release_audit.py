@@ -1,3 +1,4 @@
+import ast
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,32 @@ def _read(path: Path) -> str:
     except (OSError, UnicodeDecodeError):
         return ""
 
+
+
+
+def _rename_batch_flush_uses_drive_backoff(path: Path) -> bool:
+    source = _read(path)
+    if not source:
+        return False
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return True
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "execute_with_backoff"):
+            continue
+        owner = func.value
+        if not (isinstance(owner, ast.Name) and owner.id == "drive_mgr"):
+            continue
+        for arg in node.args:
+            text = ast.get_source_segment(source, arg) or ""
+            if "batchUpdate(" in text:
+                return True
+    return False
 
 def run_audit() -> bool:
     errors = []
@@ -92,8 +119,12 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if ': "${BRAIN_INDEX_ROOT:?' not in deploy:
-        errors.append("deploy.sh: BRAIN_INDEX_ROOT hat kein fail-fast (:? Syntax) — wird bei fehlendem Mount nicht abgebrochen")
+    if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
+        errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax)")
+    if "--add-volume=" not in deploy:
+        errors.append("deploy.sh: --add-volume fehlt für den externen Brain-Index-Vertrag")
+    if "--add-volume-mount=" not in deploy:
+        errors.append("deploy.sh: --add-volume-mount fehlt für den externen Brain-Index-Vertrag")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
@@ -124,6 +155,8 @@ def run_audit() -> bool:
     rt = _read(ROOT / "personal_brain" / "runtime.py")
     sh_state = _read(ROOT / "shared" / "state_helpers.py")
     ar = _read(ROOT / "main_apply_renames.py")
+    if _rename_batch_flush_uses_drive_backoff(ROOT / "main_apply_renames.py"):
+        errors.append("main_apply_renames.py: batchUpdate darf nicht über drive_mgr.execute_with_backoff laufen")
 
     # Gap-C: entity merge loop must have purged_source_ids guard
     if "purged_source_ids" not in w:
