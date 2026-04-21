@@ -29,7 +29,7 @@ def _read(path: Path) -> str:
 
 
 
-def _rename_batch_flush_uses_drive_backoff(path: Path) -> tuple[bool, str | None]:
+def _file_batch_flush_uses_drive_backoff(path: Path) -> tuple[bool, str | None]:
     source = _read(path)
     if not source:
         return False, f"{path}: Datei fehlt oder ist nicht lesbar"
@@ -154,7 +154,7 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
+    if ': "${BRAIN_INDEX_BUCKET:?"' not in deploy:
         errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax)")
     deploy_blocks = _extract_deploy_blocks(deploy)
     for job_name in ("bummdidumm-pass2-ocr-index", "bummdidumm-safe-sort"):
@@ -166,7 +166,7 @@ def run_audit() -> bool:
             errors.append(f"deploy.sh: {job_name} ohne --add-volume")
         if "--add-volume-mount=" not in block:
             errors.append(f"deploy.sh: {job_name} ohne --add-volume-mount")
-    if ': "${SA_EMAIL:?' not in deploy:
+    if ': "${SA_EMAIL:?"' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
         if _line.strip().startswith("#"):
@@ -195,12 +195,12 @@ def run_audit() -> bool:
     w = _read(ROOT / "personal_brain" / "writers.py")
     rt = _read(ROOT / "personal_brain" / "runtime.py")
     sh_state = _read(ROOT / "shared" / "state_helpers.py")
-    ar = _read(ROOT / "main_apply_renames.py")
-    has_wrong_backoff, analysis_error = _rename_batch_flush_uses_drive_backoff(ROOT / "main_apply_renames.py")
-    if analysis_error:
-        errors.append(analysis_error)
-    elif has_wrong_backoff:
-        errors.append("main_apply_renames.py: batchUpdate darf nicht über drive_mgr.execute_with_backoff laufen")
+    for script_name in ("main_apply_renames.py", "main_apply_sort.py"):
+        has_wrong_backoff, analysis_error = _file_batch_flush_uses_drive_backoff(ROOT / script_name)
+        if analysis_error:
+            errors.append(analysis_error)
+        elif has_wrong_backoff:
+            errors.append(f"{script_name}: batchUpdate darf nicht über drive_mgr.execute_with_backoff laufen")
 
     # Gap-C: entity merge loop must have purged_source_ids guard
     if "purged_source_ids" not in w:
@@ -242,7 +242,7 @@ def run_audit() -> bool:
     for job_script, job_label in [
         (ss, "main_safe_sort.py"),
         (aps, "main_apply_sort.py"),
-        (ar, "main_apply_renames.py"),
+        (_read(ROOT / "main_apply_renames.py"), "main_apply_renames.py"),
     ]:
         if "acquire_job_lock" not in job_script:
             errors.append(f"Gap-G fehlt: {job_label} ruft acquire_job_lock nicht auf")
