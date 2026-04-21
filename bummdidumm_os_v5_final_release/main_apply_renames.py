@@ -119,28 +119,16 @@ def run_apply_renames():
                     "values": [[result_val]]
                 })
 
-                # BUG-E fix: use sheet_mgr._execute_with_backoff for Sheets batch writes
-                # so that transient Sheets 403 (rateLimitExceeded/userRateLimitExceeded/
-                # quotaExceeded) is retried — drive_mgr.execute_with_backoff only retries
-                # 429/500/503 and misses Sheets-specific 403 quota errors.
+                # BUG-E fix: use SheetManager.batch_update_values for Sheets batch writes
+                # so transient Sheets quota errors are retried via the Sheets-specific path.
                 if len(update_requests) >= 50:
                     _batch = update_requests
-                    drive_mgr.execute_with_backoff(
-                        lambda: sheets_service.spreadsheets().values().batchUpdate(
-                            spreadsheetId=CONTROL_SHEET_ID,
-                            body={"valueInputOption": "RAW", "data": _batch}
-                        ).execute()
-                    )
+                    sheet_mgr.batch_update_values(_batch)
                     update_requests = []
 
         if update_requests:
             _batch = update_requests
-            drive_mgr.execute_with_backoff(
-                lambda: sheets_service.spreadsheets().values().batchUpdate(
-                    spreadsheetId=CONTROL_SHEET_ID,
-                    body={"valueInputOption": "RAW", "data": _batch}
-                ).execute()
-            )
+            sheet_mgr.batch_update_values(_batch)
 
         state.log_run("RENAME", "SUCCESS", processed, errors)
 

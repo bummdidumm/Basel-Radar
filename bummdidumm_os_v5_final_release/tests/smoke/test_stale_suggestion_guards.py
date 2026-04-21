@@ -90,12 +90,12 @@ def _run_sort(rows, drive_get_return):
 
     written = []
 
-    def capture_batch(**kwargs):
-        for entry in kwargs.get("body", {}).get("data", []):
+    def capture_batch(data, value_input_option="RAW"):
+        assert value_input_option == "RAW"
+        for entry in data:
             written.append(entry["values"][0][0])
-        return MagicMock()
-
-    sheets_service.spreadsheets.return_value.values.return_value.batchUpdate.side_effect = capture_batch
+        return None
+    sheet_mgr.batch_update_values.side_effect = capture_batch
 
     with (
         patch("main_apply_sort.CONTROL_SHEET_ID", "test_sheet"),
@@ -146,12 +146,12 @@ def _run_renames(rows, drive_get_return):
 
     written = []
 
-    def capture_batch(**kwargs):
-        for entry in kwargs.get("body", {}).get("data", []):
+    def capture_batch(data, value_input_option="RAW"):
+        assert value_input_option == "RAW"
+        for entry in data:
             written.append(entry["values"][0][0])
-        return MagicMock()
-
-    sheets_service.spreadsheets.return_value.values.return_value.batchUpdate.side_effect = capture_batch
+        return None
+    sheet_mgr.batch_update_values.side_effect = capture_batch
 
     with (
         patch("main_apply_renames.CONTROL_SHEET_ID", "test_sheet"),
