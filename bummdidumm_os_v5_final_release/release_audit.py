@@ -28,7 +28,6 @@ def _read(path: Path) -> str:
 
 
 
-
 def _file_batch_flush_uses_drive_backoff(path: Path) -> tuple[bool, str | None]:
     source = _read(path)
     if not source:
@@ -87,6 +86,7 @@ def _extract_deploy_blocks(deploy_source: str) -> dict[str, str]:
         blocks[current_job] = "\n".join(current_lines)
 
     return blocks
+
 
 def run_audit() -> bool:
     errors = []
@@ -154,7 +154,7 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if ': "${BRAIN_INDEX_BUCKET:?"' not in deploy:
+    if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
         errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax)")
     deploy_blocks = _extract_deploy_blocks(deploy)
     for job_name in ("bummdidumm-pass2-ocr-index", "bummdidumm-safe-sort"):
@@ -166,7 +166,7 @@ def run_audit() -> bool:
             errors.append(f"deploy.sh: {job_name} ohne --add-volume")
         if "--add-volume-mount=" not in block:
             errors.append(f"deploy.sh: {job_name} ohne --add-volume-mount")
-    if ': "${SA_EMAIL:?"' not in deploy:
+    if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
         if _line.strip().startswith("#"):
