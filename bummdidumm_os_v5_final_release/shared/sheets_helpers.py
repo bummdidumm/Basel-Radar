@@ -71,14 +71,17 @@ class SheetManager:
                     spreadsheetId=self.spreadsheet_id, body={"requests": requests}
                 ))
 
-            # Write headers
+            # Write headers. Validate the full header row, not just A1, so
+            # partial/manual sheet drift cannot silently survive and break
+            # column-based reads/writes later in the pipeline.
             for tab_name, header_row in self.headers.items():
+                end_col = chr(ord("A") + len(header_row) - 1)
                 header_check = self._execute_with_backoff(self.sheets.spreadsheets().values().get(
-                    spreadsheetId=self.spreadsheet_id, range=f"{tab_name}!A1"
+                    spreadsheetId=self.spreadsheet_id, range=f"{tab_name}!A1:{end_col}1"
                 ))
                 existing_values = header_check.get("values", [[]])
-                existing_first = existing_values[0][0] if existing_values and existing_values[0] else ""
-                if existing_first != header_row[0]:
+                existing_header = existing_values[0] if existing_values else []
+                if existing_header != header_row:
                     self._execute_with_backoff(self.sheets.spreadsheets().values().update(
                         spreadsheetId=self.spreadsheet_id,
                         range=f"{tab_name}!A1",
