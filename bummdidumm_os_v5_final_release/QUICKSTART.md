@@ -64,11 +64,13 @@ Sheets) via domain-wide delegation or direct sharing. Grant the SA edit
 access to the Control Sheet and read/write access to the Google Drive folders
 it scans (`TARGET_FOLDER_ID`, `ARCHIVE_FOLDER_ID`, `INDEX_FOLDER_ID`).
 
-### 1.4 GEMINI_API_KEY — Google Secret Manager setup
+### 1.4 API credentials — Google Secret Manager setup
 
-`deploy.sh` passes `GEMINI_API_KEY` to the Pass 2 Cloud Run Job via
-`--set-secrets` (Google Secret Manager), not as a plaintext environment
-variable. Create the secret once and grant the service account read access:
+`deploy.sh` injects all API credentials into Cloud Run Jobs via
+`--set-secrets` (Google Secret Manager), not as plaintext environment
+variables. Create the secrets once and grant the service account read access.
+
+#### Gemini API key
 
 ```bash
 # Create the secret (replace YOUR_API_KEY with the actual AI Studio key)
@@ -86,11 +88,35 @@ The secret path used by `deploy.sh` is:
 Do **not** set `GEMINI_API_KEY` as a shell export before running `deploy.sh` —
 it is not read as an env variable in Cloud Run. For local development see §2.4.
 
+#### OAuth user credentials
+
+`deploy.sh` also passes `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+and `GOOGLE_OAUTH_REFRESH_TOKEN` to all five jobs via Secret Manager. Create
+the three secrets once:
+
+```bash
+# Create OAuth secrets (replace placeholders with actual values)
+echo -n "YOUR_OAUTH_CLIENT_ID" | gcloud secrets create google-oauth-client-id --data-file=-
+echo -n "YOUR_OAUTH_CLIENT_SECRET" | gcloud secrets create google-oauth-client-secret --data-file=-
+echo -n "YOUR_OAUTH_REFRESH_TOKEN" | gcloud secrets create google-oauth-refresh-token --data-file=-
+
+# Grant SA access to all three
+for secret in google-oauth-client-id google-oauth-client-secret google-oauth-refresh-token; do
+  gcloud secrets add-iam-policy-binding "$secret" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+Do **not** export `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, or
+`GOOGLE_OAUTH_REFRESH_TOKEN` as shell variables before running `deploy.sh` —
+they are injected at Cloud Run runtime via Secret Manager.
+
 ### 1.5 BRAIN_INDEX_ROOT — persistent volume setup
 
-`BRAIN_INDEX_ROOT` must point to a directory that survives Cloud Run task
-restarts. The recommended approach is a Cloud Storage bucket mounted via
-Cloud Storage FUSE.
+`deploy.sh` automatically attaches a Cloud Storage FUSE volume to the Pass 2
+and Safe Sort jobs and sets `BRAIN_INDEX_ROOT=/brain_index`. The external
+dependency you must provision is the GCS bucket.
 
 ```bash
 # Create the bucket
@@ -102,20 +128,11 @@ gcloud storage buckets create gs://PROJECT_ID-brain-index \
 gcloud storage buckets add-iam-policy-binding gs://PROJECT_ID-brain-index \
   --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/storage.objectAdmin"
-
-# Mount the bucket in the Cloud Run Job (Pass 2 and Safe Sort)
-gcloud run jobs update bummdidumm-pass2-ocr-index \
-  --add-volume=name=brain-index,type=cloud-storage,bucket=PROJECT_ID-brain-index \
-  --add-volume-mount=volume=brain-index,mount-path=/mnt/brain-index \
-  --update-env-vars=BRAIN_INDEX_ROOT=/mnt/brain-index \
-  --region=europe-west6
-
-gcloud run jobs update bummdidumm-safe-sort \
-  --add-volume=name=brain-index,type=cloud-storage,bucket=PROJECT_ID-brain-index \
-  --add-volume-mount=volume=brain-index,mount-path=/mnt/brain-index \
-  --update-env-vars=BRAIN_INDEX_ROOT=/mnt/brain-index \
-  --region=europe-west6
 ```
+
+`deploy.sh` configures the volume mount (`mount-path=/brain_index`) and the
+`BRAIN_INDEX_ROOT=/brain_index` env var automatically — no manual `gcloud run
+jobs update` is needed after running `deploy.sh`.
 
 Cloud Storage FUSE requires Cloud Run to be on a second-generation execution
 environment. The `--source` deploy path used in `deploy.sh` selects gen2
@@ -199,7 +216,7 @@ Follow these steps in order. Each step has a success criterion.
 | 4 | Share Drive folders and Control Sheet with the SA email | SA can list the target folder via Drive API |
 | 5 | Create brain-index bucket and grant access (section 1.5) | `gcloud storage ls gs://PROJECT_ID-brain-index` succeeds from SA |
 | 6 | Run `deploy.sh` with all env vars set (no `GEMINI_API_KEY` export needed) | All five `gcloud run jobs deploy` commands exit 0 |
-| 7 | Add Cloud Storage FUSE volume mounts (section 1.5) | `gcloud run jobs describe bummdidumm-pass2-ocr-index` shows the volume |
+| 7 | Verify volume mounts applied by `deploy.sh` (section 1.5) | `gcloud run jobs describe bummdidumm-pass2-ocr-index --region europe-west6` shows the `brain-index` volume |
 | 8 | Execute Pass 1 manually: `gcloud run jobs execute bummdidumm-pass1-delta-dedupe --region europe-west6` | Job status becomes SUCCEEDED; Control Sheet rows appear in `Dedupe_Report` |
 | 9 | Execute Pass 2 manually: `gcloud run jobs execute bummdidumm-pass2-ocr-index --region europe-west6` | Job status becomes SUCCEEDED; `CURRENT_personal_brain_stats.json` written to `BRAIN_INDEX_ROOT` |
 | 10 | Run tests locally against the deployed index | `pytest bummdidumm_os_v5_final_release/tests/ -q` passes |

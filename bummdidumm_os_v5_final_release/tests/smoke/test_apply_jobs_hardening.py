@@ -139,17 +139,14 @@ class TestApplyRenamesFailedPhase:
 
 
 # ---------------------------------------------------------------------------
-# BUG-P0: batch flush retries on 500
+# BUG-E fix: batch flush must use sheet_mgr._execute_with_backoff
 # ---------------------------------------------------------------------------
 
-class TestApplyRenamesBatchFlushRetries:
+class TestApplyRenamesSheetsRetry:
 
-    def test_apply_renames_batch_flush_retries_500(self):
-        """BUG-P0: batch flush via drive_mgr.execute_with_backoff must retry 500 errors.
-
-        Verifies that drive_mgr.execute_with_backoff is used for the batch flush
-        (not sheet_mgr._execute_with_backoff which previously did not retry 500/503).
-        """
+    def test_apply_renames_batch_flush_uses_sheet_mgr(self):
+        """BUG-E: batchUpdate flush must call sheet_mgr._execute_with_backoff, not drive_mgr."""
+        import ast
         from pathlib import Path
 
         for p in [Path("main_apply_renames.py"),
@@ -160,30 +157,60 @@ class TestApplyRenamesBatchFlushRetries:
         else:
             raise FileNotFoundError("main_apply_renames.py not found")
 
-        # The batch flush must use drive_mgr.execute_with_backoff (lambda-based),
-        # NOT sheet_mgr._execute_with_backoff (which received a pre-built request).
-        assert "drive_mgr.execute_with_backoff" in source, (
-            "Batch flush must use drive_mgr.execute_with_backoff so 500/503 errors "
-            "trigger a retry with a freshly-built request (BUG-P0 fix)"
-        )
-        # The lambda pattern ensures a fresh request is built on each retry
-        assert "lambda" in source, (
-            "Batch flush lambda must be present so the Sheets request is rebuilt "
-            "on each retry attempt"
-        )
-        # The old pattern (sheet_mgr._execute_with_backoff with a pre-built request)
-        # must not be used for the batchUpdate calls
-        import ast
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "_execute_with_backoff":
-                # Check if any arg contains batchUpdate
-                for arg in node.args:
-                    arg_src = ast.unparse(arg) if hasattr(ast, "unparse") else ""
-                    assert "batchUpdate" not in arg_src, (
-                        "sheet_mgr._execute_with_backoff must NOT be called with a "
-                        "batchUpdate request — use drive_mgr.execute_with_backoff instead"
-                    )
+            if isinstance(func, ast.Attribute) and func.attr == "execute_with_backoff":
+                caller = ast.unparse(func.value) if hasattr(ast, "unparse") else ""
+                if "drive_mgr" in caller:
+                    for arg in node.args:
+                        arg_src = ast.unparse(arg) if hasattr(ast, "unparse") else ""
+                        assert "batchUpdate" not in arg_src, (
+                            "BUG-E: drive_mgr.execute_with_backoff must NOT be called with "
+                            "a batchUpdate request — use sheet_mgr._execute_with_backoff"
+                        )
+
+        assert "_execute_with_backoff" in source, (
+            "sheet_mgr._execute_with_backoff must be present for Sheets batchUpdate calls"
+        )
+
+    def test_apply_renames_batch_flush_retries_sheets_403(self):
+        """BUG-E functional: sheet_mgr._execute_with_backoff is invoked for batch flush."""
+        import main_apply_renames
+
+        credentials = MagicMock()
+        drive_service = MagicMock()
+        sheets_service = MagicMock()
+        sheet_mgr = MagicMock()
+        state = MagicMock()
+        drive_mgr = MagicMock()
+
+        state.get_val.side_effect = lambda k: "run_001" if k == "last_successful_run_id" else ""
+        state.acquire_job_lock.return_value = True
+        state.run_id = "run_001"
+
+        dedupe_col = {"run_id": 1, "file_id": 2, "name": 3, "suggested_name": 4}
+        sheet_mgr.DEDUPE_COL = dedupe_col
+        sheet_mgr.headers = {"Dedupe_Report": ["h"] * 18}
+        test_row = ["2026-01-01", "run_001", "file_002", "old.pdf", "new.pdf"] + [""] * 15
+        sheet_mgr.read_rows_chunked_with_row_numbers.return_value = [(2, test_row)]
+
+        # Drive get (stale guard) returns current name so rename proceeds
+        drive_mgr.execute_with_backoff.side_effect = lambda fn: {"id": "file_002", "name": "old.pdf"}
+
+        with (
+            patch("main_apply_renames.CONTROL_SHEET_ID", "test_sheet_id"),
+            patch("main_apply_renames.get_user_credentials", return_value=credentials),
+            patch("main_apply_renames.build", side_effect=[drive_service, sheets_service]),
+            patch("shared.drive_helpers.DriveManager", return_value=drive_mgr),
+            patch("main_apply_renames.SheetManager", return_value=sheet_mgr),
+            patch("main_apply_renames.StateTracker", return_value=state),
+            patch("shared.log.get_logger", return_value=MagicMock()),
+        ):
+            main_apply_renames.run_apply_renames()
+
+        assert sheet_mgr._execute_with_backoff.called, (
+            "sheet_mgr._execute_with_backoff must be called for Sheets batchUpdate flush"
+        )

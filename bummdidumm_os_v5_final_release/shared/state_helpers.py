@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import os
+import time
 import uuid
 from typing import Dict, List, Optional, Any
 from .sheets_helpers import SheetManager
@@ -107,6 +108,7 @@ class StateTracker:
         self.set_val(owner_key, self.owner_id)
         self.set_val(at_key, datetime.now(timezone.utc).isoformat())
         self.flush_state()
+        time.sleep(0.5)  # TOCTOU fence (Sheets eventual-consistency, cf. main_pass1 RISK-1)
         # Post-claim verify: reload to detect a concurrent takeover that wrote after us.
         self.reload_state()
         if self.get_val(owner_key) != self.owner_id:

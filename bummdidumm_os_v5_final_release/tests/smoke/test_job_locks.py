@@ -125,6 +125,17 @@ class TestAcquireJobLock(unittest.TestCase):
         self.assertEqual(store.data.get("apply_sort_lock_owner"), "owner_a")
         self.assertEqual(store.data.get("apply_renames_lock_owner"), "owner_a")
 
+    def test_acquire_job_lock_has_toctou_fence(self):
+        """P1.5 / RISK-1: acquire_job_lock must sleep 0.5s between flush and reload."""
+        from unittest.mock import patch
+        store = SharedStateStore()
+        t = _make_tracker(store, "owner_fence")
+        sleep_calls = []
+        with patch("shared.state_helpers.time.sleep", side_effect=lambda s: sleep_calls.append(s)):
+            t.acquire_job_lock("safe_sort", timeout_sec=600)
+        self.assertIn(0.5, sleep_calls,
+                      "acquire_job_lock must call time.sleep(0.5) for TOCTOU fence")
+
 
 class TestReleaseJobLock(unittest.TestCase):
 

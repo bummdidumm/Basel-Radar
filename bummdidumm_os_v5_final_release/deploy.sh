@@ -19,8 +19,6 @@ TARGET_FOLDER_ID="${TARGET_FOLDER_ID:-}"
 #     3. BRAIN_INDEX_BUCKET ist gesetzt (s. unten)
 #
 # Alternativ: Cloud Filestore (NFS) oder ein anderes dauerhaftes Volume
-#
-# TODO: BRAIN_INDEX_BUCKET auf den tatsächlichen GCS-Bucket-Namen setzen, bevor deploy ausgefuehrt wird.
 : "${BRAIN_INDEX_BUCKET:?BRAIN_INDEX_BUCKET muss gesetzt sein (GCS Bucket fuer persistenten Brain Index, z.B. my-project-brain-index)}"
 
 BRAIN_INDEX_MOUNT="/brain_index"
@@ -31,6 +29,10 @@ REGION="${REGION:-europe-west6}"
 SKIP_OVER_MB="${SKIP_OVER_MB:-500}"
 OCR_BUDGET_PER_RUN="${OCR_BUDGET_PER_RUN:-500}"
 
+# OAuth user credentials are injected via Secret Manager into all jobs.
+# Create secrets before first deploy: see QUICKSTART.md §1.4.
+_OAUTH_SECRETS="GOOGLE_OAUTH_CLIENT_ID=projects/${PROJECT_ID}/secrets/google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=projects/${PROJECT_ID}/secrets/google-oauth-client-secret:latest,GOOGLE_OAUTH_REFRESH_TOKEN=projects/${PROJECT_ID}/secrets/google-oauth-refresh-token:latest"
+
 echo "Deploying bummdidumm-OS V5 to Cloud Run Jobs for Project: $PROJECT_ID"
 
 gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
@@ -38,6 +40,7 @@ gcloud run jobs deploy bummdidumm-pass1-delta-dedupe \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
   --set-env-vars="TARGET_FOLDER_ID=${TARGET_FOLDER_ID},ARCHIVE_FOLDER_ID=${ARCHIVE_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},SKIP_OVER_MB=${SKIP_OVER_MB}" \
+  --set-secrets="${_OAUTH_SECRETS}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
   --command=python,main_pass1.py
 
@@ -47,7 +50,7 @@ gcloud run jobs deploy bummdidumm-pass2-ocr-index \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
   --set-env-vars="INDEX_FOLDER_ID=${INDEX_FOLDER_ID},CONTROL_SHEET_ID=${CONTROL_SHEET_ID},OCR_BUDGET_PER_RUN=${OCR_BUDGET_PER_RUN},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
-  --set-secrets="GEMINI_API_KEY=projects/${PROJECT_ID}/secrets/gemini-api-key:latest" \
+  --set-secrets="GEMINI_API_KEY=projects/${PROJECT_ID}/secrets/gemini-api-key:latest,${_OAUTH_SECRETS}" \
   --add-volume="name=brain-index,type=cloud-storage,bucket=${BRAIN_INDEX_BUCKET}" \
   --add-volume-mount="volume=brain-index,mount-path=${BRAIN_INDEX_MOUNT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=2Gi --task-timeout=3600s \
@@ -56,6 +59,7 @@ gcloud run jobs deploy bummdidumm-pass2-ocr-index \
 gcloud run jobs deploy bummdidumm-apply-renames \
   --source . --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --set-secrets="${_OAUTH_SECRETS}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=1800s \
   --command=python,main_apply_renames.py
 
@@ -63,6 +67,7 @@ gcloud run jobs deploy bummdidumm-apply-renames \
 gcloud run jobs deploy bummdidumm-safe-sort \
   --source . --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID},BRAIN_INDEX_ROOT=${BRAIN_INDEX_ROOT}" \
+  --set-secrets="${_OAUTH_SECRETS}" \
   --add-volume="name=brain-index,type=cloud-storage,bucket=${BRAIN_INDEX_BUCKET}" \
   --add-volume-mount="volume=brain-index,mount-path=${BRAIN_INDEX_MOUNT}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
@@ -71,6 +76,7 @@ gcloud run jobs deploy bummdidumm-safe-sort \
 gcloud run jobs deploy bummdidumm-apply-sort \
   --source . --region "$REGION" --service-account "$SA_EMAIL" \
   --set-env-vars="CONTROL_SHEET_ID=${CONTROL_SHEET_ID}" \
+  --set-secrets="${_OAUTH_SECRETS}" \
   --max-retries=0 --tasks=1 --cpu=1 --memory=1Gi --task-timeout=3600s \
   --command=python,main_apply_sort.py
 

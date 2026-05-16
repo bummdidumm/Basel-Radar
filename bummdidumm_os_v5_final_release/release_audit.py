@@ -33,10 +33,6 @@ def run_audit() -> bool:
         errors.append("Release root fehlt: bummdidumm_os_v5_final_release")
 
     for p in ROOT.rglob("*"):
-        # In this environment, running tests generates __pycache__ and .pyc files
-        # It's fine to ignore them during CI as long as they aren't committed to the release archive.
-        pass
-
         if not p.is_file() or p.name in _AUDIT_OUTPUT_FILES:
             continue
 
@@ -92,8 +88,12 @@ def run_audit() -> bool:
             errors.append(f"Gemini Robustness fehlt: {must}")
 
     deploy = _read(ROOT / "deploy.sh")
-    if ': "${BRAIN_INDEX_ROOT:?' not in deploy:
-        errors.append("deploy.sh: BRAIN_INDEX_ROOT hat kein fail-fast (:? Syntax) — wird bei fehlendem Mount nicht abgebrochen")
+    if ': "${BRAIN_INDEX_BUCKET:?' not in deploy:
+        errors.append("deploy.sh: BRAIN_INDEX_BUCKET hat kein fail-fast (:? Syntax) — wird bei fehlendem Bucket nicht abgebrochen")
+    if "--add-volume" not in deploy:
+        errors.append("deploy.sh: --add-volume fehlt — kein GCS FUSE Mount für Brain Index konfiguriert")
+    if "--add-volume-mount" not in deploy:
+        errors.append("deploy.sh: --add-volume-mount fehlt — kein GCS FUSE Mount für Brain Index konfiguriert")
     if ': "${SA_EMAIL:?' not in deploy:
         errors.append("deploy.sh: SA_EMAIL hat kein fail-fast (silent default)")
     for _line in deploy.splitlines():
@@ -106,6 +106,11 @@ def run_audit() -> bool:
         errors.append("deploy.sh: Secret Manager Integration fehlt — GEMINI_API_KEY muss via --set-secrets übergeben werden")
     elif "GEMINI_API_KEY=projects/" not in deploy:
         errors.append("deploy.sh: GEMINI_API_KEY Secret Manager Pfad fehlt oder nutzt keine projects/-Syntax")
+    if "GOOGLE_OAUTH_REFRESH_TOKEN=projects/" not in deploy:
+        errors.append(
+            "deploy.sh: GOOGLE_OAUTH_REFRESH_TOKEN nicht via --set-secrets gesetzt — "
+            "OAuth-Credentials fehlen im Cloud Run Runtime (Pfad A)"
+        )
 
     if not (ROOT / ".dockerignore").is_file():
         errors.append(".dockerignore fehlt im Release-Verzeichnis")
@@ -171,6 +176,28 @@ def run_audit() -> bool:
             errors.append(f"Gap-G fehlt: {job_label} ruft acquire_job_lock nicht auf")
         if "release_job_lock" not in job_script:
             errors.append(f"Gap-G fehlt: {job_label} ruft release_job_lock nicht auf")
+
+    # BUG-E: main_apply_renames.py must use sheet_mgr._execute_with_backoff for Sheets batchUpdate
+    import ast as _ast
+    if ar:
+        try:
+            _ar_tree = _ast.parse(ar)
+            for _node in _ast.walk(_ar_tree):
+                if not isinstance(_node, _ast.Call):
+                    continue
+                _func = _node.func
+                if isinstance(_func, _ast.Attribute) and _func.attr == "execute_with_backoff":
+                    _caller = _ast.unparse(_func.value) if hasattr(_ast, "unparse") else ""
+                    if "drive_mgr" in _caller:
+                        for _arg in _node.args:
+                            _arg_src = _ast.unparse(_arg) if hasattr(_ast, "unparse") else ""
+                            if "batchUpdate" in _arg_src:
+                                errors.append(
+                                    "BUG-E: main_apply_renames.py nutzt drive_mgr.execute_with_backoff "
+                                    "für Sheets batchUpdate — sheet_mgr._execute_with_backoff verwenden"
+                                )
+        except SyntaxError:
+            pass
 
     if errors:
         print("RESULT: FAIL")
